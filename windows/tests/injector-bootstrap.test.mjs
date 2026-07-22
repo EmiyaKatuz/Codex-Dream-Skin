@@ -75,8 +75,23 @@ assert.ok(registrationStart >= 0 && evaluateStart > registrationStart && probeSt
   "New targets must register and run the early payload before full shell probing.");
 assert.match(source, /fallbackTargets\.set\(target\.id, earlyInjectionFallback\);\s*attachLoadFallback\(/,
   "Every verified renderer must retain a load-event reinjection safety net.");
-assert.match(source, /if \(!fallbackTargets\.has\(id\)\) return;/,
+assert.match(source, /if \(!fallbackTargets\.has\(id\) \|\| session\.closed\) return;/,
   "Load listeners must remain active while their renderer target is managed.");
+assert.match(source, /const fallbackListeners = new Map\(\);[\s\S]*?fallbackListeners\.set\(id, unsubscribe\);/,
+  "Watcher load fallbacks must retain one removable listener per renderer target.");
+assert.match(source, /clearLoadFallbackTimer\(id\);[\s\S]*?fallbackTimers\.set\(id, timer\);/,
+  "Repeated load events must coalesce to one pending fallback reinjection.");
+const liveUpdateStart = source.indexOf("if (pauseChanged || payloadChanged)");
+const pausedStart = source.indexOf("if (paused) {", liveUpdateStart);
+const resumedStart = source.indexOf("} else {", pausedStart);
+assert.ok(liveUpdateStart >= 0 && pausedStart > liveUpdateStart && resumedStart > pausedStart);
+const pausedBlock = source.slice(pausedStart, resumedStart);
+assert.doesNotMatch(pausedBlock, /detachLoadFallback|fallbackListeners\.delete/,
+  "Pausing a live renderer must not forget its still-attached load listener and duplicate it after resume.");
+assert.match(pausedBlock, /clearLoadFallbackTimer\(id\)/,
+  "Pausing must cancel a queued fallback reinjection before removing the active skin.");
+assert.match(source, /process\.off\("SIGINT", stop\);\s*process\.off\("SIGTERM", stop\);/,
+  "Watcher shutdown must release process signal listeners.");
 assert.match(source, /Page\.removeScriptToEvaluateOnNewDocument/,
   "Watcher shutdown and theme refresh must unregister persistent Page scripts.");
 assert.match(source, /markers\.shell && markers\.header && \(markers\.composer \|\| markers\.main\)/,

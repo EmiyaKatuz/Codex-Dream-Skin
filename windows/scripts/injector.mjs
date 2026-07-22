@@ -7,7 +7,7 @@ import { readImageMetadata } from "./image-metadata.mjs";
 const scriptPath = fileURLToPath(import.meta.url);
 const here = path.dirname(scriptPath);
 const root = path.resolve(here, "..");
-const SKIN_VERSION = "1.3.4";
+const SKIN_VERSION = "1.3.5";
 const MAX_ART_BYTES = 16 * 1024 * 1024;
 const STRONG_THEME_AUDIT_MS = 30000;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
@@ -219,7 +219,7 @@ function isValidCdpPageTarget(item, port) {
   }
 }
 
-class CdpSession {
+export class CdpSession {
   constructor(target, port) {
     this.target = target;
     this.ws = new WebSocket(validatedDebuggerUrl(target, port));
@@ -230,30 +230,55 @@ class CdpSession {
   }
 
   async open() {
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        try { this.ws.close(); } catch {}
-        reject(new Error("CDP WebSocket open timed out"));
-      }, 5000);
-      this.ws.addEventListener("open", () => { clearTimeout(timeout); resolve(); }, { once: true });
-      this.ws.addEventListener("error", () => { clearTimeout(timeout); reject(new Error("CDP WebSocket open failed")); }, { once: true });
-    });
-    this.ws.addEventListener("message", (event) => this.onMessage(event));
-    this.ws.addEventListener("error", () => this.close());
-    this.ws.addEventListener("close", () => {
-      this.closed = true;
-      for (const waiter of this.pending.values()) {
-        clearTimeout(waiter.timeout);
-        waiter.reject(new Error("CDP socket closed"));
-      }
-      this.pending.clear();
-    });
-    await this.send("Runtime.enable");
-    await this.send("Page.enable");
-    return this;
+    try {
+      await new Promise((resolve, reject) => {
+        let timeout = null;
+        let settled = false;
+        const cleanup = () => {
+          if (timeout) clearTimeout(timeout);
+          this.ws.removeEventListener?.("open", onOpen);
+          this.ws.removeEventListener?.("error", onError);
+          this.ws.removeEventListener?.("close", onClose);
+        };
+        const settle = (callback, value) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          callback(value);
+        };
+        const onOpen = () => settle(resolve);
+        const onError = () => settle(reject, new Error("CDP WebSocket open failed"));
+        const onClose = () => settle(reject, new Error("CDP WebSocket closed during startup"));
+        timeout = setTimeout(() => {
+          settle(reject, new Error("CDP WebSocket open timed out"));
+          try { this.ws.close(); } catch {}
+        }, 5000);
+        this.ws.addEventListener("open", onOpen);
+        this.ws.addEventListener("error", onError);
+        this.ws.addEventListener("close", onClose);
+      });
+      this.ws.addEventListener("message", (event) => this.onMessage(event));
+      this.ws.addEventListener("error", () => this.close());
+      this.ws.addEventListener("close", () => {
+        this.closed = true;
+        for (const waiter of this.pending.values()) {
+          clearTimeout(waiter.timeout);
+          waiter.reject(new Error("CDP socket closed"));
+        }
+        this.pending.clear();
+        this.listeners.clear();
+      });
+      await this.send("Runtime.enable");
+      await this.send("Page.enable");
+      return this;
+    } catch (error) {
+      this.close();
+      throw error;
+    }
   }
 
   onMessage(event) {
+    if (this.closed) return;
     const message = parseCdpMessage(event.data);
     if (!message) {
       this.close();
@@ -268,23 +293,40 @@ class CdpSession {
       else waiter.resolve(message.result);
       return;
     }
-    for (const listener of this.listeners.get(message.method) ?? []) listener(message.params ?? {});
+    for (const listener of this.listeners.get(message.method) ?? []) {
+      try {
+        const result = listener(message.params ?? {});
+        result?.catch?.((error) => {
+          try { console.error(`[dream-skin] CDP listener failed: ${error?.message || String(error)}`); } catch {}
+        });
+      } catch (error) {
+        try { console.error(`[dream-skin] CDP listener failed: ${error?.message || String(error)}`); } catch {}
+      }
+    }
   }
 
   on(method, listener) {
+    if (this.closed) return () => {};
     const listeners = this.listeners.get(method) ?? [];
     listeners.push(listener);
     this.listeners.set(method, listeners);
+    return () => {
+      const current = this.listeners.get(method);
+      if (!current) return;
+      const index = current.indexOf(listener);
+      if (index >= 0) current.splice(index, 1);
+      if (!current.length) this.listeners.delete(method);
+    };
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, timeoutMs = 10000) {
     if (this.closed) return Promise.reject(new Error("CDP session is closed"));
     return new Promise((resolve, reject) => {
       const id = this.nextId++;
       const timeout = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`CDP command timed out: ${method}`));
-      }, 10000);
+      }, timeoutMs);
       this.pending.set(id, { resolve, reject, timeout });
       try {
         this.ws.send(JSON.stringify({ id, method, params }));
@@ -296,13 +338,13 @@ class CdpSession {
     });
   }
 
-  async evaluate(expression) {
+  async evaluate(expression, timeoutMs = 10000) {
     const result = await this.send("Runtime.evaluate", {
       expression,
       awaitPromise: true,
       returnByValue: true,
       userGesture: false,
-    });
+    }, timeoutMs);
     if (result.exceptionDetails) {
       const detail = result.exceptionDetails.exception?.description ?? result.exceptionDetails.text;
       throw new Error(`Renderer evaluation failed: ${detail}`);
@@ -311,15 +353,17 @@ class CdpSession {
   }
 
   close() {
+    const shouldCloseSocket = !this.closed;
+    this.closed = true;
     for (const waiter of this.pending.values()) {
       clearTimeout(waiter.timeout);
       waiter.reject(new Error("CDP session closed"));
     }
     this.pending.clear();
-    if (!this.closed) {
+    this.listeners.clear();
+    if (shouldCloseSocket) {
       try { this.ws.close(); } catch {}
     }
-    this.closed = true;
   }
 }
 
@@ -1091,7 +1135,8 @@ async function runWatch(options) {
   const sessions = new Map();
   const earlyScripts = new Map();
   const fallbackTargets = new Map();
-  const fallbackListeners = new Set();
+  const fallbackListeners = new Map();
+  const fallbackTimers = new Map();
   const targetFailures = new Map();
   let stopping = false;
   let listFailures = 0;
@@ -1101,6 +1146,16 @@ async function runWatch(options) {
   let loadedPayload = null;
   let paused = false;
   const stop = () => { stopping = true; };
+  const clearLoadFallbackTimer = (id) => {
+    const timer = fallbackTimers.get(id);
+    if (timer) clearTimeout(timer);
+    fallbackTimers.delete(id);
+  };
+  const detachLoadFallback = (id) => {
+    clearLoadFallbackTimer(id);
+    try { fallbackListeners.get(id)?.(); } catch {}
+    fallbackListeners.delete(id);
+  };
   const rejectTarget = (target, baseDelayMs, error = null) => {
     const previous = targetFailures.get(target.id) ?? { failures: 0, lastLogAt: 0 };
     const failures = previous.failures + 1;
@@ -1114,11 +1169,13 @@ async function runWatch(options) {
   };
   const attachLoadFallback = (id, target, session) => {
     if (fallbackListeners.has(id)) return;
-    fallbackListeners.add(id);
     let lastReinjectErrorLogAt = 0;
-    session.on("Page.loadEventFired", () => {
-      if (!fallbackTargets.has(id)) return;
-      setTimeout(() => {
+    const unsubscribe = session.on("Page.loadEventFired", () => {
+      if (!fallbackTargets.has(id) || session.closed) return;
+      clearLoadFallbackTimer(id);
+      const timer = setTimeout(() => {
+        fallbackTimers.delete(id);
+        if (!fallbackTargets.has(id) || session.closed || (!paused && !loadedPayload?.payload)) return;
         const operation = paused ? removeFromSession(session) : applyToSession(session, loadedPayload.payload);
         operation.catch((error) => {
           if (Date.now() - lastReinjectErrorLogAt >= 30000) {
@@ -1127,7 +1184,9 @@ async function runWatch(options) {
           }
         });
       }, 250);
+      fallbackTimers.set(id, timer);
     });
+    fallbackListeners.set(id, unsubscribe);
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
@@ -1200,7 +1259,7 @@ async function runWatch(options) {
               await removeEarlyPayload(session, previousEarlyScript);
               earlyScripts.delete(id);
               fallbackTargets.delete(id);
-              fallbackListeners.delete(id);
+              clearLoadFallbackTimer(id);
             } else {
               let nextEarlyScript = null;
               try {
@@ -1226,7 +1285,7 @@ async function runWatch(options) {
             await removeEarlyPayload(session, earlyScripts.get(id));
             earlyScripts.delete(id);
             fallbackTargets.delete(id);
-            fallbackListeners.delete(id);
+            detachLoadFallback(id);
             session.close();
             sessions.delete(id);
           }
@@ -1243,7 +1302,7 @@ async function runWatch(options) {
           await removeEarlyPayload(session, earlyScripts.get(id));
           earlyScripts.delete(id);
           fallbackTargets.delete(id);
-          fallbackListeners.delete(id);
+          detachLoadFallback(id);
           session.close();
           sessions.delete(id);
           targetFailures.delete(id);
@@ -1301,7 +1360,7 @@ async function runWatch(options) {
         } catch (error) {
           await removeEarlyPayload(session, earlyScriptId);
           fallbackTargets.delete(target.id);
-          fallbackListeners.delete(target.id);
+          detachLoadFallback(target.id);
           session?.close();
           if (identityAnchor.closed || error instanceof CdpIdentityMismatchError) break;
           rejectTarget(target, 2500, error);
@@ -1310,14 +1369,19 @@ async function runWatch(options) {
       await new Promise((resolve) => setTimeout(resolve, 1200));
     }
   } finally {
+    process.off("SIGINT", stop);
+    process.off("SIGTERM", stop);
     identityAnchor.close();
     for (const [id, session] of sessions) {
       await removeEarlyPayload(session, earlyScripts.get(id));
+      detachLoadFallback(id);
       session.close();
     }
     earlyScripts.clear();
     fallbackTargets.clear();
+    for (const id of fallbackListeners.keys()) detachLoadFallback(id);
     fallbackListeners.clear();
+    fallbackTimers.clear();
   }
 }
 

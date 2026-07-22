@@ -826,6 +826,16 @@ try {
     -not $traySource.Contains('Get-DreamSkinSavedThemes -StateRoot $StateRoot -SkipImageMetadata')) {
     throw 'Tray menu metadata enumeration still performs full image parsing on every open.'
   }
+  foreach ($requiredTrayCleanup in @(
+    '$oldItems = @($menu.Items)',
+    '$oldItem.Dispose()',
+    '$eventArgs.Cancel = $true',
+    '$menu.Dispose()'
+  )) {
+    if (-not $traySource.Contains($requiredTrayCleanup)) {
+      throw "Tray resource/error cleanup is missing: $requiredTrayCleanup"
+    }
+  }
   $trayTokens = $null
   $trayParseErrors = $null
   $trayAst = [System.Management.Automation.Language.Parser]::ParseInput(
@@ -947,6 +957,9 @@ try {
   $bootstrapTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'injector-bootstrap.test.mjs'))
   if ($bootstrapTest.ExitCode -ne 0) { throw 'Injector early-bootstrap regression test failed.' }
+  $sessionTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+    (Join-Path $PSScriptRoot 'injector-session.test.mjs'))
+  if ($sessionTest.ExitCode -ne 0) { throw 'Injector CDP session lifecycle regression test failed.' }
   $oneShotTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'injector-one-shot.test.mjs'))
   if ($oneShotTest.ExitCode -ne 0) { throw 'Injector one-shot Browser ID regression test failed.' }

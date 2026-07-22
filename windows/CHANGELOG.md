@@ -1,5 +1,19 @@
 # Windows Changelog
 
+## 1.3.5 — 2026-07-23
+
+### 性能
+
+- 将流式 DOM 变更触发的主题刷新限制为 120ms 最小间隔，并先匹配短文本再读取可见性，避免长会话中反复扫描整页元素和强制布局。
+- 重注入统一使用同一个样式 revision，避免连续写入和解析两次完整 CSS。
+
+### 修复
+
+- CDP session 在 WebSocket 握手或 domain enable 失败时会完整关闭；同步与异步事件监听异常均被隔离，避免注入器因单个回调退出。
+- 修复暂停/恢复后 load fallback 监听与 timer 可能累积的问题，并让操作浮层等调用传入的 CDP 超时真正生效。
+- 主壳移除时释放旧 `ResizeObserver` target；托盘菜单重建和退出时主动释放 ToolStrip/WinForms 资源，并为 Opening 事件补充异常边界。
+- 新增 CDP session 生命周期、mutation 合并、无关文本节点布局读取和异常隔离回归测试。
+
 ## 1.3.4 — 2026-07-22
 
 ### 新增

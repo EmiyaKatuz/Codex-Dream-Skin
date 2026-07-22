@@ -21,6 +21,7 @@ $mutex = [System.Threading.Mutex]::new($false, "Local\CodexDreamSkin.$sid.Tray")
 $acquired = $false
 $notify = $null
 $trayIcon = $null
+$menu = $null
 try {
   try { $acquired = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $acquired = $true }
   if (-not $acquired) { exit 0 }
@@ -77,7 +78,9 @@ try {
   }
 
   function Rebuild-DreamSkinTrayMenu {
+    $oldItems = @($menu.Items)
     $menu.Items.Clear()
+    foreach ($oldItem in $oldItems) { $oldItem.Dispose() }
     $paused = Test-DreamSkinPaused -StateRoot $StateRoot
     $state = $null
     try { $state = Read-DreamSkinState -Path $paths.State } catch {}
@@ -203,7 +206,15 @@ try {
     }
   }
 
-  $menu.add_Opening({ Rebuild-DreamSkinTrayMenu })
+  $menu.add_Opening({
+    param($sender, $eventArgs)
+    try {
+      Rebuild-DreamSkinTrayMenu
+    } catch {
+      $eventArgs.Cancel = $true
+      Show-DreamSkinTrayError -Message $_.Exception.Message
+    }
+  })
   $notify.add_DoubleClick({
     try {
       Set-DreamSkinPaused -Paused $false -StateRoot $StateRoot | Out-Null
@@ -214,6 +225,11 @@ try {
   })
   [System.Windows.Forms.Application]::Run()
 } finally {
+  if ($null -ne $notify) {
+    $notify.Visible = $false
+    $notify.ContextMenuStrip = $null
+  }
+  if ($null -ne $menu) { $menu.Dispose() }
   if ($null -ne $notify) { $notify.Dispose() }
   if ($null -ne $trayIcon) { $trayIcon.Dispose() }
   if ($acquired) { try { $mutex.ReleaseMutex() } catch {} }

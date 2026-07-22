@@ -267,11 +267,26 @@ assert.ok(template.includes('const NEW_TASK_CLASS = "dream-new-task-button"')
 assert.match(css, /\.dream-sidebar-packet\s*\{[^}]*writing-mode:\s*vertical-rl/s,
   "Sidebar affection telemetry must use the reserved edge rail instead of overlapping the new-task row.");
 assert.ok(template.includes('const withoutManagedClasses = (value)')
-  && template.includes('if (scheduler.frame || scheduler.timeout) return;')
+  && template.includes('const MUTATION_REFRESH_INTERVAL_MS = 120')
+  && template.includes('scheduleEnsure(MUTATION_REFRESH_INTERVAL_MS)')
+  && template.includes('if (scheduler.dueAt <= dueAt) return;')
   && template.includes('window.requestAnimationFrame(runEnsure)')
   && template.includes('attributeOldValue: true')
   && template.includes('window.addEventListener("resize", resizeHandler'),
-  "Route changes must use a bounded observer throttle and ignore skin-owned class mutations.");
+  "Route changes must use a time-bounded observer throttle and ignore skin-owned class mutations.");
+assert.ok(template.includes('const STYLE_REVISION = "8"')
+  && template.includes('existingStyle.dataset.dreamVersion = STYLE_REVISION')
+  && !template.includes('existingStyle.dataset.dreamVersion = "3"'),
+  "Reinjection must not parse and apply the full stylesheet twice for one refresh.");
+assert.doesNotMatch(template, /querySelectorAll\(["']body \*["']\)/,
+  "Renderer refreshes must not force visibility/style reads across the entire document.");
+assert.ok(template.indexOf('.filter(({ text }) => pattern.test(text))')
+    < template.indexOf('.filter(({ node }) => measureTextCandidate(node).visible)'),
+  "Portal fallback labels must be matched by text before any layout/style measurement.");
+assert.ok(template.includes('const runEnsureSafely = () =>')
+  && template.includes('setInterval(runEnsureSafely, 5000)')
+  && template.includes('ensure: runEnsureSafely'),
+  "Observer, interval, and external renderer refreshes must share an exception boundary.");
 assert.ok(template.includes('new ResizeObserver(() => scheduleEnsure())')
   && template.includes('resizeObserver.observe(target)')
   && template.includes('resizeObserver.unobserve(target)')
@@ -468,6 +483,8 @@ function createFixture({
   computedColorScheme = "",
   osAppearance = "light",
   analysisFixture = null,
+  throwOnTextScan = false,
+  textScanCandidates = [],
 }) {
   const nodes = new Map();
   const rootClasses = new Set(staleSkin ? ["codex-dream-skin"] : []);
@@ -477,6 +494,9 @@ function createFixture({
   let objectUrlCount = 0;
   let hasMain = mainPresent;
   let hasSidebar = sidebarPresent;
+  let timeoutCalls = 0;
+  let textCandidateStyleReads = 0;
+  const textCandidateSet = new Set(textScanCandidates);
   let root;
 
   const queueRootClassMutation = () => {
@@ -623,6 +643,10 @@ function createFixture({
       return null;
     },
     querySelectorAll(selector) {
+      if (throwOnTextScan && selector.startsWith("body button")) {
+        throw new Error("forced text scan failure");
+      }
+      if (selector.startsWith("body button")) return textScanCandidates;
       if (selector === '[role="main"]') return hasMain ? [routeMain] : [];
       if (selector === ".dream-task") return routeClasses.has("dream-task") ? [routeMain] : [];
       if (selector === ".dream-home-utility") {
@@ -672,9 +696,13 @@ function createFixture({
     atob,
     setInterval: () => 1,
     clearInterval: () => {},
-    setTimeout: () => 2,
+    setTimeout: () => { timeoutCalls += 1; return timeoutCalls + 1; },
     clearTimeout: () => {},
-    getComputedStyle() { return { colorScheme: computedColorScheme }; },
+    getComputedStyle(candidate) {
+      if (textCandidateSet.has(candidate)) textCandidateStyleReads += 1;
+      return { colorScheme: computedColorScheme };
+    },
+    console: { error() {} },
   };
   if (analysisFixture) {
     context.Image = class {
@@ -693,6 +721,8 @@ function createFixture({
     revokedUrls,
     routeClasses,
     utilityClasses,
+    getTimeoutCalls() { return timeoutCalls; },
+    getTextCandidateStyleReads() { return textCandidateStyleReads; },
     setShellPresent(value) {
       hasMain = value;
       hasSidebar = value;
@@ -719,6 +749,36 @@ assert.equal(main.rootClasses.has("dream-theme-dark"), false);
 assert.equal(main.nodes.has("codex-dream-skin-style"), false);
 assert.equal(main.nodes.has("codex-dream-skin-chrome"), false);
 assert.deepEqual(main.revokedUrls, ["blob:fixture-1"]);
+
+const mutationBurst = createFixture({ shellPresent: true });
+vm.runInNewContext(payload, mutationBurst.context);
+const mutationObserver = mutationBurst.observers[0];
+const applicationMutation = [{ type: "childList", target: mutationBurst.context.document.body }];
+mutationObserver.callback(applicationMutation);
+mutationObserver.callback(applicationMutation);
+mutationObserver.callback(applicationMutation);
+assert.equal(mutationBurst.getTimeoutCalls(), 1,
+  "A burst of renderer mutations must queue one throttled refresh instead of one refresh per record batch.");
+
+const irrelevantTextCandidates = Array.from({ length: 1000 }, () => ({
+  textContent: "ordinary streaming response content",
+  childElementCount: 0,
+  getBoundingClientRect() { return { width: 100, height: 20 }; },
+}));
+const selectiveTextScan = createFixture({
+  shellPresent: true,
+  textScanCandidates: irrelevantTextCandidates,
+});
+vm.runInNewContext(payload, selectiveTextScan.context);
+assert.equal(selectiveTextScan.getTextCandidateStyleReads(), 0,
+  "Irrelevant streaming text must be rejected before expensive visibility/style measurement.");
+
+const guardedRefresh = createFixture({ shellPresent: true, throwOnTextScan: true });
+const guardedResult = vm.runInNewContext(payload, guardedRefresh.context);
+assert.equal(guardedResult.installed, true,
+  "A transient native DOM failure must not escape the renderer injection boundary.");
+assert.equal(guardedRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.ensure(), false,
+  "A guarded refresh must report failure without throwing into Codex's renderer event loop.");
 
 const reinjected = createFixture({ shellPresent: true });
 vm.runInNewContext(payload, reinjected.context);

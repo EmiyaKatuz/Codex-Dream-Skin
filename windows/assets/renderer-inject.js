@@ -1,6 +1,7 @@
 ((cssText, artDataUrl, rawConfig) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
+  const STYLE_REVISION = "8";
   const CHROME_ID = "codex-dream-skin-chrome";
   const FALLBACK_PRESETS_ID = "codex-dream-skin-presets";
   const SIDEBAR_CHROME_ID = "codex-dream-sidebar-ornaments";
@@ -137,6 +138,8 @@
     "dream-goal-mode-trigger",
   ];
   const installToken = {};
+  const MUTATION_REFRESH_INTERVAL_MS = 120;
+  const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
   let samplingNativeShell = false;
   let observer = null;
   let resizeObserver = null;
@@ -225,7 +228,7 @@
   const existingStyle = document.getElementById(STYLE_ID);
   if (existingStyle) {
     existingStyle.textContent = cssText;
-    existingStyle.dataset.dreamVersion = "3";
+    existingStyle.dataset.dreamVersion = STYLE_REVISION;
   }
 
   const analyzeArt = () => new Promise((resolve) => {
@@ -396,6 +399,12 @@
 
   const clearSkinDom = () => {
     const root = document.documentElement;
+    if (resizeObserver) {
+      for (const target of resizeTargets) {
+        try { resizeObserver.unobserve(target); } catch {}
+      }
+    }
+    resizeTargets.clear();
     root?.classList.remove(...ROOT_CLASSES);
     root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
     root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
@@ -719,9 +728,9 @@
       style.id = STYLE_ID;
       (document.head || root).appendChild(style);
     }
-    if (style.dataset.dreamVersion !== "8") {
+    if (style.dataset.dreamVersion !== STYLE_REVISION) {
       style.textContent = cssText;
-      style.dataset.dreamVersion = "8";
+      style.dataset.dreamVersion = STYLE_REVISION;
     }
 
     const routeMains = [...document.querySelectorAll('[role="main"]')];
@@ -1048,15 +1057,31 @@
       || document.querySelector('[class*="contain:layout_paint"]:has([role="tablist"] [role="tab"])');
     terminalRoot?.classList.add("dream-terminal-panel");
 
-    const visibleTextNodes = [...document.querySelectorAll("body *")]
-      .filter((candidate) => {
-        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
-        const style = getComputedStyle(candidate);
-        return box.width > 0 && box.height > 0 && style.visibility !== "hidden" && Number(style.opacity || 1) > .05;
-      });
-    const exactVisibleTextMatches = (pattern) => visibleTextNodes
-      .filter((candidate) => pattern.test((candidate.textContent || "").trim()))
-      .sort((left, right) => left.childElementCount - right.childElementCount);
+    /* Text labels are used only for a handful of portal/panel fallbacks. Test
+       text first and measure the few matches so streaming output does not force
+       style/layout reads for every element in the document on each refresh. */
+    const textCandidates = [...document.querySelectorAll(
+      'body button, body [role="button"], body [role="tab"], body [role="heading"], body label, body span, body p, body div',
+    )]
+      .map((node) => ({ node, text: (node.textContent || "").trim() }))
+      .filter(({ text }) => text && text.length <= 64);
+    const textMeasurements = new Map();
+    const measureTextCandidate = (candidate) => {
+      if (textMeasurements.has(candidate)) return textMeasurements.get(candidate);
+      const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+      const style = getComputedStyle(candidate);
+      const measurement = {
+        visible: box.width > 0 && box.height > 0
+          && style.visibility !== "hidden" && Number(style.opacity || 1) > .05,
+      };
+      textMeasurements.set(candidate, measurement);
+      return measurement;
+    };
+    const exactVisibleTextMatches = (pattern) => textCandidates
+      .filter(({ text }) => pattern.test(text))
+      .filter(({ node }) => measureTextCandidate(node).visible)
+      .sort((left, right) => left.node.childElementCount - right.node.childElementCount)
+      .map(({ node }) => node);
     const exactVisibleText = (pattern) => exactVisibleTextMatches(pattern)[0];
 
     const sideLauncher = exactVisibleText(/^(?:\u4fa7\u8fb9\u4efb\u52a1|side tasks)$/i);
@@ -1409,6 +1434,35 @@
     chrome.classList.toggle("dream-home-shell", Boolean(home));
   };
 
+  const scheduler = { frame: null, timeout: null, dueAt: 0, lastRunAt: -Infinity };
+  let lastEnsureErrorLogAt = -Infinity;
+  const schedulerNow = () => {
+    try {
+      if (typeof performance !== "undefined" && typeof performance.now === "function") {
+        return performance.now();
+      }
+    } catch {}
+    return Date.now();
+  };
+  const runEnsureSafely = () => {
+    const now = schedulerNow();
+    scheduler.lastRunAt = now;
+    try {
+      ensure();
+      return true;
+    } catch (error) {
+      if (now - lastEnsureErrorLogAt >= ENSURE_ERROR_LOG_INTERVAL_MS) {
+        lastEnsureErrorLogAt = now;
+        try {
+          if (typeof console !== "undefined") {
+            console.error?.(`[dream-skin] renderer refresh failed: ${error?.message || String(error)}`);
+          }
+        } catch {}
+      }
+      return false;
+    }
+  };
+
   const cleanup = () => {
     const state = window[STATE_KEY];
     if (state?.installToken !== installToken) return false;
@@ -1426,19 +1480,36 @@
     return true;
   };
 
-  const scheduler = { frame: null, timeout: null };
-  const scheduleEnsure = () => {
-    if (scheduler.frame || scheduler.timeout) return;
+  const scheduleEnsure = (minimumGapMs = 0) => {
+    if (scheduler.frame) return;
+    const now = schedulerNow();
+    const delay = Math.max(0, minimumGapMs - (now - scheduler.lastRunAt));
+    const dueAt = now + delay;
+    if (scheduler.timeout) {
+      if (scheduler.dueAt <= dueAt) return;
+      clearTimeout(scheduler.timeout);
+      scheduler.timeout = null;
+      scheduler.dueAt = 0;
+    }
     const runEnsure = () => {
       scheduler.frame = null;
       scheduler.timeout = null;
-      ensure();
+      scheduler.dueAt = 0;
+      runEnsureSafely();
     };
-    if (typeof window.requestAnimationFrame === "function") {
-      scheduler.frame = window.requestAnimationFrame(runEnsure);
-    } else {
-      scheduler.timeout = setTimeout(runEnsure, 0);
-    }
+    const queueFrame = () => {
+      scheduler.timeout = null;
+      scheduler.dueAt = 0;
+      if (typeof window.requestAnimationFrame === "function") {
+        scheduler.frame = window.requestAnimationFrame(runEnsure);
+      } else {
+        scheduler.timeout = setTimeout(runEnsure, 0);
+      }
+    };
+    if (delay > 0) {
+      scheduler.dueAt = dueAt;
+      scheduler.timeout = setTimeout(queueFrame, delay);
+    } else queueFrame();
   };
   const withoutManagedClasses = (value) => String(value || "")
     .split(/\s+/)
@@ -1460,7 +1531,7 @@
         !== withoutManagedClasses(record.target?.getAttribute?.("class"));
     });
     if (!hasApplicationChange) return;
-    scheduleEnsure();
+    scheduleEnsure(MUTATION_REFRESH_INTERVAL_MS);
   });
   observer.observe(document.documentElement, {
     childList: true,
@@ -1469,19 +1540,19 @@
     attributeOldValue: true,
     attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
   });
-  const timer = setInterval(ensure, 5000);
+  const timer = setInterval(runEnsureSafely, 5000);
   window[STATE_KEY] = {
-    ensure, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, motionQuery, motionHandler,
-    artUrl, profile, config, installToken, version: "1.3.4",
+    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, motionQuery, motionHandler,
+    artUrl, profile, config, installToken, version: "1.3.5",
   };
-  ensure();
+  runEnsureSafely();
   analyzeArt().then((result) => {
     const state = window[STATE_KEY];
     if (state?.installToken !== installToken || window.__CODEX_DREAM_SKIN_DISABLED__) return;
     profile = result;
     artGeometryReady = true;
     state.profile = result;
-    ensure();
+    runEnsureSafely();
   });
-  return { installed: true, version: "1.3.4", adaptive: true };
+  return { installed: true, version: "1.3.5", adaptive: true };
 })(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__)
