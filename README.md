@@ -1,186 +1,167 @@
-# Codex Dream Skin
+# Codex Dream Skin · 超天酱主题
 
 <p align="center">
-  <strong>中文</strong> · <a href="./README.en.md">English</a>
+  <strong>为 Codex Desktop 制作的超天酱 / INTERNET ANGEL 沉浸式主题。</strong><br>
+  原生控件换肤 · 动态像素装饰 · 本地主题管理 · 不修改官方安装包
 </p>
 
 <p align="center">
-  <strong>给 Codex 桌面端换一张会呼吸的脸。</strong><br>
-  外部主题 / 换肤工具 · 本机 CDP 注入 · 不改官方安装包
+  <img src="windows/assets/dream-reference.jpg" alt="超天酱 INTERNET ANGEL 默认主题背景" width="900"><br>
+  <sub>Windows 默认主题素材；界面、动画与控件皮肤由运行时注入层生成</sub>
 </p>
 
-<p align="center">
-  一张图，一种心情 · 写代码，也要有氛围感
-</p>
+> 当前 fork 版本：`1.3.4`。主要开发与验证平台为 Windows；macOS 能力继承自上游项目并继续保留。
 
-<p align="center">
-  非 OpenAI 官方产品。不修改 <code>.app</code> / <code>app.asar</code> / WindowsApps。
-</p>
+## 这是什么
 
-## 赞助商
+这是基于 [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) 开发的独立 fork。当前版本围绕「超天酱 · INTERNET ANGEL」重新设计了 Windows Codex Desktop 的视觉、交互与主题管理体验。
 
-<p align="center">
-  <a href="https://passion8.cc/register?aff=TuPe">
-    <img src="docs/images/sponsor-passion8.png" alt="Passion8" height="72">
-  </a>
-</p>
+它不是把一张带 UI 的截图盖在窗口上：侧栏、任务、建议卡、项目选择、输入框、设置、终端等仍是 Codex 原生控件。主题通过仅绑定本机回环地址的 CDP 注入，不修改 `WindowsApps`、`app.asar`、应用签名或官方二进制。
 
-<p align="center">
-  <strong>更智能的连接 · 更热爱的创造</strong><br>
-  <sub>热爱驱动 · 无限可能 · Connect AI · Power Creation</sub>
-</p>
+本 fork 将作为独立项目继续开发。上游后续更新会按需同步，再以本项目的超天酱功能和视觉实现为准进行整合。
 
-<p align="center">
-  感谢 <a href="https://passion8.cc/register?aff=TuPe"><strong>passion8.cc</strong></a> 赞助本项目。<br>
-  满血 AI 中转：官方模型直连，无降智、无套壳；一行配置接入 Codex / Claude Code / Grok。
-</p>
+## 本 Fork 的主要改动
 
-<p align="center">
-  <sub>
-    换肤与 API 配置互相独立，本项目不会自动改写你的模型供应商设置。
-  </sub>
-</p>
+### 超天酱主题已固定为 Windows 默认体验
 
-## 实测精选预设
+首次初始化会自动创建三套可切换主题：
 
-### Gothic Void Crusade / 哥特虚空远征
+| 主题 | 资源 | 说明 |
+|------|------|------|
+| 超天酱 · INTERNET ANGEL | `theme.json` + `dream-reference.jpg` | 默认启用的 `2560 × 1440` JPEG 版 |
+| 超天酱 · INTERNET ANGEL · Pixel Cafe | `theme-choten.json` + `codex-dream-skin-pixel-cafe.png` | 保留原始构图的无损 PNG 版 |
+| Gothic Void Crusade | `windows/presets/preset-gothic-void-crusade/` | 随上游更新保留的附加预设 |
 
-**特别感谢 [@seansong-ideogram](https://github.com/seansong-ideogram) 为社区设计并贡献这套精美、极具氛围感的原创哥特科幻作品。** 它是当前实测精选的第一套预设，也是 macOS 全新安装时默认启用的主题。
+两套超天酱主题会以不同名称显示在托盘的「已保存主题」菜单中，不需要手动跨目录导入。
 
-<p align="center">
-  <img src="docs/images/presets/gothic-void-crusade-preview.jpg" alt="哥特虚空远征主题实机效果" width="900"><br>
-  <sub>真实 Codex 首页注入效果（仅预览）</sub>
-</p>
+### 全界面视觉重制
 
-macOS 安装后可从「已保存主题」直接切换，也可以运行：
+- 以青色、粉色、紫色和像素霓虹为核心，统一首页、任务页和原生顶栏的视觉语言。
+- 为首页加入 ANGEL COMMAND DECK 指令卡，并保留 Codex 原生输入和任务创建能力。
+- 适配设置、插件、站点、计划任务、Pull Requests、选择工具栏和系统提示。
+- 适配终端、侧边对话、变更摘要、编辑资源卡、子代理面板和 composer 菜单。
+- 对窄窗口、矮窗口、侧栏展开、底部面板展开和双面板状态提供独立响应式布局。
+- 保留原生控件的点击、滚动、键盘操作和可访问性行为；装饰层不拦截鼠标事件。
 
-```bash
-~/.codex/codex-dream-skin-studio/scripts/switch-theme-macos.sh \
-  --id preset-gothic-void-crusade
-```
+### 动画与状态表现
 
-### 桥本有菜 / Arina Hashimoto
+- 为超天酱背景加入与图片几何位置同步的眨眼、心跳、信号、粒子和直播状态装饰。
+- 窗口缩放、侧栏收起或最大化时会重新计算动效位置，避免装饰与人物错位。
+- 支持系统「减少动态效果」偏好，并在空间不足或面板展开时自动隐藏次要动画。
+- 暂停、继续和重新应用主题时，会在 Codex 主界面显示 loading、成功或失败状态。
 
-下面这套「桥本有菜 / Arina Hashimoto」已经在真实 Codex 首页分别验证浅色和暗色外观。用户提供的源 PNG 为 `1672 × 941`，主题包在保持源图近 16:9 构图的前提下派生导出 `2560 × 1440` JPEG，并不代表增加了源图细节。截图中的侧栏、卡片、项目选择和输入框都是 Codex 原生控件。
+### 更完整的主题管理
 
-<p align="center">
-  <img src="docs/images/presets/arina-hashimoto-light.jpg" alt="桥本有菜主题浅色实机效果" width="900"><br>
-  <sub>浅色 · 真实注入截图（未发送输入已在截图时遮蔽，仅预览）</sub>
-</p>
+- 使用专门设计的超天酱多尺寸像素托盘图标。
+- 支持导入 PNG、JPEG、WebP 背景，并保存为本地主题。
+- 支持从托盘快速切换已保存主题、暂停、继续、重新应用和完整恢复。
+- 暂停会立即卸下当前窗口皮肤；继续会清除暂停状态并重新应用，而不是只等待轮询。
+- watcher 会根据主题配置和图片内容修订值进行热更新，renderer 重载后仍能恢复当前主题。
 
-<p align="center">
-  <img src="docs/images/presets/arina-hashimoto-dark.jpg" alt="桥本有菜主题暗色实机效果" width="900"><br>
-  <sub>暗色 · 真实注入截图（未发送输入已在截图时遮蔽，仅预览）</sub>
-</p>
+### 合并的可靠性修复
 
-从仓库安装并一键切换（macOS）：
+- 收起或重建左侧栏时继续保留主题，避免短暂闪回 Codex 原生配色。
+- 只在确认主 Codex 窗口后应用皮肤，宠物等透明辅助窗口会清理残留背景。
+- 导入和注入前校验图片格式、尺寸、像素总量和文件大小。
+- 主题仓库、状态文件、恢复流程和运行时替换保留原子写入与路径边界检查。
 
-```bash
-cd macos
-./scripts/install-dream-skin-macos.sh --no-launch
-~/.codex/codex-dream-skin-studio/scripts/switch-theme-macos.sh \
-  --id preset-arina-hashimoto
-```
+## 快速开始（Windows）
 
-Windows 使用本地主题仓库与系统托盘，并独立预置两套「超天酱 · INTERNET ANGEL」像素主题：标准 JPEG 默认版与无损 PNG Pixel Cafe 版；上游的 Gothic Void Crusade 也会保留为第三套已保存主题。首次从仓库使用：
+### 要求
+
+- Windows 10/11
+- 已安装官方 Codex Desktop
+- Node.js 22 或更高版本
+- PowerShell 5.1 或 PowerShell 7
+
+### 安装
+
+先关闭 Codex 与旧版 Dream Skin 托盘，然后在仓库根目录运行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\windows\scripts\install-dream-skin.ps1
-powershell -ExecutionPolicy Bypass -File .\windows\scripts\start-dream-skin.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\install-dream-skin.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\start-dream-skin.ps1
 ```
 
-启动后可直接从「已保存主题」切换两套超天酱预设与 Gothic Void Crusade；不需要跨目录手动导入。托盘使用专门设计的超天酱像素头像图标；其中的「更换背景图」仍可导入你自己的纯背景，保存后继续一键切换。桥本有菜预设保留在 macOS，不再作为 Windows 默认资源。
+安装器会把运行时原子复制到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，并创建启动、恢复和托盘快捷方式。安装完成后，运行时不依赖当前源码目录的位置。
 
-> 可下载的用户源图是 [`docs/images/presets/arina-hashimoto-source.png`](./docs/images/presets/arina-hashimoto-source.png)（`1672 × 941`）；macOS 一键预设使用 [`macos/presets/preset-arina-hashimoto/background.jpg`](./macos/presets/preset-arina-hashimoto/background.jpg)（规范化派生 `2560 × 1440`）。上面两个效果图包含真实 UI，**只作预览，绝不能当背景导入**。背景为用户提供的 AI 生成示例，不代表 OpenAI/Codex 官方视觉或背书；公开再分发前请确认人物与素材权利。
+### 日常使用
 
-## 概念效果图（不可直接导入）
+打开 `Codex Dream Skin - Tray`：
 
-下面八张图用于表达可实现的视觉方向，但它们是带界面的概念效果图，不是可直接使用的主题背景。需要同类效果时，先按[参考生图提示词](./docs/reference-background-prompt-guide.md)生成无 UI 的 `2560 × 1440` 素材；八种风格的详细拆解见[概念图提示词](./docs/background-generation-prompts.md)。
+- 从「已保存主题」切换默认版、Pixel Cafe 或 Gothic Void Crusade。
+- 使用「更换背景图」导入自己的纯背景，再选择「保存当前主题」。
+- 使用「暂停皮肤」立即恢复当前窗口的原生外观。
+- 使用「继续显示皮肤」或「应用或重新应用」恢复主题。
+- 使用「完全恢复 Codex」清理 Dream Skin 状态并回到官方外观。
 
-<p align="center">
-  <img src="docs/images/gallery/skin-01.jpg" alt="粉系定制" width="900"><br>
-  <sub>粉系定制</sub>
-</p>
+导入图片必须是纯背景，不要使用包含窗口、侧栏、输入框、文字或按钮的效果截图。图片最大 `16 MB`，单边不超过 `16384` 像素，总像素不超过 `5000 万`。
 
-<p align="center">
-  <img src="docs/images/gallery/skin-02.jpg" alt="财神打工" width="900"><br>
-  <sub>财神打工版</sub>
-</p>
+## 更新
 
-<p align="center">
-  <img src="docs/images/gallery/skin-03.jpg" alt="红白科幻" width="900"><br>
-  <sub>红白科幻</sub>
-</p>
+本 fork 后续更新时：
 
-<p align="center">
-  <img src="docs/images/gallery/skin-04.jpg" alt="清透定制" width="900"><br>
-  <sub>清透定制</sub>
-</p>
+1. 退出 Dream Skin 托盘并关闭 Codex。
+2. 拉取本 fork 的最新代码。
+3. 重新运行安装脚本，让受管运行时、安全检查和快捷方式一起更新。
+4. 再运行启动脚本。
 
-<p align="center">
-  <img src="docs/images/gallery/skin-05.jpg" alt="灵感小宇宙" width="900"><br>
-  <sub>灵感小宇宙</sub>
-</p>
+重装不会删除 `%LOCALAPPDATA%\CodexDreamSkin` 中已有的活动主题、自定义主题和导入图片。
 
-<p align="center">
-  <img src="docs/images/gallery/skin-06.jpg" alt="紫夜限定" width="900"><br>
-  <sub>紫夜限定</sub>
-</p>
+## 验证
 
-<p align="center">
-  <img src="docs/images/gallery/skin-07.jpg" alt="青蓝虚拟歌姬" width="900"><br>
-  <sub>青蓝虚拟歌姬</sub>
-</p>
+运行 Windows 完整回归：
 
-<p align="center">
-  <img src="docs/images/gallery/skin-08.jpg" alt="舞台黑金" width="900"><br>
-  <sub>舞台黑金</sub>
-</p>
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\tests\run-tests.ps1
+```
 
-## 它能做什么
+检查最终注入 payload：
 
-- **真·可交互**：侧栏、建议卡、项目选择、输入框都是原生控件，不是整窗假截图贴上去
-- **真背景层**：一张 16:9 纯壁纸连续铺满整窗，首页突出氛围，任务页自动降低干扰
-- **可换图**：换一张喜欢的纯背景，自适应焦点、安全区和配色后变成你的主题
-- **可存主题**：macOS 菜单栏与 Windows 系统托盘都能保存/切换本地主题
-- **可恢复**：一键还原官方外观
-- **相对安全**：本机回环 CDP 注入，不改官方二进制与签名
+```powershell
+node .\windows\scripts\injector.mjs --check-payload
+```
 
-## 快速开始
+测试覆盖主题播种与切换、图片校验、运行时替换、状态安全、暂停/恢复、侧栏折叠、响应式首页、renderer 清理和 CDP 回环验证。
 
-仓库内按平台放了现成脚本（实现细节不同，效果都是「主题化 Codex」）：
+## 目录说明
 
-| 平台 | 目录 | 入口 |
-|------|------|------|
-| Apple Silicon / Intel Mac | [`macos/`](./macos/) | 双击 `Install Codex Dream Skin.command` |
-| Windows | [`windows/`](./windows/) | `scripts/install-dream-skin.ps1` → `start-dream-skin.ps1` |
+| 路径 | 内容 |
+|------|------|
+| [`windows/assets/`](./windows/assets/) | 超天酱背景、托盘图标、CSS、renderer 注入代码和主题配置 |
+| [`windows/scripts/`](./windows/scripts/) | 安装、启动、恢复、主题仓库、托盘与 CDP 注入逻辑 |
+| [`windows/tests/`](./windows/tests/) | Windows 与 renderer 回归测试 |
+| [`windows/README.md`](./windows/README.md) | Windows 详细操作说明 |
+| [`windows/CHANGELOG.md`](./windows/CHANGELOG.md) | 超天酱版本更新记录 |
+| [`docs/platforms.md`](./docs/platforms.md) | 平台差异与主题格式说明 |
+| [`macos/`](./macos/) | 继承并维护的上游 macOS 实现 |
 
-更细的说明：
+## 未来计划
 
-- Mac：[`macos/README.md`](./macos/README.md)
-- Windows：[`windows/SKILL.md`](./windows/SKILL.md)
-- 路径对照：[`docs/platforms.md`](./docs/platforms.md)
-- 可直接复制的参考生图模板：[`docs/reference-background-prompt-guide.md`](./docs/reference-background-prompt-guide.md)
-- 八种概念方向详细提示词：[`docs/background-generation-prompts.md`](./docs/background-generation-prompts.md)
-- 项目记录：[`docs/PROJECT.md`](./docs/PROJECT.md)
-
-## 反馈与贡献
-
-- **Issue：** 请用 [Issue 模板](./.github/ISSUE_TEMPLATE/)（Bug / 功能）；已关闭空白 Issue。提交前建议先跑 Verify / Restore 自检。
-- **PR：** 请按 [PR 模板](./.github/pull_request_template.md) 写清改动，并勾选对应自测（如 `macos/tests/run-tests.sh`、verify / restore）。
+- 会加入更多动画，以显示不同状态下的差分（思考、输出等）
+- 会随 Codex Desktop 主版本及原始项目更新作长期维护
+- 更多的杂项修复
 
 ## 安全边界
 
-- CDP 只绑 `127.0.0.1`，主题运行期间勿跑来路不明的本机程序
-- 不修改官方安装目录与代码签名
-- **不会**自动改写 API Key / Base URL；中转与换肤分开
+- CDP 只绑定 `127.0.0.1`；主题运行期间不要执行来源不明的本机程序。
+- 不修改 Codex 官方安装目录、`app.asar`、WindowsApps 内容或代码签名。
+- 不读取或改写 API Key、Base URL 和模型供应商配置。
+- 用户图片与主题配置保存在本机，不依赖外部 AI/API 分析。
+- 可随时使用恢复脚本撤销主题并回到官方外观。
 
 ## 许可与声明
 
-- 见 [`macos/LICENSE`](./macos/LICENSE)（MIT）与 [`macos/NOTICE.md`](./macos/NOTICE.md)
-- 非 OpenAI 官方产品；Codex 及相关权利归其权利人
-- 随仓库预设及效果图中的人物 / IP 素材仅作主题示意；商用或公开再分发请自行确认肖像、素材与商标权利
+- 本项目沿用上游许可；详见 [`macos/LICENSE`](./macos/LICENSE) 与 [`macos/NOTICE.md`](./macos/NOTICE.md)。
+- 非 OpenAI 官方产品；Codex 及相关权利归其权利人。
+- 本主题/皮肤中所涉及的 IP 素材与商标权利归其权利人。
+- 使用、公开展示或再分发人物、IP 素材与商标前，请自行确认所需授权。
+
+## 致谢
+
+- 原始项目：[Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin)
+- Gothic Void Crusade 原创主题贡献者：[@seansong-ideogram](https://github.com/seansong-ideogram)
 
 ---
 
-Star 一下，然后挑一张图，把你的 Codex 变成今天想要的样子。
+让 Codex 不只是工作台，也成为超天酱的直播间。
