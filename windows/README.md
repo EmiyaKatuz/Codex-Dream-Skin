@@ -71,6 +71,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-dream-s
 
 打开 `Codex Dream Skin - Tray` 后可以：
 
+- 通过专门设计的超天酱像素图标快速识别受管皮肤。
+- 首次初始化即包含「超天酱 · INTERNET ANGEL」JPEG 默认版、无损 Pixel Cafe 版和 Gothic Void Crusade 三套已保存主题。
 - 更换 PNG、JPEG 或 WebP 背景图。
 - 保存当前主题并从「已保存主题」切换。
 - 暂停或继续显示皮肤。

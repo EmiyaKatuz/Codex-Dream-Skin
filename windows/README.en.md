@@ -71,6 +71,8 @@ Next, use the generated screenshot to check horizontal overflow and text contras
 
 Open `Codex Dream Skin - Tray` to:
 
+- Recognize the managed skin at a glance through its custom Internet Angel pixel icon.
+- Start with three saved themes: the default Internet Angel JPEG, the lossless Pixel Cafe variant, and Gothic Void Crusade.
 - Import a PNG, JPEG, or WebP background.
 - Save the active theme and switch through saved themes.
 - Pause or resume the skin.

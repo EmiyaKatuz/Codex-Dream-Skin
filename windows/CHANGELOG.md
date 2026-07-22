@@ -1,13 +1,19 @@
 # Windows Changelog
 
-## Unreleased
+## 1.3.4 — 2026-07-22
+
+### 新增
+
+- 将当前 Windows 视觉方案固定为两套可切换的「超天酱 · INTERNET ANGEL」内置主题：默认 JPEG 版与无损 PNG Pixel Cafe 版；首次安装默认启用 JPEG 版，同时继续播种上游的 Gothic Void Crusade 主题。
+- 超天酱渲染层新增自适应首页指令卡、像素装饰与动效，并统一覆盖任务、设置、插件、计划任务、Pull Requests、终端、侧边对话、变更摘要、子代理与选择工具等 Codex 原生界面；窄窗、矮窗、侧栏/底栏和减少动态效果模式均有独立回退。
+- 系统托盘不再使用通用 Windows Application 图标，改用包含心形眼镜、光环和青粉配色的超天酱多尺寸像素图标。
 
 ### 修复
 
 - 收起或重建左侧栏时不再因找不到 `aside.app-shell-left-panel` 而整页卸掉皮肤；只要主内容壳层仍在就继续应用当前主题，避免闪回 Codex 原生配色。透明辅助窗口仍会清理残留样式。
 - 托盘「暂停皮肤」现在与 macOS 一致：写入暂停标记后立刻通过 CDP 执行 `injector --remove` 卸下当前窗口皮肤，不再只等 watcher 轮询；「继续显示皮肤」会清除暂停并重新应用。
 - Windows 注入器补齐与 macOS 相同的窗口内操作浮层（loading / 成功 / 失败）；暂停、继续与重新应用时在 Codex 主区显示「正在暂停皮肤…」「正在应用皮肤…」等进度，不再只有托盘气泡。
-- 安装/主题库初始化会把 macOS 同款「Gothic Void Crusade / 哥特虚空远征」播种到已保存主题（`presets/preset-gothic-void-crusade`），可与「桥本有菜」一并在托盘切换；默认活动主题仍为桥本有菜。
+- 安装/主题库初始化会把 macOS 同款「Gothic Void Crusade / 哥特虚空远征」播种到已保存主题（`presets/preset-gothic-void-crusade`），可与两套超天酱主题一并在托盘切换；默认活动主题保持为超天酱 JPEG 版。
 
 ## 1.2.0 — 2026-07-17
 

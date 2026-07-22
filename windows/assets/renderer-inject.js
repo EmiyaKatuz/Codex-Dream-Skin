@@ -2,6 +2,10 @@
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
   const CHROME_ID = "codex-dream-skin-chrome";
+  const FALLBACK_PRESETS_ID = "codex-dream-skin-presets";
+  const SIDEBAR_CHROME_ID = "codex-dream-sidebar-ornaments";
+  const SIDE_WORKSPACE_BRAND_ID = "codex-dream-side-workspace-brand";
+  const NEW_TASK_CLASS = "dream-new-task-button";
   const ROOT_CLASSES = [
     "codex-dream-skin",
     "dream-theme-light",
@@ -18,6 +22,26 @@
     "dream-task-ambient",
     "dream-task-banner",
     "dream-task-off",
+    "dream-choten-art",
+    "dream-reduced-motion",
+    "dream-settings-active",
+  ];
+  const ROUTE_CLASSES = [
+    "dream-route-home",
+    "dream-route-task",
+    "dream-route-sites",
+    "dream-route-pulls",
+    "dream-route-scheduled",
+    "dream-route-plugins",
+    "dream-route-settings",
+    "dream-route-utility",
+  ];
+  const PRESET_CLASSES = [
+    "dream-codex-preset",
+    "dream-preset-explore",
+    "dream-preset-build",
+    "dream-preset-review",
+    "dream-preset-fix",
   ];
   const ROOT_PROPERTIES = [
     "--dream-art",
@@ -29,9 +53,94 @@
     "--dream-image-luma",
   ];
   const HOME_UTILITY_CLASS = "dream-home-utility";
+  const SYSTEM_TOAST_CLASS = "dream-system-toast";
+  const CHANGES_SHELL_CLASS = "dream-changes-shell";
+  const CHANGES_CLIP_HOST_CLASS = "dream-changes-clip-host";
+  const PANEL_CLASSES = [
+    "dream-terminal-panel",
+    "dream-side-workspace",
+    "dream-side-chat-panel",
+    "dream-summary-panel",
+  ];
+  const HOME_PANEL_STATE_CLASSES = [
+    "dream-home-side-open",
+    "dream-home-bottom-open",
+    "dream-home-dual-panel",
+  ];
+  const EDITED_CARD_CLASSES = [
+    "dream-edited-card",
+    "dream-edited-card-header",
+    "dream-edited-card-icon",
+    "dream-edited-card-title",
+    "dream-edited-card-stats",
+    "dream-edited-card-actions",
+    "dream-edited-card-undo",
+    "dream-edited-card-review",
+  ];
+  const INTERACTION_CLASSES = [
+    "dream-selection-actions",
+    "dream-selection-action",
+    "dream-selected-fragment",
+    "dream-optional-comment",
+    "dream-optional-comment-input",
+    ...EDITED_CARD_CLASSES,
+  ];
+  const TURN_NAV_CLASSES = [
+    "dream-turn-nav-rail",
+    "dream-turn-nav-row",
+    "dream-turn-nav-marker",
+    "dream-turn-nav-marker-active",
+    "dream-turn-preview-tooltip",
+    "dream-turn-preview-surface",
+    "dream-turn-preview-title",
+    "dream-turn-preview-excerpt",
+  ];
+  const SETTINGS_CLASSES = [
+    "dream-settings-sidebar",
+    "dream-settings-nav",
+    "dream-settings-search",
+    "dream-settings-content",
+    "dream-settings-surface",
+    "dream-settings-row",
+    "dream-settings-control",
+    "dream-settings-input",
+    "dream-settings-segment-group",
+    "dream-settings-segment",
+    "dream-settings-menu",
+    "dream-settings-app-row",
+    "dream-settings-app-main",
+  ];
+  const SUBAGENT_CLASSES = [
+    "dream-subagent-frame",
+    "dream-subagent-shell",
+    "dream-subagent-toolbar",
+    "dream-subagent-panel",
+    "dream-subagent-scroller",
+    "dream-subagent-section",
+    "dream-subagent-section-live",
+    "dream-subagent-section-archive",
+    "dream-subagent-list",
+    "dream-subagent-row",
+    "dream-subagent-row-live",
+    "dream-subagent-row-archive",
+    "dream-subagent-more",
+  ];
+  const COMPOSER_UI_CLASSES = [
+    "dream-composer-palette",
+    "dream-composer-palette-scroll",
+    "dream-composer-palette-heading",
+    "dream-composer-palette-item",
+    "dream-composer-context-strip",
+    "dream-active-goal-strip",
+    "dream-goal-progress-group",
+    "dream-goal-step",
+    "dream-goal-mode-trigger",
+  ];
   const installToken = {};
   let samplingNativeShell = false;
   let observer = null;
+  let resizeObserver = null;
+  let resizeTargets = new Set();
   window.__CODEX_DREAM_SKIN_DISABLED__ = false;
 
   const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, Number(value)));
@@ -74,10 +183,13 @@
       ? art.taskMode
       : "auto";
     const metadataRatio = Number(config?.artMetadata?.ratio);
+    const themeId = typeof config.id === "string" ? config.id.trim().toLowerCase() : "";
     return {
       appearance,
       safeArea,
       taskMode,
+      themeId,
+      chotenArt: /(?:internet-angel|choten)/i.test(themeId),
       focusX: hasNumber(art.focusX) ? clamp(art.focusX) : null,
       focusY: hasNumber(art.focusY) ? clamp(art.focusY) : null,
       accent: safeAccent,
@@ -87,9 +199,14 @@
 
   const previous = window[STATE_KEY];
   if (previous?.observer) previous.observer.disconnect();
+  if (previous?.resizeObserver) previous.resizeObserver.disconnect();
   if (previous?.timer) clearInterval(previous.timer);
   if (previous?.scheduler?.timeout) clearTimeout(previous.scheduler.timeout);
+  if (previous?.scheduler?.frame) window.cancelAnimationFrame?.(previous.scheduler.frame);
+  if (previous?.resizeHandler) window.removeEventListener("resize", previous.resizeHandler);
+  previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
   if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
+  document.documentElement?.classList?.remove?.("dream-preview-blink", "dream-preview-blink-half");
   const artUrl = (() => {
     const comma = artDataUrl.indexOf(",");
     const binary = atob(artDataUrl.slice(comma + 1));
@@ -99,10 +216,12 @@
     return URL.createObjectURL(new Blob([bytes], { type: mime }));
   })();
   const config = normalizeConfig(rawConfig);
+  const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") || null;
   let profile = {
     ...defaultProfile,
     aspect: config.initialAspect ?? defaultProfile.aspect,
   };
+  let artGeometryReady = Boolean(config.initialAspect);
   const existingStyle = document.getElementById(STYLE_ID);
   if (existingStyle) {
     existingStyle.textContent = cssText;
@@ -278,13 +397,49 @@
   const clearSkinDom = () => {
     const root = document.documentElement;
     root?.classList.remove(...ROOT_CLASSES);
+    root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
+    root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
     for (const property of ROOT_PROPERTIES) root?.style.removeProperty(property);
     document.querySelectorAll(".dream-home").forEach((node) => node.classList.remove("dream-home"));
     document.querySelectorAll(".dream-task").forEach((node) => node.classList.remove("dream-task"));
     document.querySelectorAll(".dream-home-shell").forEach((node) => node.classList.remove("dream-home-shell"));
+    document.querySelectorAll(`.${ROUTE_CLASSES.join(", .")}`).forEach((node) => node.classList.remove(...ROUTE_CLASSES));
+    document.querySelectorAll(".dream-permission-banner").forEach((node) => node.classList.remove("dream-permission-banner"));
+    document.querySelectorAll(`.${PRESET_CLASSES.join(", .")}`).forEach((node) => node.classList.remove(...PRESET_CLASSES));
+    document.querySelectorAll(".dream-changes-pill").forEach((node) => node.classList.remove("dream-changes-pill"));
+    document.querySelectorAll(`.${CHANGES_SHELL_CLASS}`).forEach((node) => node.classList.remove(CHANGES_SHELL_CLASS));
+    document.querySelectorAll(`.${CHANGES_CLIP_HOST_CLASS}`).forEach((node) => node.classList.remove(CHANGES_CLIP_HOST_CLASS));
+    document.querySelectorAll(`.${SYSTEM_TOAST_CLASS}`).forEach((node) => node.classList.remove(SYSTEM_TOAST_CLASS));
+    document.querySelectorAll(`.${PANEL_CLASSES.filter((name) => name !== "dream-summary-panel").join(", .")}`).forEach((node) => {
+      node.style?.removeProperty?.("--dream-summary-safe-height");
+      node.classList.remove(...PANEL_CLASSES.filter((name) => name !== "dream-summary-panel"));
+    });
+    const transientInteractionClasses = INTERACTION_CLASSES.filter((name) => !EDITED_CARD_CLASSES.includes(name));
+    document.querySelectorAll(`.${transientInteractionClasses.join(", .")}`).forEach((node) => {
+      node.classList.remove(...transientInteractionClasses);
+    });
+    document.querySelectorAll(`.${TURN_NAV_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...TURN_NAV_CLASSES);
+    });
+    document.querySelectorAll(`.${SETTINGS_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...SETTINGS_CLASSES);
+    });
+    document.querySelectorAll(`.${SUBAGENT_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...SUBAGENT_CLASSES);
+    });
+    document.querySelectorAll(`.${COMPOSER_UI_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...COMPOSER_UI_CLASSES);
+    });
     document.querySelectorAll(`.${HOME_UTILITY_CLASS}`).forEach((node) => node.classList.remove(HOME_UTILITY_CLASS));
+    document.querySelectorAll(`.${HOME_PANEL_STATE_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...HOME_PANEL_STATE_CLASSES);
+    });
+    document.querySelectorAll(`#${SIDE_WORKSPACE_BRAND_ID}, .dream-side-workspace-brand`).forEach((node) => node.remove());
     document.getElementById(STYLE_ID)?.remove();
     document.getElementById(CHROME_ID)?.remove();
+    document.getElementById(FALLBACK_PRESETS_ID)?.remove();
+    document.getElementById(SIDEBAR_CHROME_ID)?.remove();
+    document.getElementById(SIDE_WORKSPACE_BRAND_ID)?.remove();
   };
 
   const applyProfile = (root) => {
@@ -303,6 +458,8 @@
     root.classList.toggle("dream-theme-dark", appearance === "dark");
     root.classList.toggle("dream-art-wide", profile.aspect >= 1.75);
     root.classList.toggle("dream-art-standard", profile.aspect < 1.75);
+    root.classList.toggle("dream-choten-art", config.chotenArt);
+    root.classList.toggle("dream-reduced-motion", Boolean(motionQuery?.matches));
     for (const value of ["left", "center", "right"]) {
       root.classList.toggle(`dream-focus-${value}`, focus === value);
     }
@@ -321,6 +478,219 @@
     root.style.setProperty("--dream-image-luma", profile.luma.toFixed(3));
   };
 
+  /* The Choten preset keeps the raster artwork untouched and composites a
+     tiny pixel eyelid layer over the two eyes. Measuring the same fixed-cover
+     transform as the body background keeps the blink registered through
+     sidebar collapse, maximization and ordinary window resizing. */
+  const CHOTEN_ART_GEOMETRY = {
+    blink: { x: .582, y: .351, width: .132, height: .107 },
+    face: { x: .649, y: .346, size: .238 },
+  };
+  const CHOTEN_GEOMETRY_PROPERTIES = [
+    "--dream-blink-left", "--dream-blink-top", "--dream-blink-width", "--dream-blink-height",
+    "--dream-face-x", "--dream-face-y", "--dream-face-size",
+  ];
+  const updateChotenArtGeometry = (chrome, mainBox) => {
+    if (!chrome || !mainBox || !config.chotenArt || !artGeometryReady) {
+      chrome?.classList?.remove?.("dream-art-motion-ready");
+      for (const property of CHOTEN_GEOMETRY_PROPERTIES) chrome?.style?.removeProperty?.(property);
+      return;
+    }
+    const viewportWidth = Math.max(1, document.documentElement?.clientWidth || window.innerWidth || mainBox.right || 1);
+    const viewportHeight = Math.max(1, document.documentElement?.clientHeight || window.innerHeight || mainBox.bottom || 1);
+    const aspect = Math.max(.4, Number(profile.aspect) || defaultProfile.aspect);
+    const imageHeight = Math.max(viewportHeight, viewportWidth / aspect);
+    const imageWidth = imageHeight * aspect;
+    const focusX = config.focusX ?? profile.focusX;
+    const focusY = config.focusY ?? profile.focusY;
+    const imageLeft = (viewportWidth - imageWidth) * focusX;
+    const imageTop = (viewportHeight - imageHeight) * focusY;
+    const blink = CHOTEN_ART_GEOMETRY.blink;
+    const blinkLeft = imageLeft + imageWidth * blink.x - mainBox.left;
+    const blinkTop = imageTop + imageHeight * blink.y - mainBox.top;
+    const blinkWidth = imageWidth * blink.width;
+    const blinkHeight = imageHeight * blink.height;
+    const face = CHOTEN_ART_GEOMETRY.face;
+    const faceX = imageLeft + imageWidth * face.x - mainBox.left;
+    const faceY = imageTop + imageHeight * face.y - mainBox.top;
+    const faceSize = Math.min(320, Math.max(190, imageHeight * face.size));
+    chrome.style.setProperty("--dream-blink-left", `${blinkLeft.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-blink-top", `${blinkTop.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-blink-width", `${blinkWidth.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-blink-height", `${blinkHeight.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-face-x", `${faceX.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-face-y", `${faceY.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-face-size", `${faceSize.toFixed(2)}px`);
+    const intersectsStage = blinkLeft + blinkWidth > 0
+      && blinkTop + blinkHeight > 0
+      && blinkLeft < mainBox.width
+      && blinkTop < mainBox.height;
+    chrome.classList.toggle("dream-art-motion-ready", intersectsStage);
+  };
+
+  const fallbackPresetDefinitions = [
+    {
+      className: "dream-preset-explore",
+      channel: "01 // EXPLORE",
+      title: "\u63a2\u7d22\u5e76\u7406\u89e3\u4ee3\u7801",
+      detail: "READ / MAP / TRACE",
+      prompt: "\u63a2\u7d22\u5e76\u7406\u89e3\u5f53\u524d\u9879\u76ee\u7684\u4ee3\u7801\u7ed3\u6784\u3001\u5173\u952e\u6a21\u5757\u4e0e\u8fd0\u884c\u6d41\u7a0b\u3002",
+      icon: '<path d="M5 18l3.4-1 7.7-7.7-2.4-2.4L6 14.6 5 18Z"/><path d="m12.8 7.8 2.4 2.4M16 5l3 3M7.7 15.3l1 1"/>'
+    },
+    {
+      className: "dream-preset-build",
+      channel: "02 // BUILD",
+      title: "\u6784\u5efa\u65b0\u529f\u80fd\u3001\u5e94\u7528\u6216\u5de5\u5177",
+      detail: "MAKE / SHIP / GROW",
+      prompt: "\u6784\u5efa\u4e00\u4e2a\u65b0\u529f\u80fd\u3001\u5e94\u7528\u6216\u5de5\u5177\uff1a",
+      icon: '<path d="m14.5 5.5 4 4-8.8 8.8H5.7v-4l8.8-8.8Z"/><path d="m12.5 7.5 4 4M4 20h16"/>'
+    },
+    {
+      className: "dream-preset-review",
+      channel: "03 // REVIEW",
+      title: "\u5ba1\u67e5\u4ee3\u7801\u5e76\u63d0\u51fa\u4fee\u6539\u5efa\u8bae",
+      detail: "SCAN / CHECK / SIGNAL",
+      prompt: "\u5ba1\u67e5\u5f53\u524d\u4ee3\u7801\uff0c\u5e76\u63d0\u51fa\u5177\u4f53\u3001\u53ef\u6267\u884c\u7684\u4fee\u6539\u5efa\u8bae\u3002",
+      icon: '<path d="M20 11a8 8 0 1 1-2.3-5.7"/><path d="M20 4v7h-7M8.5 12l2.2 2.2 4.8-5"/>'
+    },
+    {
+      className: "dream-preset-fix",
+      channel: "04 // RECOVER",
+      title: "\u4fee\u590d\u95ee\u9898\u548c\u5931\u8d25",
+      detail: "DEBUG / HEAL / RETRY",
+      prompt: "\u5b9a\u4f4d\u5e76\u4fee\u590d\u5f53\u524d\u9879\u76ee\u4e2d\u7684\u95ee\u9898\u3001\u9519\u8bef\u6216\u5931\u8d25\u3002",
+      icon: '<path d="M8 8a4 4 0 0 1 8 0v8a4 4 0 0 1-8 0V8Z"/><path d="M4 13h4m8 0h4M6 7l2 2m10-2-2 2M9 4l1.2 2m4.6-2L14 6M9.5 13h5"/>'
+    },
+  ];
+
+  const writePresetToComposer = (prompt) => {
+    const editor = document.querySelector(
+      '.dream-home .composer-surface-chrome .ProseMirror[contenteditable="true"], .dream-home .composer-surface-chrome [contenteditable="true"]',
+    );
+    if (!editor) return false;
+    editor.focus();
+    let inserted = false;
+    try {
+      const selection = window.getSelection?.();
+      const range = document.createRange?.();
+      if (selection && range) {
+        range.selectNodeContents(editor);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      inserted = Boolean(document.execCommand?.("insertText", false, prompt));
+    } catch {}
+    if (!inserted || !(editor.textContent || "").includes(prompt)) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = prompt;
+      editor.replaceChildren(paragraph);
+      try {
+        editor.dispatchEvent(new InputEvent("input", {
+          bubbles: true,
+          inputType: "insertText",
+          data: prompt,
+        }));
+      } catch {
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
+    editor.focus();
+    return true;
+  };
+
+  const ensureFallbackPresets = (home, nativePresetCount) => {
+    let deck = document.getElementById(FALLBACK_PRESETS_ID);
+    if (!home) {
+      deck?.remove();
+      return null;
+    }
+    if (!deck || deck.parentElement !== home) {
+      deck?.remove();
+      deck = document.createElement("section");
+      deck.id = FALLBACK_PRESETS_ID;
+      deck.className = "dream-presets-deck";
+      deck.setAttribute("aria-label", "New task presets");
+      deck.setAttribute("data-dream-ready", "false");
+      const heading = document.createElement("div");
+      heading.className = "dream-presets-heading";
+      heading.setAttribute("aria-hidden", "true");
+      heading.innerHTML = '<span>&hearts; ANGEL COMMAND DECK</span><b>4 CHANNELS ONLINE</b>';
+      deck.appendChild(heading);
+      const grid = document.createElement("div");
+      grid.className = "dream-presets-grid";
+      fallbackPresetDefinitions.forEach((preset) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `dream-codex-preset dream-generated-preset ${preset.className}`;
+        button.setAttribute("aria-label", preset.title);
+        button.innerHTML = `
+          <span class="dream-preset-channel" aria-hidden="true">${preset.channel}</span>
+          <span class="dream-preset-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${preset.icon}</svg><i>&hearts;</i></span>
+          <strong>${preset.title}</strong>
+          <small>${preset.detail}</small>
+          <em aria-hidden="true">LIVE</em>`;
+        button.addEventListener("click", () => writePresetToComposer(preset.prompt));
+        grid.appendChild(button);
+      });
+      deck.appendChild(grid);
+      home.appendChild(deck);
+    }
+    const ready = nativePresetCount < fallbackPresetDefinitions.length;
+    deck.setAttribute("data-dream-ready", String(ready));
+    if (ready) deck.removeAttribute?.("hidden");
+    else deck.setAttribute("hidden", "");
+    deck.setAttribute("aria-hidden", String(!ready));
+    [...(deck.querySelectorAll?.("button.dream-generated-preset") || [])].forEach((button, index) => {
+      const preset = fallbackPresetDefinitions[index];
+      if (!preset) return;
+      button.classList.add("dream-codex-preset", "dream-generated-preset", preset.className);
+    });
+    return deck;
+  };
+
+  const ensureSidebarOrnaments = (sidebar, settingsRoute) => {
+    let ornaments = document.getElementById(SIDEBAR_CHROME_ID);
+    if (!sidebar || settingsRoute || typeof sidebar.appendChild !== "function") {
+      ornaments?.remove();
+      return null;
+    }
+    if (!ornaments || ornaments.parentElement !== sidebar) {
+      ornaments?.remove();
+      ornaments = document.createElement("div");
+      ornaments.id = SIDEBAR_CHROME_ID;
+      ornaments.setAttribute("aria-hidden", "true");
+      ornaments.innerHTML = `
+        <i class="dream-sidebar-signal"></i>
+        <i class="dream-sidebar-halo"></i>
+        <i class="dream-sidebar-pixels"></i>
+        <span class="dream-sidebar-online"><b>&hearts;</b> CHOTEN LINK / ONLINE</span>
+        <span class="dream-sidebar-packet">AFFECTION 9999+</span>`;
+      sidebar.appendChild(ornaments);
+    }
+    return ornaments;
+  };
+
+  const ensureSideWorkspaceBrand = (workspace) => {
+    const existing = [...document.querySelectorAll(`#${SIDE_WORKSPACE_BRAND_ID}, .dream-side-workspace-brand`)];
+    for (const node of existing) {
+      if (!workspace || node.parentElement !== workspace) node.remove();
+    }
+    if (!workspace) return null;
+    let brand = existing.find((node) => node.parentElement === workspace) || null;
+    if (!brand) {
+      brand = document.createElement("div");
+      brand.id = SIDE_WORKSPACE_BRAND_ID;
+      brand.className = "dream-side-workspace-brand";
+      brand.setAttribute("aria-hidden", "true");
+      brand.innerHTML = `
+        <span><b>&hearts;</b> CHOTEN LINK</span>
+        <i><b></b><b></b><b></b><b></b></i>
+        <em>ONLINE 9999+</em>`;
+      workspace.appendChild(brand);
+    }
+    return brand;
+  };
+
   const ensure = () => {
     if (window.__CODEX_DREAM_SKIN_DISABLED__) return;
     const root = document.documentElement;
@@ -334,6 +704,7 @@
     const shellMain = document.querySelector("main.main-surface") ||
       document.querySelector("main") ||
       document.querySelector('[role="main"]');
+    const shellSidebar = document.querySelector("aside.app-shell-left-panel");
     if (!shellMain) {
       clearSkinDom();
       return;
@@ -348,17 +719,74 @@
       style.id = STYLE_ID;
       (document.head || root).appendChild(style);
     }
-    if (style.dataset.dreamVersion !== "3") {
+    if (style.dataset.dreamVersion !== "8") {
       style.textContent = cssText;
-      style.dataset.dreamVersion = "3";
+      style.dataset.dreamVersion = "8";
     }
 
-    const home = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
-    const mainCandidates = [...document.querySelectorAll('[role="main"]')];
-    if (!mainCandidates.length) mainCandidates.push(shellMain);
-    for (const candidate of mainCandidates) {
+    const routeMains = [...document.querySelectorAll('[role="main"]')];
+    if (!routeMains.length) routeMains.push(shellMain);
+    const settingsNav = document.querySelector('nav:has([data-settings-panel-slug])');
+    const settingsSidebar = settingsNav?.closest?.('aside.app-shell-left-panel') || null;
+    const settingsContent = document.querySelector(
+      'div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])',
+    );
+    const semanticHome = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
+    const homeMarker = shellMain.querySelector?.('[data-testid="home-icon"]') || null;
+    const homeHeading = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
+      .find((candidate) => /^(我们该构建什么|what should we build)\s*[？?]?$/i.test((candidate.textContent || "").trim()));
+    const home = semanticHome
+      || homeMarker?.closest?.('[role="main"]')
+      || (homeMarker ? shellMain : null)
+      || homeHeading?.closest?.('[role="main"]')
+      || (homeHeading ? shellMain : null);
+    if (resizeObserver) {
+      const nextResizeTargets = new Set([shellMain, home].filter(Boolean));
+      for (const target of resizeTargets) {
+        if (!nextResizeTargets.has(target)) resizeObserver.unobserve(target);
+      }
+      for (const target of nextResizeTargets) {
+        if (!resizeTargets.has(target)) resizeObserver.observe(target);
+      }
+      resizeTargets = nextResizeTargets;
+    }
+    const selectedCandidates = [...(shellSidebar?.querySelectorAll?.(
+      '[aria-current="page"], [aria-selected="true"], [data-state="active"], [class~="bg-token-list-hover-background"]'
+    ) || [])];
+    const selectedControl = selectedCandidates.find((candidate) => {
+      const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+      return box.width > 0 && box.height > 0;
+    });
+    const selectedText = (selectedControl?.textContent || "").trim().toLowerCase();
+    const headingText = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
+      .map((candidate) => (candidate.textContent || "").trim())
+      .filter(Boolean)
+      .join("\n")
+      .toLowerCase();
+    let route = "task";
+    if (settingsNav) route = "settings";
+    else if (home) route = "home";
+    else if (/^站点$|\bsites?\b/m.test(headingText)) route = "sites";
+    else if (/pull\s*requests?/.test(headingText)) route = "pulls";
+    else if (/已安排的任务|scheduled\s+tasks?/.test(headingText)) route = "scheduled";
+    else if (/^插件$|^plugins?$/m.test(headingText)) route = "plugins";
+    else if (/站点|\bsites?\b/.test(selectedText)) route = "sites";
+    else if (/拉取请求|pull\s*requests?/.test(selectedText)) route = "pulls";
+    else if (/已安排|scheduled/.test(selectedText)) route = "scheduled";
+    else if (/插件|plugins?/.test(selectedText)) route = "plugins";
+    const routeClass = `dream-route-${route}`;
+    const utilityRoute = ["sites", "pulls", "scheduled", "plugins"].includes(route);
+
+    shellMain.classList.remove(...ROUTE_CLASSES);
+    shellMain.classList.add(routeClass);
+    shellMain.classList.toggle("dream-route-utility", utilityRoute);
+    for (const candidate of routeMains) {
       candidate.classList.toggle("dream-home", candidate === home);
-      candidate.classList.toggle("dream-task", candidate !== home);
+      candidate.classList.toggle("dream-task", route === "task" && candidate !== home);
+    }
+    if (!routeMains.includes(shellMain)) {
+      const hasSemanticTaskMain = routeMains.some((candidate) => candidate !== home);
+      shellMain.classList.toggle("dream-task", route === "task" && !hasSemanticTaskMain);
     }
     const utilityBars = new Set(home ? home.querySelectorAll('[class*="_homeUtilityBar_"]') : []);
     for (const candidate of document.querySelectorAll(`.${HOME_UTILITY_CLASS}`)) {
@@ -366,6 +794,533 @@
     }
     for (const candidate of utilityBars) candidate.classList.add(HOME_UTILITY_CLASS);
     shellMain.classList.toggle("dream-home-shell", Boolean(home));
+    root.classList.toggle("dream-settings-active", Boolean(settingsNav));
+
+    for (const candidate of document.querySelectorAll(`.${NEW_TASK_CLASS}`)) {
+      candidate.classList.remove(NEW_TASK_CLASS);
+    }
+    const newTaskButton = [...(shellSidebar?.querySelectorAll?.('button, [role="button"]') || [])]
+      .find((candidate) => /^(?:\u65b0\u5efa\u4efb\u52a1|new task)$/i.test((candidate.textContent || "").trim()));
+    newTaskButton?.classList.add(NEW_TASK_CLASS);
+
+    for (const candidate of document.querySelectorAll(`.${SETTINGS_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...SETTINGS_CLASSES);
+    }
+    for (const candidate of document.querySelectorAll(`.${TURN_NAV_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...TURN_NAV_CLASSES);
+    }
+    for (const candidate of document.querySelectorAll(`.${SUBAGENT_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...SUBAGENT_CLASSES);
+    }
+    settingsSidebar?.classList.add("dream-settings-sidebar");
+    ensureSidebarOrnaments(shellSidebar, Boolean(settingsNav));
+    settingsNav?.classList.add("dream-settings-nav");
+    const settingsSearch = settingsNav?.querySelector?.('[role="searchbox"]')?.closest?.('div[class~="rounded-lg"]')
+      || settingsNav?.querySelector?.('[role="searchbox"]');
+    settingsSearch?.classList.add("dream-settings-search");
+    settingsContent?.classList.add("dream-settings-content");
+    const settingsSurfaces = [...(settingsContent?.querySelectorAll?.(
+      'div[class~="flex"][class~="flex-col"][class~="overflow-hidden"][class~="rounded-2xl"]',
+    ) || [])].filter((surface) => {
+      const box = surface.getBoundingClientRect?.() || { width: 0, height: 0 };
+      return box.width >= 360 && box.height >= 44 && surface.childElementCount > 0;
+    });
+    for (const surface of settingsSurfaces) {
+      surface.classList.add("dream-settings-surface");
+      for (const row of [...(surface.children || [])].filter((candidate) => {
+        if (candidate.tagName !== "DIV") return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return box.width >= 280 && box.height >= 36;
+      })) {
+        row.classList.add("dream-settings-row");
+      }
+    }
+    for (const control of settingsContent?.querySelectorAll?.(
+      'button, input, textarea, [contenteditable="true"], [role="radiogroup"], [role="slider"]',
+    ) || []) {
+      control.classList.add("dream-settings-control");
+      if (control.matches?.('input, textarea, [contenteditable="true"]')) {
+        control.classList.add("dream-settings-input");
+      }
+      if (control.matches?.('[role="radiogroup"]')) {
+        control.classList.add("dream-settings-segment-group");
+        for (const segment of control.querySelectorAll?.('button, [role="radio"]') || []) {
+          segment.classList.add("dream-settings-segment");
+        }
+      }
+    }
+    for (const group of settingsContent?.querySelectorAll?.(
+      'div[class~="rounded-lg"]:has(> button + button), div[class~="rounded-xl"]:has(> button + button)',
+    ) || []) {
+      const box = group.getBoundingClientRect?.() || { width: 0, height: 0 };
+      if (box.width > 52 && box.width < 520 && box.height >= 24 && box.height <= 64) {
+        group.classList.add("dream-settings-segment-group");
+        for (const segment of group.querySelectorAll?.(':scope > button') || []) {
+          segment.classList.add("dream-settings-segment", "dream-settings-control");
+        }
+      }
+    }
+    const pressedGroups = new Set();
+    for (const segment of settingsContent?.querySelectorAll?.('button[aria-pressed]') || []) {
+      const group = segment.parentElement;
+      const siblings = [...(group?.children || [])].filter((candidate) => candidate.matches?.('button[aria-pressed]'));
+      if (siblings.length < 2) continue;
+      pressedGroups.add(group);
+      segment.classList.add("dream-settings-segment", "dream-settings-control");
+    }
+    for (const group of pressedGroups) group?.classList.add("dream-settings-segment-group");
+    for (const surface of settingsSurfaces) {
+      const appSelector = 'button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]';
+      if (!surface.querySelector?.(appSelector)) continue;
+      for (const row of [...(surface.children || [])].filter((candidate) => candidate.classList?.contains("dream-settings-row"))) {
+        row.classList.add("dream-settings-app-row");
+        const appMain = [...(row.children || [])].find((candidate) => candidate.matches?.(appSelector));
+        appMain?.classList.add("dream-settings-app-main");
+      }
+    }
+    for (const trigger of settingsContent?.querySelectorAll?.(
+      'button[aria-haspopup][aria-controls]',
+    ) || []) {
+      const menuId = trigger.getAttribute("aria-controls");
+      const menu = menuId ? document.getElementById(menuId) : null;
+      if (menu) menu.classList.add("dream-settings-menu");
+    }
+
+    for (const row of document.querySelectorAll('button[class*="navigation-row"]')) {
+      row.classList.add("dream-turn-nav-row");
+      row.parentElement?.classList.add("dream-turn-nav-rail");
+      const marker = row.querySelector?.('[class*="_marker_"]')
+        || row.firstElementChild?.firstElementChild
+        || row.firstElementChild;
+      marker?.classList.add("dream-turn-nav-marker");
+      marker?.classList.toggle(
+        "dream-turn-nav-marker-active",
+        marker.classList.contains("opacity-60") || marker.getAttribute("aria-current") === "true",
+      );
+    }
+    for (const previewSurface of document.querySelectorAll(
+      '[role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]',
+    )) {
+      const tooltip = previewSurface.closest?.('[role="tooltip"]');
+      tooltip?.classList.add("dream-turn-preview-tooltip");
+      previewSurface.classList.add("dream-turn-preview-surface");
+      previewSurface.querySelector?.('[class~="font-medium"]')?.classList.add("dream-turn-preview-title");
+      previewSurface.querySelector?.('[class*="_preview_"]')?.classList.add("dream-turn-preview-excerpt");
+    }
+
+    for (const candidate of document.querySelectorAll(`.${COMPOSER_UI_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...COMPOSER_UI_CLASSES);
+    }
+    const paletteScroll = [...document.querySelectorAll(
+      'div.vertical-scroll-fade-mask[class~="overflow-y-auto"]',
+    )].find((candidate) => candidate.parentElement?.matches?.(
+      'div[class~="border-token-border"][class*="bg-token-dropdown-background"][class~="relative"][class~="overflow-hidden"][class~="rounded-2xl"][class~="p-1"]',
+    ));
+    const composerPalette = paletteScroll?.parentElement || null;
+    composerPalette?.classList.add("dream-composer-palette");
+    paletteScroll?.classList.add("dream-composer-palette-scroll");
+    for (const heading of paletteScroll?.querySelectorAll?.('[class~="sticky"][class~="top-0"][class~="z-10"]') || []) {
+      heading.classList.add("dream-composer-palette-heading");
+    }
+    for (const item of paletteScroll?.querySelectorAll?.(
+      'button[class~="w-full"][class~="shrink-0"][class~="rounded-lg"][class~="text-left"]',
+    ) || []) {
+      item.classList.add("dream-composer-palette-item");
+    }
+
+    const stickyComposerArea = shellMain.querySelector?.('[class~="sticky"][class~="bottom-0"]');
+    const contextStrips = [...(stickyComposerArea?.querySelectorAll?.(
+      'div[class~="relative"][class~="min-w-0"][class~="overflow-clip"][class~="border-x"][class~="border-t"]',
+    ) || [])];
+    contextStrips.forEach((strip) => strip.classList.add("dream-composer-context-strip"));
+    const activeGoalPattern = /^(?:\u8fdb\u884c\u4e2d\u7684\u76ee\u6807|active goal)$/i;
+    const activeGoalLabel = [...(stickyComposerArea?.querySelectorAll?.("span") || [])]
+      .find((candidate) => activeGoalPattern.test((candidate.textContent || "").trim()));
+    const activeGoalStrip = activeGoalLabel?.closest?.(".dream-composer-context-strip") || null;
+    activeGoalStrip?.classList.add("dream-active-goal-strip");
+
+    const goalStepPattern = /^(?:\u7b2c\s*\d+\s*\/\s*\d+\s*\u6b65|step\s*\d+\s*\/\s*\d+)$/i;
+    const goalStepLabel = [...(stickyComposerArea?.querySelectorAll?.("span") || [])]
+      .find((candidate) => goalStepPattern.test((candidate.textContent || "").trim()));
+    const goalStepControl = goalStepLabel?.closest?.('span[class~="inline-flex"]') || goalStepLabel?.parentElement || null;
+    const goalProgressGroup = goalStepControl?.closest?.('div[class~="rounded-3xl"][class~="items-center"]') || null;
+    goalStepControl?.classList.add("dream-goal-step");
+    goalProgressGroup?.classList.add("dream-goal-progress-group");
+    const goalModePattern = /^(?:\u76ee\u6807|goal)$/i;
+    const goalModeButton = [...(document.querySelectorAll('.composer-surface-chrome button') || [])]
+      .find((button) => /\u76ee\u6807|goal/i.test(button.getAttribute("aria-label") || "")
+        || goalModePattern.test((button.textContent || "").trim()));
+    goalModeButton?.classList.add("dream-goal-mode-trigger");
+
+    /* The collaboration view is portal-like right-panel content with no
+       stable product id. Its utility-class structure is language-independent,
+       so use that for first-paint-safe classification and keep text out of the
+       selector entirely. */
+    const subagentScroller = [...document.querySelectorAll(
+      '[role="tabpanel"] > [class~="h-full"][class~="min-h-0"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]',
+    )].find((candidate) => [...candidate.querySelectorAll?.(':scope > section') || []]
+      .some((section) => section.querySelector?.(
+        ':scope > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]',
+      )));
+    const subagentPanel = subagentScroller?.parentElement?.matches?.('[role="tabpanel"]')
+      ? subagentScroller.parentElement
+      : null;
+    const subagentShell = subagentPanel?.parentElement || null;
+    const subagentToolbar = subagentPanel?.previousElementSibling?.matches?.('[class~="h-toolbar"]')
+      ? subagentPanel.previousElementSibling
+      : null;
+    const subagentFrame = subagentShell?.closest?.('[class~="border-l"][class~="bg-token-main-surface-primary"]')
+      || null;
+    subagentFrame?.classList.add("dream-subagent-frame");
+    subagentShell?.classList.add("dream-subagent-shell");
+    subagentToolbar?.classList.add("dream-subagent-toolbar");
+    subagentPanel?.classList.add("dream-subagent-panel");
+    subagentScroller?.classList.add("dream-subagent-scroller");
+    const subagentSections = [...subagentScroller?.querySelectorAll?.(':scope > section') || []];
+    subagentSections.forEach((section, sectionIndex) => {
+      const archived = section.matches?.('[class~="mt-6"]') || sectionIndex > 0;
+      section.classList.add(
+        "dream-subagent-section",
+        archived ? "dream-subagent-section-archive" : "dream-subagent-section-live",
+      );
+      const list = section.querySelector?.(':scope > [class~="relative"][class~="z-10"]');
+      list?.classList.add("dream-subagent-list");
+      for (const row of list?.querySelectorAll?.(':scope > button[class~="items-start"][class~="w-full"]') || []) {
+        row.classList.add(
+          "dream-subagent-row",
+          archived ? "dream-subagent-row-archive" : "dream-subagent-row-live",
+        );
+      }
+      for (const more of section.querySelectorAll?.(':scope > button:not([class~="items-start"])') || []) {
+        more.classList.add("dream-subagent-more");
+      }
+    });
+
+    const priorPermissionBanners = document.querySelectorAll(".dream-permission-banner");
+    for (const candidate of priorPermissionBanners) candidate.classList.remove("dream-permission-banner");
+    const permissionBanner = [...(shellMain.querySelectorAll?.("div, section, aside") || [])]
+      .filter((candidate) => {
+        const text = (candidate.textContent || "").trim();
+        if (!/Full access is on|完全访问/.test(text) || !/Hide from this session|隐藏/.test(text)) return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return box.width > 280 && box.height >= 44 && box.height < 180;
+      })
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    permissionBanner?.classList.add("dream-permission-banner");
+
+    document.querySelectorAll(`.${SYSTEM_TOAST_CLASS}`).forEach((node) => node.classList.remove(SYSTEM_TOAST_CLASS));
+    const resetToast = [...document.querySelectorAll("body div, body section, body aside")]
+      .filter((candidate) => {
+        const text = (candidate.textContent || "").trim();
+        if (!/速率限制重置机会|rate limit reset opportunity/i.test(text)) return false;
+        const action = [...candidate.querySelectorAll("button")]
+          .some((button) => /查看重置次数|view (?:reset|redemption)/i.test((button.textContent || "").trim()));
+        if (!action) return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return box.width > 320 && box.height >= 48 && box.height < 220;
+      })
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    const resetToastSurface = resetToast?.matches?.('aside[class~="rounded-2xl"]')
+      ? resetToast
+      : resetToast?.querySelector?.('aside[class~="rounded-2xl"]') || resetToast;
+    resetToastSurface?.classList.add(SYSTEM_TOAST_CLASS);
+
+    document.querySelectorAll(`.${PANEL_CLASSES.join(", .")}`).forEach((node) => {
+      node.style?.removeProperty?.("--dream-summary-safe-height");
+      node.classList.remove(...PANEL_CLASSES);
+    });
+    document.querySelectorAll(`.${INTERACTION_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...INTERACTION_CLASSES);
+    });
+
+    const terminalRoot = document.querySelector(".xterm")
+      ?.closest?.('[class*="contain:layout_paint"]')
+      || document.querySelector(".xterm")?.closest?.('[role="tabpanel"]')
+      || document.querySelector('[class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])')
+      || document.querySelector('[class*="contain:layout_paint"]:has([role="tablist"] [role="tab"])');
+    terminalRoot?.classList.add("dream-terminal-panel");
+
+    const visibleTextNodes = [...document.querySelectorAll("body *")]
+      .filter((candidate) => {
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const style = getComputedStyle(candidate);
+        return box.width > 0 && box.height > 0 && style.visibility !== "hidden" && Number(style.opacity || 1) > .05;
+      });
+    const exactVisibleTextMatches = (pattern) => visibleTextNodes
+      .filter((candidate) => pattern.test((candidate.textContent || "").trim()))
+      .sort((left, right) => left.childElementCount - right.childElementCount);
+    const exactVisibleText = (pattern) => exactVisibleTextMatches(pattern)[0];
+
+    const sideLauncher = exactVisibleText(/^(?:\u4fa7\u8fb9\u4efb\u52a1|side tasks)$/i);
+    const browserMarkers = exactVisibleTextMatches(/^(?:\u6d4f\u89c8\u5668|browser)$/i);
+    const terminalMarkers = exactVisibleTextMatches(/^(?:\u7ec8\u7aef|terminal)$/i);
+    const shellBox = shellMain.getBoundingClientRect?.() || { left: 0, width: 0 };
+    const isRightDockedSurface = (candidate) => {
+      if (!candidate || candidate === terminalRoot) return false;
+      const box = candidate.getBoundingClientRect?.() || { left: 0, width: 0, height: 0 };
+      const right = Number.isFinite(box.right) ? box.right : box.left + box.width;
+      const shellRight = Number.isFinite(shellBox.right) ? shellBox.right : shellBox.left + shellBox.width;
+      const style = getComputedStyle(candidate);
+      return box.width >= 180
+        && box.height >= 140
+        && box.left >= shellBox.left + (shellBox.width * .32)
+        && right >= shellBox.left + (shellBox.width * .72)
+        && right <= shellRight + 24
+        && style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > .05;
+    };
+    const structuralSideWorkspace = [...document.querySelectorAll(
+      '[class*="contain:layout_paint"], [class*="bg-token-main-surface-primary"]',
+    )]
+      .filter((candidate) => isRightDockedSurface(candidate)
+        && browserMarkers.some((marker) => candidate.contains?.(marker))
+        && terminalMarkers.some((marker) => candidate.contains?.(marker)))
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    const semanticSideWorkspace = sideLauncher?.closest?.('[class*="contain:layout_paint"]')
+      || sideLauncher?.closest?.('[class*="bg-token-main-surface-primary"]');
+    const sideWorkspace = structuralSideWorkspace
+      || (isRightDockedSurface(semanticSideWorkspace) ? semanticSideWorkspace : null);
+    sideWorkspace?.classList.add("dream-side-workspace");
+    ensureSideWorkspaceBrand(sideWorkspace);
+
+    const isVisiblePanel = (candidate, minimumHeight) => {
+      if (!candidate) return false;
+      const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+      const style = getComputedStyle(candidate);
+      return box.width >= 160
+        && box.height >= minimumHeight
+        && style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > .05;
+    };
+    const sideOpen = Boolean(home && isVisiblePanel(sideWorkspace, 140));
+    const bottomOpen = Boolean(home && isVisiblePanel(terminalRoot, 64));
+    const panelStateTargets = new Set([root, shellMain, home].filter(Boolean));
+    document.querySelectorAll(`.${HOME_PANEL_STATE_CLASSES.join(", .")}`).forEach((candidate) => {
+      if (!panelStateTargets.has(candidate)) candidate.classList.remove(...HOME_PANEL_STATE_CLASSES);
+    });
+    for (const target of panelStateTargets) {
+      target.classList.toggle("dream-home-side-open", sideOpen);
+      target.classList.toggle("dream-home-bottom-open", bottomOpen);
+      target.classList.toggle("dream-home-dual-panel", sideOpen && bottomOpen);
+    }
+
+    const sideChatAside = [...document.querySelectorAll("main.main-surface aside")]
+      .find((candidate) => candidate.querySelector?.(".thread-scroll-container")
+        && candidate.querySelector?.(".composer-surface-chrome"));
+    const sideChatPanel = sideChatAside?.querySelector?.(':scope > [class*="contain:layout_paint"]')
+      || sideChatAside?.querySelector?.('[class*="contain:layout_paint"]')
+      || sideChatAside?.firstElementChild;
+    sideChatPanel?.classList.add("dream-side-chat-panel");
+
+    const outputLabel = exactVisibleText(/^(?:\u8f93\u51fa|output)$/i);
+    const summaryPanel = outputLabel?.closest?.('[class*="rounded-3xl"][class*="bg-token-dropdown-background"]')
+      || outputLabel?.closest?.('[class*="bg-token-dropdown-background"]');
+    document.querySelectorAll(".dream-summary-panel").forEach((node) => {
+      if (node !== summaryPanel) {
+        node.style?.removeProperty?.("--dream-summary-safe-height");
+        node.classList.remove("dream-summary-panel");
+      }
+    });
+    summaryPanel?.classList.add("dream-summary-panel");
+
+    const selectionLabelPattern = /^(?:\u6dfb\u52a0\u5230\u4efb\u52a1|add to task|\u66f4\u591a\u8be6\u60c5|more details|\u5728\u4fa7\u8fb9\u804a\u5929\u4e2d\u63d0\u95ee|ask in sidebar chat)$/i;
+    const selectionButtons = [...new Set([...document.querySelectorAll("button, [role=button]")]
+      .filter((candidate) => {
+        if (!selectionLabelPattern.test((candidate.textContent || "").trim())) return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const style = getComputedStyle(candidate);
+        return box.width > 0 && box.height > 0 && style.visibility !== "hidden" && Number(style.opacity || 1) > .05;
+      }))];
+    for (const button of selectionButtons) button.classList.add("dream-selection-action");
+    let selectionActions = selectionButtons[0]?.parentElement || null;
+    while (selectionActions && !selectionButtons.every((button) => selectionActions.contains(button))) {
+      selectionActions = selectionActions.parentElement;
+    }
+    while (selectionActions && selectionActions !== document.body) {
+      const box = selectionActions.getBoundingClientRect?.() || { width: 0, height: 0 };
+      if (box.width >= 120 && box.width < 720 && box.height >= 24 && box.height < 104) break;
+      selectionActions = selectionActions.parentElement;
+    }
+    selectionActions?.classList.add("dream-selection-actions");
+
+    const selectedFragmentText = [...document.querySelectorAll("button, div, span")]
+      .filter((candidate) => {
+        const text = (candidate.textContent || "").trim();
+        if (!/^\d+\s*(?:\u4e2a)?\s*(?:\u5df2\u9009\u6587\u672c\u7247\u6bb5|selected text (?:fragment|snippet)s?)$/i.test(text)) return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return box.width > 40 && box.width < 360 && box.height > 16 && box.height < 72;
+      })
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    const selectedFragment = selectedFragmentText?.closest?.("button")
+      || selectedFragmentText?.closest?.('[class*="rounded"]')
+      || selectedFragmentText;
+    selectedFragment?.classList.add("dream-selected-fragment");
+
+    const optionalCommentInput = [...document.querySelectorAll('input, textarea, [contenteditable="true"]')]
+      .find((candidate) => /\u6dfb\u52a0\u53ef\u9009\u8bc4\u8bba|optional comment/i
+        .test(candidate.getAttribute?.("placeholder") || candidate.getAttribute?.("data-placeholder") || ""));
+    optionalCommentInput?.classList.add("dream-optional-comment-input");
+    let optionalComment = optionalCommentInput?.parentElement || null;
+    while (optionalComment && optionalComment !== document.body) {
+      const box = optionalComment.getBoundingClientRect?.() || { width: 0, height: 0 };
+      if (box.width >= 120 && box.width < 720 && box.height >= 32 && box.height < 104) break;
+      optionalComment = optionalComment.parentElement;
+    }
+    optionalComment?.classList.add("dream-optional-comment");
+
+    const editedTitlePattern = /^(?:\u5df2\u7f16\u8f91|edited)(?:\s+|[:\uff1a]\s*)\S/i;
+    const undoPattern = /^(?:\u64a4\u9500|undo)$/i;
+    const reviewPattern = /^(?:\u5ba1\u6838|review)$/i;
+    for (const editedHeader of document.querySelectorAll('[class*="group/turn-diff-header"]')) {
+      const editedTitle = [...editedHeader.querySelectorAll('span[class~="font-medium"][class*="text-token-foreground"]')]
+        .find((candidate) => candidate.childElementCount === 0
+          && editedTitlePattern.test((candidate.textContent || "").trim()));
+      if (!editedTitle) continue;
+
+      const directCard = editedHeader.parentElement;
+      const editedCard = directCard?.matches?.('[class*="--thread-resource-card-row-padding-x:"]')
+        ? directCard
+        : editedHeader.closest?.('[class*="rounded-lg"][class*="bg-token-dropdown-background"]');
+      const editedStats = editedCard?.querySelector?.(".turn-diff-default-subtitle");
+      if (!editedCard || !editedStats) continue;
+
+      const editedButtons = [...editedCard.querySelectorAll("button, [role=button]")];
+      const undoButton = editedButtons.find((button) => undoPattern.test((button.textContent || "").trim()));
+      const reviewButton = editedButtons.find((button) => reviewPattern.test((button.textContent || "").trim()));
+      if (!undoButton || !reviewButton) continue;
+
+      const editedIcon = editedHeader.querySelector?.('[class~="size-10"][class~="rounded-lg"]:has(> svg)');
+      let editedActions = undoButton.parentElement;
+      while (editedActions && editedActions !== editedCard && !editedActions.contains(reviewButton)) {
+        editedActions = editedActions.parentElement;
+      }
+
+      editedCard.classList.add("dream-edited-card");
+      editedHeader.classList.add("dream-edited-card-header");
+      editedIcon?.classList.add("dream-edited-card-icon");
+      editedTitle.classList.add("dream-edited-card-title");
+      editedStats?.classList.add("dream-edited-card-stats");
+      if (editedActions && editedActions !== editedCard) editedActions.classList.add("dream-edited-card-actions");
+      undoButton.classList.add("dream-edited-card-undo");
+      reviewButton.classList.add("dream-edited-card-review");
+    }
+
+    for (const candidate of document.querySelectorAll(`.${PRESET_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...PRESET_CLASSES);
+    }
+    const presetPatterns = [
+      ["dream-preset-explore", /\u63a2\u7d22\u5e76\u7406\u89e3\u4ee3\u7801|explore and understand code/i],
+      ["dream-preset-build", /\u6784\u5efa\u65b0\u529f\u80fd\u3001\u5e94\u7528\u6216\u5de5\u5177|build (?:a )?new (?:feature|app|tool)/i],
+      ["dream-preset-review", /\u5ba1\u67e5\u4ee3\u7801\u5e76\u63d0\u51fa\u4fee\u6539\u5efa\u8bae|review code/i],
+      ["dream-preset-fix", /\u4fee\u590d\u95ee\u9898\u548c\u5931\u8d25|fix (?:issues|problems|failures)/i],
+    ];
+    /* Release our own fallback visibility before measuring the native deck.
+       This happens inside one JS task, so native responsive hiding—not our
+       :has() rule—decides which deck is visible without a painted blank. */
+    const primedFallbackDeck = document.getElementById(FALLBACK_PRESETS_ID);
+    if (primedFallbackDeck) {
+      primedFallbackDeck.setAttribute("data-dream-ready", "false");
+      primedFallbackDeck.setAttribute("hidden", "");
+      primedFallbackDeck.setAttribute("aria-hidden", "true");
+    }
+    const isPresetRendered = (button) => {
+      const box = button?.getBoundingClientRect?.() || { width: 0, height: 0 };
+      const style = button ? getComputedStyle(button) : null;
+      return box.width > 0
+        && box.height > 0
+        && style?.display !== "none"
+        && style?.visibility !== "hidden"
+        && Number(style?.opacity || 1) > .05;
+    };
+    const matchedNativePresets = new Set();
+    for (const button of home?.querySelectorAll?.("button") || []) {
+      if (button.closest?.(`#${FALLBACK_PRESETS_ID}`)) continue;
+      const text = (button.textContent || "").trim();
+      const match = presetPatterns.find(([, pattern]) => pattern.test(text));
+      if (!match) continue;
+      button.classList.add("dream-codex-preset", match[0]);
+      if (isPresetRendered(button)) matchedNativePresets.add(button);
+    }
+    const structuralPresetButtons = [...(home?.querySelector?.(
+      '.group\\/home-suggestions, [data-testid*="home-suggestion"], [data-feature="home-suggestions"]',
+    )?.querySelectorAll?.("button") || [])]
+      .filter((button) => !button.closest?.(`#${FALLBACK_PRESETS_ID}`))
+      .slice(0, fallbackPresetDefinitions.length);
+    structuralPresetButtons.forEach((button, index) => {
+      button.classList.add("dream-codex-preset", fallbackPresetDefinitions[index].className);
+      if (isPresetRendered(button)) matchedNativePresets.add(button);
+    });
+    ensureFallbackPresets(home, matchedNativePresets.size);
+    if (!home) {
+      document.getElementById(FALLBACK_PRESETS_ID)?.remove();
+    }
+
+    const changedText = [...(shellMain.querySelectorAll?.("div, span") || [])]
+      .filter((candidate) => {
+        const text = (candidate.textContent || "").trim();
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return /(个文件已更改|files? changed)/i.test(text)
+          && /\+\d+/.test(text) && /-\d+/.test(text)
+          && text.length < 100 && box.width > 80 && box.width < 420 && box.height > 18 && box.height < 90;
+      })
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    const changedButton = changedText?.matches?.("button")
+      ? changedText
+      : [...(changedText?.querySelectorAll?.("button") || [])]
+        .find((button) => /(?:files? changed|\u4e2a\u6587\u4ef6\u5df2\u66f4\u6539)/i.test((button.textContent || "").trim()));
+    const changedPill = changedButton
+      || changedText?.closest?.("button")
+      || changedText?.closest?.('[class*="rounded-3xl"][class*="border"]')
+      || changedText?.parentElement;
+    const changedBarrier = changedPill?.parentElement?.closest?.(':not(button)[class*="rounded-3xl"][class*="border"]') || null;
+    const changedClipHost = changedPill?.parentElement?.closest?.(
+      ':not(button)[class~="overflow-hidden"][class~="rounded-3xl"]',
+    ) || null;
+    document.querySelectorAll(".dream-changes-pill").forEach((node) => {
+      if (node !== changedPill) node.classList.remove("dream-changes-pill");
+    });
+    document.querySelectorAll(`.${CHANGES_SHELL_CLASS}`).forEach((node) => {
+      if (node !== changedBarrier) node.classList.remove(CHANGES_SHELL_CLASS);
+    });
+    document.querySelectorAll(`.${CHANGES_CLIP_HOST_CLASS}`).forEach((node) => {
+      if (node !== changedClipHost) node.classList.remove(CHANGES_CLIP_HOST_CLASS);
+    });
+    changedPill?.classList.add("dream-changes-pill");
+    if (changedBarrier && changedBarrier !== changedPill) changedBarrier.classList.add(CHANGES_SHELL_CLASS);
+    if (changedClipHost && changedClipHost !== changedPill) changedClipHost.classList.add(CHANGES_CLIP_HOST_CLASS);
+
+    if (summaryPanel) {
+      const composerBarrier = document.querySelector(".composer-surface-chrome");
+      const barrier = changedBarrier || composerBarrier;
+      const panelBox = summaryPanel.getBoundingClientRect?.();
+      const barrierBox = barrier?.getBoundingClientRect?.();
+      if (panelBox && barrierBox && panelBox.top < barrierBox.top) {
+        const safeHeight = Math.max(128, Math.floor(barrierBox.top - panelBox.top - 12));
+        summaryPanel.style?.setProperty?.("--dream-summary-safe-height", `${safeHeight}px`);
+      }
+    }
 
     let chrome = document.getElementById(CHROME_ID);
     if (!chrome || chrome.parentElement !== document.body) {
@@ -374,6 +1329,82 @@
       chrome.id = CHROME_ID;
       chrome.setAttribute("aria-hidden", "true");
       document.body.appendChild(chrome);
+    }
+    const ornamentsIntact = chrome.dataset.dreamOrnaments === "7"
+      && (typeof chrome.querySelector !== "function"
+        || (chrome.querySelector(".dream-angel-blink") && chrome.querySelector(".dream-angel-live-ticker")));
+    if (!ornamentsIntact) {
+      chrome.innerHTML = `
+        <div class="dream-angel-stage">
+          <i class="dream-angel-frame"></i>
+          <i class="dream-angel-face-orbit"><b></b></i>
+          <div class="dream-angel-blink">
+            <svg viewBox="0 0 220 104" aria-hidden="true" focusable="false" shape-rendering="crispEdges">
+              <g class="dream-blink-frame dream-blink-half">
+                <g class="dream-blink-eye dream-blink-eye-left">
+                  <path class="dream-blink-pixel-skin" d="M23 27H47V29H55V31H59V33H63V35H67V39H69V43H71V47H73V49H69V47H63V49H57V51H47V49H39V47H33V45H29V43H25V39H21V35H19V31H17V29H21V27Z"/>
+                  <g class="dream-blink-pixel-lid">
+                    <rect x="19" y="31" width="4" height="4"/><rect x="23" y="35" width="6" height="4"/><rect x="29" y="39" width="6" height="4"/><rect x="35" y="43" width="6" height="4"/><rect x="41" y="47" width="8" height="4"/><rect x="49" y="49" width="8" height="4"/><rect x="57" y="51" width="6" height="4"/><rect x="63" y="49" width="6" height="4"/><rect x="69" y="47" width="4" height="4"/>
+                  </g>
+                </g>
+                <g class="dream-blink-eye dream-blink-eye-right">
+                  <path class="dream-blink-pixel-skin" d="M151 33H173V35H181V37H187V39H191V41H195V43H199V45H201V49H197V47H189V49H181V51H173V53H159V51H151V49H143V47H137V45H131V43H127V41H129V39H133V37H143V35H151Z"/>
+                  <g class="dream-blink-pixel-lid">
+                    <rect x="127" y="41" width="4" height="4"/><rect x="131" y="43" width="6" height="4"/><rect x="137" y="45" width="6" height="4"/><rect x="143" y="47" width="8" height="4"/><rect x="151" y="49" width="8" height="4"/><rect x="159" y="51" width="14" height="4"/><rect x="173" y="53" width="8" height="4"/><rect x="181" y="51" width="8" height="4"/><rect x="189" y="49" width="8" height="4"/><rect x="197" y="47" width="4" height="4"/>
+                  </g>
+                </g>
+              </g>
+              <g class="dream-blink-frame dream-blink-closed">
+                <g class="dream-blink-eye dream-blink-eye-left">
+                  <path class="dream-blink-pixel-skin" d="M23 27H47V29H55V31H59V33H63V35H67V39H69V43H71V47H73V61H71V67H69V71H67V75H65V79H61V81H55V79H51V75H47V71H43V67H39V63H35V59H33V55H31V51H29V47H27V43H23V39H21V35H19V31H17V29H21V27Z"/>
+                  <g class="dream-blink-pixel-lid">
+                    <rect x="19" y="39" width="4" height="4"/><rect x="23" y="43" width="6" height="4"/><rect x="29" y="47" width="6" height="4"/><rect x="35" y="51" width="6" height="4"/><rect x="41" y="55" width="8" height="4"/><rect x="49" y="59" width="8" height="4"/><rect x="57" y="61" width="6" height="4"/><rect x="63" y="59" width="6" height="4"/><rect x="69" y="55" width="4" height="4"/>
+                  </g>
+                </g>
+                <g class="dream-blink-eye dream-blink-eye-right">
+                  <path class="dream-blink-pixel-skin" d="M151 33H173V35H181V37H187V39H191V41H195V43H199V45H201V49H199V57H199V61H197V65H195V69H193V73H189V77H185V81H181V83H177V85H163V83H157V81H153V77H147V73H141V69H139V65H137V61H133V57H133V53H131V49H129V45H127V41H127V39H129V37H133V35H143V33Z"/>
+                  <g class="dream-blink-pixel-lid">
+                    <rect x="127" y="47" width="4" height="4"/><rect x="131" y="49" width="6" height="4"/><rect x="137" y="53" width="6" height="4"/><rect x="143" y="57" width="8" height="4"/><rect x="151" y="61" width="8" height="4"/><rect x="159" y="65" width="18" height="4"/><rect x="177" y="63" width="8" height="4"/><rect x="185" y="59" width="8" height="4"/><rect x="193" y="55" width="8" height="4"/>
+                  </g>
+                </g>
+              </g>
+            </svg>
+          </div>
+          <i class="dream-angel-halo"></i>
+          <div class="dream-angel-live-ticker"><b>&hearts; LIVE CHAT</b><span><i>CHOTEN ONLINE 9999+</i><i>BLESS YOUR CODE</i><i>INTERNET ANGEL FOREVER</i><i>&#25512; +1 +1 +1</i></span></div>
+          <div class="dream-angel-id-chip"><b>KANGEL.SYS</b><span>STREAM ID 01</span><i>ONLINE</i></div>
+          <div class="dream-angel-telemetry">
+            <div data-meter="love"><span>&hearts; AFFECTION</span><b><i></i></b><em>9999+</em></div>
+            <div data-meter="stress"><span>! STRESS</span><b><i></i></b><em>082</em></div>
+            <div data-meter="dark"><span>&#9673; DARK</span><b><i></i></b><em>066</em></div>
+          </div>
+          <div class="dream-angel-chat-rain">
+            <i>&hearts;</i><i>&#31070;</i><i>+1</i><i>!!!</i><i>&#25512;</i>
+          </div>
+          <i class="dream-angel-signal-wave"></i>
+          <div class="dream-angel-dose-strip"><i></i><i></i><i></i><b>+ DOSE 03</b></div>
+          <div class="dream-angel-window-stack"><i></i><i></i><b>CHAT OVERLOAD</b><em>9999+</em></div>
+          <div class="dream-angel-reaction-deck"><i>&hearts; KAWAII</i><i>&#31070; ANGEL</i><i>+1 LOVE</i></div>
+          <div class="dream-angel-heartbeat"><b>LOVE SIGNAL</b><span></span><em>98%</em></div>
+          <div class="dream-angel-now-playing"><span>&#9835; NOW PLAYING</span><b>INTERNET OVERDOSE</b><i></i></div>
+          <i class="dream-angel-spark-field"></i>
+          <div class="dream-angel-webcam-card"><i></i><b>KANGEL CAM / 01</b><em>&hearts;</em></div>
+        </div>`;
+      chrome.dataset.dreamOrnaments = "7";
+    }
+    const mainBox = shellMain.getBoundingClientRect?.();
+    const composerBox = home?.querySelector?.(".composer-surface-chrome")?.getBoundingClientRect?.();
+    if (mainBox?.width > 0 && mainBox?.height > 0) {
+      chrome.style?.setProperty?.("--dream-main-left", `${Math.round(mainBox.left)}px`);
+      chrome.style?.setProperty?.("--dream-main-top", `${Math.round(mainBox.top)}px`);
+      chrome.style?.setProperty?.("--dream-main-width", `${Math.round(mainBox.width)}px`);
+      chrome.style?.setProperty?.("--dream-main-height", `${Math.round(mainBox.height)}px`);
+      updateChotenArtGeometry(chrome, mainBox);
+      if (composerBox?.width > 0 && composerBox?.height > 0) {
+        chrome.style?.setProperty?.("--dream-composer-left", `${Math.round(composerBox.left - mainBox.left)}px`);
+        chrome.style?.setProperty?.("--dream-composer-right", `${Math.round(mainBox.right - composerBox.right)}px`);
+        chrome.style?.setProperty?.("--dream-composer-top", `${Math.round(composerBox.top - mainBox.top)}px`);
+      }
     }
     chrome.classList.toggle("dream-home-shell", Boolean(home));
   };
@@ -384,42 +1415,73 @@
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
     clearSkinDom();
     state?.observer?.disconnect();
+    state?.resizeObserver?.disconnect();
     if (state?.timer) clearInterval(state.timer);
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
+    if (state?.scheduler?.frame) window.cancelAnimationFrame?.(state.scheduler.frame);
+    if (state?.resizeHandler) window.removeEventListener("resize", state.resizeHandler);
+    state?.motionQuery?.removeEventListener?.("change", state.motionHandler);
     if (state?.artUrl) URL.revokeObjectURL(state.artUrl);
     delete window[STATE_KEY];
     return true;
   };
 
-  const scheduler = { timeout: null };
+  const scheduler = { frame: null, timeout: null };
   const scheduleEnsure = () => {
-    if (scheduler.timeout) clearTimeout(scheduler.timeout);
-    scheduler.timeout = setTimeout(() => {
+    if (scheduler.frame || scheduler.timeout) return;
+    const runEnsure = () => {
+      scheduler.frame = null;
       scheduler.timeout = null;
       ensure();
-    }, 180);
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      scheduler.frame = window.requestAnimationFrame(runEnsure);
+    } else {
+      scheduler.timeout = setTimeout(runEnsure, 0);
+    }
   };
-  observer = new MutationObserver(() => {
+  const withoutManagedClasses = (value) => String(value || "")
+    .split(/\s+/)
+    .filter((className) => className && className !== "codex-dream-skin" && !className.startsWith("dream-"))
+    .sort()
+    .join(" ");
+  const resizeHandler = () => scheduleEnsure();
+  const motionHandler = () => scheduleEnsure();
+  window.addEventListener("resize", resizeHandler, { passive: true });
+  motionQuery?.addEventListener?.("change", motionHandler);
+  if (typeof ResizeObserver === "function") {
+    resizeObserver = new ResizeObserver(() => scheduleEnsure());
+  }
+  observer = new MutationObserver((records) => {
     if (samplingNativeShell) return;
+    const hasApplicationChange = records.some((record) => {
+      if (record.type !== "attributes" || record.attributeName !== "class") return true;
+      return withoutManagedClasses(record.oldValue)
+        !== withoutManagedClasses(record.target?.getAttribute?.("class"));
+    });
+    if (!hasApplicationChange) return;
     scheduleEnsure();
   });
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
     attributes: true,
+    attributeOldValue: true,
     attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
   });
   const timer = setInterval(ensure, 5000);
   window[STATE_KEY] = {
-    ensure, cleanup, observer, timer, scheduler, artUrl, profile, config, installToken, version: "1.2.0",
+    ensure, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, motionQuery, motionHandler,
+    artUrl, profile, config, installToken, version: "1.3.4",
   };
   ensure();
   analyzeArt().then((result) => {
     const state = window[STATE_KEY];
     if (state?.installToken !== installToken || window.__CODEX_DREAM_SKIN_DISABLED__) return;
     profile = result;
+    artGeometryReady = true;
     state.profile = result;
     ensure();
   });
-  return { installed: true, version: "1.2.0", adaptive: true };
+  return { installed: true, version: "1.3.4", adaptive: true };
 })(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__)

@@ -82,14 +82,14 @@ cd macos
   --id preset-arina-hashimoto
 ```
 
-Windows 使用本地主题仓库与系统托盘，并会预置同一套「桥本有菜」。首次从仓库使用：
+Windows 使用本地主题仓库与系统托盘，并独立预置两套「超天酱 · INTERNET ANGEL」像素主题：标准 JPEG 默认版与无损 PNG Pixel Cafe 版；上游的 Gothic Void Crusade 也会保留为第三套已保存主题。首次从仓库使用：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\windows\scripts\install-dream-skin.ps1
 powershell -ExecutionPolicy Bypass -File .\windows\scripts\start-dream-skin.ps1
 ```
 
-启动后可直接从「已保存主题 → 桥本有菜」切换；不需要跨目录手动导入。托盘里的「更换背景图」仍可导入你自己的纯背景，保存后继续一键切换。
+启动后可直接从「已保存主题」切换两套超天酱预设与 Gothic Void Crusade；不需要跨目录手动导入。托盘使用专门设计的超天酱像素头像图标；其中的「更换背景图」仍可导入你自己的纯背景，保存后继续一键切换。桥本有菜预设保留在 macOS，不再作为 Windows 默认资源。
 
 > 可下载的用户源图是 [`docs/images/presets/arina-hashimoto-source.png`](./docs/images/presets/arina-hashimoto-source.png)（`1672 × 941`）；macOS 一键预设使用 [`macos/presets/preset-arina-hashimoto/background.jpg`](./macos/presets/preset-arina-hashimoto/background.jpg)（规范化派生 `2560 × 1440`）。上面两个效果图包含真实 UI，**只作预览，绝不能当背景导入**。背景为用户提供的 AI 生成示例，不代表 OpenAI/Codex 官方视觉或背书；公开再分发前请确认人物与素材权利。
 

@@ -19,12 +19,20 @@ $restoreScript = Join-Path $PSScriptRoot 'restore-dream-skin.ps1'
 $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $mutex = [System.Threading.Mutex]::new($false, "Local\CodexDreamSkin.$sid.Tray")
 $acquired = $false
+$notify = $null
+$trayIcon = $null
 try {
   try { $acquired = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $acquired = $true }
   if (-not $acquired) { exit 0 }
 
   $notify = [System.Windows.Forms.NotifyIcon]::new()
-  $notify.Icon = [System.Drawing.SystemIcons]::Application
+  $trayIconPath = Join-Path $SkillRoot 'assets\internet-angel-tray.ico'
+  if (Test-Path -LiteralPath $trayIconPath -PathType Leaf) {
+    $trayIcon = [System.Drawing.Icon]::new($trayIconPath)
+    $notify.Icon = $trayIcon
+  } else {
+    $notify.Icon = [System.Drawing.SystemIcons]::Application
+  }
   $notify.Text = 'Codex Dream Skin'
   $notify.Visible = $true
   $menu = [System.Windows.Forms.ContextMenuStrip]::new()
@@ -207,6 +215,7 @@ try {
   [System.Windows.Forms.Application]::Run()
 } finally {
   if ($null -ne $notify) { $notify.Dispose() }
+  if ($null -ne $trayIcon) { $trayIcon.Dispose() }
   if ($acquired) { try { $mutex.ReleaseMutex() } catch {} }
   $mutex.Dispose()
 }

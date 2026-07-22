@@ -286,3 +286,9 @@ try {
 } finally {
   if ($null -ne $operationLock) { Exit-DreamSkinOperationLock -Mutex $operationLock }
 }
+
+# This script launches native verification helpers.  A successful helper can
+# still leave PowerShell's process-level LASTEXITCODE stale on some hosts, so
+# make the already-verified success result explicit for callers such as the
+# managed hot-update wrapper.
+exit 0

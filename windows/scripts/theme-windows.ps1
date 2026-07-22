@@ -214,13 +214,15 @@ function Initialize-DreamSkinThemeStore {
     Assert-DreamSkinNoReparseComponents -Path $activeTheme
     Copy-Item -LiteralPath (Join-Path $assetRoot 'theme.json') -Destination $activeTheme -Force
   }
-  $retiredPresetDirectory = Join-Path $paths.Saved 'preset-romantic-rose'
-  Assert-DreamSkinNoReparseComponents -Path $retiredPresetDirectory
-  if (Test-Path -LiteralPath $retiredPresetDirectory) {
-    Remove-Item -LiteralPath $retiredPresetDirectory -Recurse -Force
+  foreach ($retiredPresetId in @('preset-romantic-rose', 'preset-arina-hashimoto')) {
+    $retiredPresetDirectory = Join-Path $paths.Saved $retiredPresetId
+    Assert-DreamSkinNoReparseComponents -Path $retiredPresetDirectory
+    if (Test-Path -LiteralPath $retiredPresetDirectory) {
+      Remove-Item -LiteralPath $retiredPresetDirectory -Recurse -Force
+    }
   }
-  # Bundled Arina Hashimoto (default active wallpaper lives under assets/).
-  $presetDirectory = Join-Path $paths.Saved 'preset-arina-hashimoto'
+  # Bundled Internet Angel JPEG (default active wallpaper lives under assets/).
+  $presetDirectory = Join-Path $paths.Saved 'preset-internet-angel-default'
   $presetTheme = Join-Path $presetDirectory 'theme.json'
   Assert-DreamSkinNoReparseComponents -Path $presetDirectory
   Assert-DreamSkinNoReparseComponents -Path $presetTheme
@@ -256,6 +258,25 @@ function Initialize-DreamSkinThemeStore {
     Assert-DreamSkinNoReparseComponents -Path $gothicTheme
     Copy-Item -LiteralPath $gothicSourceTheme -Destination $gothicTheme -Force
   }
+
+  # Bundled lossless Internet Angel Pixel Cafe variant.
+  $pixelPresetDirectory = Join-Path $paths.Saved 'preset-internet-angel'
+  $pixelPresetTheme = Join-Path $pixelPresetDirectory 'theme.json'
+  $pixelPresetSourceImage = Join-Path $assetRoot 'codex-dream-skin-pixel-cafe.png'
+  $pixelPresetSourceTheme = Join-Path $assetRoot 'theme-choten.json'
+  Assert-DreamSkinImageFile -Path $pixelPresetSourceImage
+  Assert-DreamSkinNoReparseComponents -Path $pixelPresetDirectory
+  Assert-DreamSkinNoReparseComponents -Path $pixelPresetTheme
+  if (-not (Test-Path -LiteralPath $pixelPresetTheme -PathType Leaf)) {
+    Ensure-DreamSkinManagedDirectory -Path $pixelPresetDirectory -Root $paths.Root
+    $pixelPresetImage = Join-Path $pixelPresetDirectory 'codex-dream-skin-pixel-cafe.png'
+    Assert-DreamSkinNoReparseComponents -Path $pixelPresetImage
+    Copy-Item -LiteralPath $pixelPresetSourceImage -Destination $pixelPresetImage -Force
+    Assert-DreamSkinNoReparseComponents -Path $pixelPresetImage
+    Assert-DreamSkinImageFile -Path $pixelPresetImage
+    Copy-Item -LiteralPath $pixelPresetSourceTheme -Destination $pixelPresetTheme -Force
+  }
+  $null = Read-DreamSkinTheme -ThemeDirectory $pixelPresetDirectory
   $null = Read-DreamSkinTheme -ThemeDirectory $paths.Active
   return $paths
 }

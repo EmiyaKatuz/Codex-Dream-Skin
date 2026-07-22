@@ -15,7 +15,9 @@
 - Home feature card: click one card and confirm the real composer is populated or the normal action occurs.
 - Project selector: click the real project chip under the "选择项目" label and confirm the native project menu opens.
 - Sidebar: open a real task, then return to New Task.
+- Collapsed sidebar: collapse the native left sidebar, navigate within the current task, reload the renderer, and confirm the root theme, title strip, composer, and open auxiliary panels remain skinned.
 - Task side panel: open and close the native thread panel twice, resize the window, and repeat; the toggle must remain visible and clickable.
+- Auxiliary panels: open the right workspace launcher, floating output summary, and bottom terminal both separately and together; no native olive/green surface may remain.
 - Composer: type text, verify caret/readability, then clear it without sending.
 - Reload: use CDP `Page.reload`, wait, and confirm the injection marker returns.
 - Pet overlay: open a desktop pet and confirm its auxiliary window stays transparent with no skin background or decoration layer behind it.
@@ -25,13 +27,20 @@
 - Shortcut policy: installed launch, restore, tray, and tray-child commands use `RemoteSigned` without `Bypass`; Internet-zone markers are removed only from hash-verified managed PowerShell copies.
 - Config safety: Chinese project names, LF/CRLF choice, quoted target keys, table-header comments, and unrelated TOML sections survive install/selective restore; ambiguous target shapes fail unchanged, exact recovery keeps a copy of the replaced current file, and install refuses both registered and state-recorded old Codex processes.
 - Theme safety: empty/over-16 MB images, over-16384px/50MP dimensions, path escapes, symlinks/junctions, malformed JSON, and unsupported formats are rejected before payload construction.
-- Tray lifecycle: pause/resume reflects the clicked state, bundled Arina Hashimoto theme is present on first install, and complete restore terminates any separately launched tray before it can reapply the skin.
+- Tray lifecycle: pause/resume reflects the clicked state, both bundled Internet Angel / 超天酱 saved variants are present on first install, and complete restore terminates any separately launched tray before it can reapply the skin.
+
+- Tray icon: the installed tray loads `assets/internet-angel-tray.ico`; its 16px and 32px frames remain recognizable, transparent, and distinct from the generic Windows application icon.
 
 ## Visual checks
 
 - 1280x820 initial home: the declared focus stays in frame, the text-safe side remains readable, the real project utility row and composer form one coherent surface, and no horizontal scrolling appears.
 - Narrower window: accept Codex's native responsive card reduction or omission; no essential control is covered and wallpaper cropping preserves the focus/safe-area contract.
 - Normal task: the wallpaper is visibly quieter than home, messages keep high contrast, and composer does not overlap content.
+- Panel matrix: inspect right workspace closed/open, output summary closed/open, and terminal closed/open/focused/selected, including the combined right-plus-bottom state.
+- Composer matrix: inspect empty/focused composer with 0, 1, and 5 attachments plus the changed-files pill in Chinese and English with 1-, 3-, and 5-digit counts. The optical gap between pill shadow and composer glow must remain at least 12px.
+- Viewport matrix: capture 1600x900, 1298x838, 1100x760, 900x720, 780x720, and the native 680x720 extreme. Reject horizontal overflow or clipped panel controls at every supported width.
+- Inspect the expanded and collapsed sidebar, header, wallpaper edges, native card labels when present, project utility row, composer controls, output summary, workspace launcher, terminal/xterm cursor and selection, scrollbar, dialogs, and renderer-owned menus.
+- The Windows/Electron native application popup is OS-owned and cannot be restyled by renderer CSS; verify it remains readable and that its DOM trigger receives a clear open state. Do not claim that popup as a skinned renderer asset.
 - Inspect the sidebar, header, wallpaper edges, native card labels when present, project utility row, composer controls, scrollbar, dialogs, and menus.
 - Reject black/transparent sidebar artifacts, clipped controls, duplicated/disconnected project labels, rasterized native controls, fake UI inside the wallpaper, weak contrast, or decorations intercepting clicks.
 

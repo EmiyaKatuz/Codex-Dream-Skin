@@ -645,20 +645,33 @@ try {
     throw 'Theme-store migration did not retire the old preset ID while preserving custom themes.'
   }
   $initialTheme = Read-DreamSkinTheme -ThemeDirectory $themePaths.Active
-  if ($initialTheme.Theme.id -cne 'preset-arina-hashimoto' -or
-    $initialTheme.Theme.name -cne '桥本有菜' -or
+  if ($initialTheme.Theme.id -cne 'preset-internet-angel-default' -or
+    $initialTheme.Theme.name -cne '超天酱 · INTERNET ANGEL' -or
     $initialTheme.Theme.appearance -cne 'auto' -or
     $initialTheme.Theme.art.safeArea -cne 'left' -or
     $initialTheme.Theme.art.taskMode -cne 'ambient' -or
     [System.IO.Path]::GetExtension($initialTheme.ImagePath) -cne '.jpg') {
-    throw 'Default Windows theme did not seed the Arina Hashimoto wallpaper contract.'
+    throw 'Default Windows theme did not seed the Internet Angel wallpaper contract.'
   }
   $preseededThemes = @(Get-DreamSkinSavedThemes -StateRoot $themeStateRoot)
-  $preseededIds = @($preseededThemes | ForEach-Object { $_.Id })
-  if ($preseededThemes.Count -lt 2 -or
-    $preseededIds -notcontains 'preset-arina-hashimoto' -or
+  $preseededIds = @($preseededThemes | ForEach-Object { $_.Id } | Sort-Object)
+  if ($preseededThemes.Count -ne 3 -or
+    $preseededIds -notcontains 'preset-internet-angel' -or
+    $preseededIds -notcontains 'preset-internet-angel-default' -or
     $preseededIds -notcontains 'preset-gothic-void-crusade') {
-    throw 'Windows did not preseed both Arina Hashimoto and Gothic Void Crusade.'
+    throw 'Windows did not preseed both Internet Angel variants and Gothic Void Crusade.'
+  }
+  $internetAngelDefault = $preseededThemes | Where-Object {
+    $_.Id -ceq 'preset-internet-angel-default'
+  } | Select-Object -First 1
+  $internetAngelPixel = $preseededThemes | Where-Object {
+    $_.Id -ceq 'preset-internet-angel'
+  } | Select-Object -First 1
+  if ($null -eq $internetAngelDefault -or
+    $internetAngelDefault.Name -cne '超天酱 · INTERNET ANGEL' -or
+    $null -eq $internetAngelPixel -or
+    $internetAngelPixel.Name -cne '超天酱 · INTERNET ANGEL · Pixel Cafe') {
+    throw 'Both Internet Angel wallpaper variants were not preseeded with distinct display names.'
   }
   $gothicSeed = $preseededThemes | Where-Object { $_.Id -ceq 'preset-gothic-void-crusade' } | Select-Object -First 1
   if ($null -eq $gothicSeed -or $gothicSeed.Name -cne 'Gothic Void Crusade') {
@@ -676,11 +689,11 @@ try {
   $null = Initialize-DreamSkinThemeStore -SkillRoot $Root -StateRoot $themeStateRoot
   $idempotentTheme = Read-DreamSkinTheme -ThemeDirectory $themePaths.Active
   $afterReinitCount = @(Get-DreamSkinSavedThemes -StateRoot $themeStateRoot).Count
-  if ($idempotentTheme.Theme.id -cne 'custom' -or $afterReinitCount -ne 2) {
+  if ($idempotentTheme.Theme.id -cne 'custom' -or $afterReinitCount -ne 3) {
     throw 'Theme-store initialization overwrote the active custom theme or duplicated its bundled presets.'
   }
   $savedTheme = Save-DreamSkinCurrentTheme -Name '已保存主题' -StateRoot $themeStateRoot
-  if ($savedTheme.Theme.name -cne '已保存主题' -or @(Get-DreamSkinSavedThemes -StateRoot $themeStateRoot).Count -ne 3) {
+  if ($savedTheme.Theme.name -cne '已保存主题' -or @(Get-DreamSkinSavedThemes -StateRoot $themeStateRoot).Count -ne 4) {
     throw 'Saved theme creation or discovery failed.'
   }
   $null = Use-DreamSkinSavedTheme -ThemeDirectory $savedTheme.Directory -StateRoot $themeStateRoot
@@ -755,14 +768,23 @@ try {
     '--dream-immersive-composer',
     'background-position: var(--dream-art-position)',
     '.dream-home-utility',
+    '.dream-terminal-panel',
+    '.dream-side-workspace',
+    '.dream-summary-panel',
+    '.xterm-selection-layer',
     ':has(.dream-home-utility) .composer-surface-chrome',
     ':is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell))'
   )) {
     if (-not $css.Contains($requiredCss)) { throw "Windows immersive CSS is missing: $requiredCss" }
   }
   $traySource = Read-DreamSkinUtf8File -Path (Join-Path $Root 'scripts\tray-dream-skin.ps1')
-  foreach ($requiredTrayAction in @('System.Windows.Forms.NotifyIcon', '暂停皮肤', '继续显示皮肤', '更换背景图', '已保存主题', '完全恢复 Codex')) {
+  foreach ($requiredTrayAction in @('System.Windows.Forms.NotifyIcon', 'internet-angel-tray.ico', '暂停皮肤', '继续显示皮肤', '更换背景图', '已保存主题', '完全恢复 Codex')) {
     if (-not $traySource.Contains($requiredTrayAction)) { throw "Tray action is missing: $requiredTrayAction" }
+  }
+  foreach ($trayAsset in @('assets\internet-angel-tray.png', 'assets\internet-angel-tray.ico')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $Root $trayAsset) -PathType Leaf)) {
+      throw "Internet Angel tray asset is missing: $trayAsset"
+    }
   }
   if (-not $traySource.Contains('Invoke-DreamSkinLiveRemove') -or
     -not $traySource.Contains("Set-DreamSkinPaused -Paused `$true") -or
@@ -919,6 +941,9 @@ try {
   $rendererTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'renderer-inject.test.mjs'))
   if ($rendererTest.ExitCode -ne 0) { throw 'Renderer auxiliary-window regression test failed.' }
+  $homeResponsiveTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+    (Join-Path $PSScriptRoot 'home-responsive-css.test.mjs'))
+  if ($homeResponsiveTest.ExitCode -ne 0) { throw 'Fullscreen Home responsive-layout regression test failed.' }
   $bootstrapTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'injector-bootstrap.test.mjs'))
   if ($bootstrapTest.ExitCode -ne 0) { throw 'Injector early-bootstrap regression test failed.' }

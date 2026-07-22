@@ -13,7 +13,7 @@ function createFixture() {
   const observers = [];
   const timers = new Map();
   let nextTimer = 1;
-  const markers = { shell: false, sidebar: false };
+  const markers = { shell: false, header: false, sidebar: false };
   const context = {
     window: { installs: [] },
     document: {
@@ -21,6 +21,7 @@ function createFixture() {
       body: {},
       querySelector(selector) {
         if (selector === "main.main-surface") return markers.shell ? {} : null;
+        if (selector === "main.main-surface > header.app-header-tint") return markers.header ? {} : null;
         if (selector === "aside.app-shell-left-panel") return markers.sidebar ? {} : null;
         return null;
       },
@@ -49,16 +50,16 @@ vm.runInNewContext(earlyPayloadFor('window.installs.push("guarded")', "guarded")
 assert.deepEqual(guarded.context.window.installs, [], "Auxiliary app targets must remain untouched.");
 guarded.markers.shell = true;
 guarded.observers[0].callback([]);
-assert.deepEqual(guarded.context.window.installs, [], "A main surface without the Codex sidebar is not sufficient.");
-guarded.markers.sidebar = true;
+assert.deepEqual(guarded.context.window.installs, [], "A main surface without the native app header is not sufficient.");
+guarded.markers.header = true;
 guarded.observers[0].callback([]);
-assert.deepEqual(guarded.context.window.installs, ["guarded"], "The guarded payload should install once the shell is complete.");
+assert.deepEqual(guarded.context.window.installs, ["guarded"], "The guarded payload should support the verified shell while its sidebar is collapsed.");
 
 const generations = createFixture();
 vm.runInNewContext(earlyPayloadFor('window.installs.push("old")', "old"), generations.context);
 vm.runInNewContext(earlyPayloadFor('window.installs.push("new")', "new"), generations.context);
 generations.markers.shell = true;
-generations.markers.sidebar = true;
+generations.markers.header = true;
 for (const observer of generations.observers) observer.callback([]);
 assert.deepEqual(
   generations.context.window.installs,
@@ -72,11 +73,17 @@ const evaluateStart = source.indexOf("await session.evaluate(earlyPayloadFor", r
 const probeStart = source.indexOf("const probe = await waitForCodexProbe", registrationStart);
 assert.ok(registrationStart >= 0 && evaluateStart > registrationStart && probeStart > evaluateStart,
   "New targets must register and run the early payload before full shell probing.");
-assert.match(source, /if \(earlyInjectionFallback\) attachLoadFallback\(/,
-  "Load-event reinjection must be attached only when early injection falls back.");
-assert.match(source, /if \(!fallbackTargets\.get\(id\)\) return;/,
-  "Fallback listeners must stay inert after a successful early registration.");
+assert.match(source, /fallbackTargets\.set\(target\.id, earlyInjectionFallback\);\s*attachLoadFallback\(/,
+  "Every verified renderer must retain a load-event reinjection safety net.");
+assert.match(source, /if \(!fallbackTargets\.has\(id\)\) return;/,
+  "Load listeners must remain active while their renderer target is managed.");
 assert.match(source, /Page\.removeScriptToEvaluateOnNewDocument/,
   "Watcher shutdown and theme refresh must unregister persistent Page scripts.");
+assert.match(source, /markers\.shell && markers\.header && \(markers\.composer \|\| markers\.main\)/,
+  "Collapsed-sidebar renderers must remain valid only when the native header identifies the main app shell.");
+assert.match(source, /Boolean\(result\.composer\) && Boolean\(result\.header\)/,
+  "Post-install verification must not reject a renderer solely because its left sidebar is collapsed.");
+assert.doesNotMatch(source, /markers\.shell && markers\.sidebar|Boolean\(result\.composer\) && Boolean\(result\.sidebar\)/,
+  "Sidebar presence must remain diagnostic-only throughout renderer detection and verification.");
 
-console.log("PASS: Windows early injection is shell-guarded, generation-safe, ordered before probing, and fallback-scoped.");
+console.log("PASS: Windows early injection is shell-guarded, generation-safe, ordered before probing, and reload-resilient.");

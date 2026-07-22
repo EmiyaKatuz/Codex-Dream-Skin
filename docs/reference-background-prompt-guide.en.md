@@ -8,7 +8,7 @@ Chinese guide: [`reference-background-prompt-guide.md`](./reference-background-p
 
 ## Current Tested Feature: Arina Hashimoto
 
-- **Switchable theme:** `macos/presets/preset-arina-hashimoto/`; Windows seeds from `windows/assets/theme.json` plus the byte-identical `windows/assets/dream-reference.jpg`. Both installers seed Arina Hashimoto.
+- **Switchable theme:** macOS retains `macos/presets/preset-arina-hashimoto/`; Windows independently seeds two Internet Angel / Choten-chan variants: `windows/assets/theme.json` plus `dream-reference.jpg`, and `theme-choten.json` plus `codex-dream-skin-pixel-cafe.png`.
 - **User-supplied pure source:** `docs/images/presets/arina-hashimoto-source.png` (`1672 × 941`). The preset's `2560 × 1440` JPEG is a standardized release derivative and does not create additional source detail.
 - **Real runtime results:** `arina-hashimoto-light.jpg` and `arina-hashimoto-dark.jpg` are light/dark screenshots for preview only. They are not importable wallpapers.
 - **Relationship to earlier examples:** this is the current tested preset, not `docs/images/gallery/skin-01.jpg` and not one of the skin-01–08 concept mockups. skin-01 contributes only a related pink-rose direction and UI-copy reference.
@@ -21,7 +21,7 @@ The “effect” shown in a README is not automatically an importable wallpaper.
 
 | Type | Repository path | What it is | A complete theme? |
 |---|---|---|---|
-| **Current featured preset** | `macos/presets/preset-arina-hashimoto/`; Windows seeds from `windows/assets/theme.json` plus the byte-identical `dream-reference.jpg` | A cross-platform theme pack containing a UI-free wallpaper; both installers seed Arina Hashimoto | **Yes** |
+| **Current featured preset** | macOS: `macos/presets/preset-arina-hashimoto/`; Windows: `windows/assets/theme.json` + `dream-reference.jpg`, and `theme-choten.json` + `codex-dream-skin-pixel-cafe.png` | Platform-specific UI-free wallpapers; Windows seeds both Internet Angel / Choten-chan pixel variants | **Yes** |
 | **Pure source art** | `docs/images/presets/arina-hashimoto-source.png` | User-supplied source wallpaper around `1672 × 941`; no `theme.json` | **No**; it can be selected as an image, but is not a complete pack |
 | **Real injected previews** | `docs/images/presets/arina-hashimoto-light.jpg`, `arina-hashimoto-dark.jpg` | Light/dark Codex screenshots containing real controls | **No** |
 | **Concept gallery** | `docs/images/gallery/skin-01.jpg`–`skin-08.jpg` | UI effect mockups used only to communicate visual directions | **No** |

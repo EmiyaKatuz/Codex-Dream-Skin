@@ -128,6 +128,8 @@ function Install-DreamSkinRuntimeEngine {
   $required = @(
     'assets\dream-reference.jpg',
     'assets\dream-skin.css',
+    'assets\internet-angel-tray.ico',
+    'assets\internet-angel-tray.png',
     'assets\renderer-inject.js',
     'assets\theme.json',
     'presets\preset-gothic-void-crusade\background.jpg',

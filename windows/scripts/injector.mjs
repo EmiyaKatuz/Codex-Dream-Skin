@@ -7,7 +7,7 @@ import { readImageMetadata } from "./image-metadata.mjs";
 const scriptPath = fileURLToPath(import.meta.url);
 const here = path.dirname(scriptPath);
 const root = path.resolve(here, "..");
-const SKIN_VERSION = "1.2.0";
+const SKIN_VERSION = "1.3.4";
 const MAX_ART_BYTES = 16 * 1024 * 1024;
 const STRONG_THEME_AUDIT_MS = 30000;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
@@ -550,12 +550,13 @@ async function probeSession(session) {
     const markers = {
       shell: Boolean(document.querySelector('main.main-surface')),
       sidebar: Boolean(document.querySelector('aside.app-shell-left-panel')),
+      header: Boolean(document.querySelector('main.main-surface > header.app-header-tint')),
       composer: Boolean(document.querySelector('.composer-surface-chrome')),
       main: Boolean(document.querySelector('[role="main"]')),
     };
     return {
       markers,
-      codex: location.protocol === 'app:' && markers.shell && markers.sidebar && (markers.composer || markers.main),
+      codex: location.protocol === 'app:' && markers.shell && markers.header && (markers.composer || markers.main),
     };
   })()`);
 }
@@ -632,8 +633,8 @@ export function earlyPayloadFor(payload, revision) {
       const root = document.documentElement;
       if (!root || !document.body) return false;
       const shell = document.querySelector('main.main-surface');
-      const sidebar = document.querySelector('aside.app-shell-left-panel');
-      if (!shell || !sidebar) return false;
+      const header = document.querySelector('main.main-surface > header.app-header-tint');
+      if (!shell || !header) return false;
       stop();
       ${payload};
       window[appliedKey] = generation;
@@ -892,6 +893,7 @@ async function verifySession(session) {
       cards,
       composer: box(document.querySelector('.composer-surface-chrome')),
       sidebar: box(document.querySelector('aside.app-shell-left-panel')),
+      header: box(document.querySelector('main.main-surface > header.app-header-tint')),
       viewport: { width: innerWidth, height: innerHeight },
       documentOverflow: {
         x: document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -900,7 +902,7 @@ async function verifySession(session) {
     };
     result.pass = result.installed && result.version === result.expectedVersion &&
       result.stylePresent && result.chromePresent &&
-      result.chromePointerEvents === 'none' && Boolean(result.composer) && Boolean(result.sidebar) &&
+      result.chromePointerEvents === 'none' && Boolean(result.composer) && Boolean(result.header) &&
       (!result.homePresent || (Boolean(result.hero) &&
         (!result.suggestionsPresent || (result.cards.length >= 2 && result.cards.length <= 4))));
     return result;
@@ -1115,7 +1117,7 @@ async function runWatch(options) {
     fallbackListeners.add(id);
     let lastReinjectErrorLogAt = 0;
     session.on("Page.loadEventFired", () => {
-      if (!fallbackTargets.get(id)) return;
+      if (!fallbackTargets.has(id)) return;
       setTimeout(() => {
         const operation = paused ? removeFromSession(session) : applyToSession(session, loadedPayload.payload);
         operation.catch((error) => {
@@ -1282,7 +1284,7 @@ async function runWatch(options) {
             continue;
           }
           fallbackTargets.set(target.id, earlyInjectionFallback);
-          if (earlyInjectionFallback) attachLoadFallback(target.id, target, session);
+          attachLoadFallback(target.id, target, session);
           if (identityAnchor.closed) throw new CdpIdentityMismatchError("Original CDP browser identity closed");
           let earlyApplied = false;
           if (!paused && !earlyInjectionFallback) {

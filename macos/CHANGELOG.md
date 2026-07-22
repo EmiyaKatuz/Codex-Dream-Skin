@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.4 — 2026-07-22
 
 ### 改进
 
