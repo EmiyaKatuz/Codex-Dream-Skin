@@ -1,7 +1,7 @@
-# Codex Dream Skin · 超天酱主题
+# Codex Dream Skin · 超天酱动态主题
 
 <p align="center">
-  <strong>为 Codex Desktop 制作的超天酱 / INTERNET ANGEL 沉浸式主题。</strong><br>
+  <strong>为 Codex Desktop 制作的超天酱 / INTERNET ANGEL 沉浸式动态主题。</strong><br>
   原生控件换肤 · 动态像素装饰 · 本地主题管理 · 不修改官方安装包
 </p>
 
