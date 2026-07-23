@@ -2,6 +2,8 @@
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
   const STYLE_REVISION = "8";
+  const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
+  const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
   const CHROME_ID = "codex-dream-skin-chrome";
   const FALLBACK_PRESETS_ID = "codex-dream-skin-presets";
   const SIDEBAR_CHROME_ID = "codex-dream-sidebar-ornaments";
@@ -405,6 +407,7 @@
       }
     }
     resizeTargets.clear();
+    root?.removeAttribute("data-dream-skin");
     root?.classList.remove(...ROOT_CLASSES);
     root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
     root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
@@ -719,6 +722,7 @@
       return;
     }
 
+    root.setAttribute("data-dream-skin", "active");
     root.classList.add("codex-dream-skin");
     applyProfile(root);
 
@@ -732,6 +736,8 @@
       style.textContent = cssText;
       style.dataset.dreamVersion = STYLE_REVISION;
     }
+    const activeState = window[STATE_KEY];
+    if (activeState?.installToken === installToken) activeState.styleNode = style;
 
     const routeMains = [...document.querySelectorAll('[role="main"]')];
     if (!routeMains.length) routeMains.push(shellMain);
@@ -1541,11 +1547,18 @@
     attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
   });
   const timer = setInterval(runEnsureSafely, 5000);
-  window[STATE_KEY] = {
+  const runtimeState = {
     ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, motionQuery, motionHandler,
-    artUrl, profile, config, installToken, version: "1.3.5",
+    artUrl, profile, config, installToken, version: SKIN_VERSION,
+    themeId: config.themeId,
+    revision: PAYLOAD_REVISION,
+    styleMode: "style",
+    styleNode: null,
+    scope: { level: "L1", baseState: "fork-windows" },
   };
+  window[STATE_KEY] = runtimeState;
   runEnsureSafely();
+  runtimeState.styleNode = document.getElementById(STYLE_ID);
   analyzeArt().then((result) => {
     const state = window[STATE_KEY];
     if (state?.installToken !== installToken || window.__CODEX_DREAM_SKIN_DISABLED__) return;
@@ -1554,5 +1567,5 @@
     state.profile = result;
     runEnsureSafely();
   });
-  return { installed: true, version: "1.3.5", adaptive: true };
+  return { installed: true, version: SKIN_VERSION, revision: PAYLOAD_REVISION, adaptive: true };
 })(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__)

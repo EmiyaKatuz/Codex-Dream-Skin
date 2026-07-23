@@ -2,7 +2,7 @@
 
 > 本地归档说明。面向维护者，不是用户安装手册。  
 > 仓库首页：[`../README.md`](../README.md)（中文）· [`../README.en.md`](../README.en.md)（English）  
-> GitHub：https://github.com/Fei-Away/Codex-Dream-Skin
+> GitHub：https://github.com/EmiyaKatuz/Codex-Dream-Skin
 
 ---
 
@@ -82,7 +82,7 @@ Windows 状态目录见 `platforms.md`（`%LOCALAPPDATA%\CodexDreamSkin`）。
 
 ## 5. Git / 移动目录说明
 
-- **远程**：`origin` → `https://github.com/Fei-Away/Codex-Dream-Skin.git`
+- **远程**：`origin` → `https://github.com/EmiyaKatuz/Codex-Dream-Skin.git`
 - **分支**：`main`
 - **整夹移动本地路径**（例如从 `中转站/New-api` 挪到 `Personal_Developer`）：
   - **不影响** `.git` 历史、commit、remote

@@ -1,6 +1,6 @@
 # 宣传文案（可直接发）
 
-仓库：https://github.com/Fei-Away/Codex-Dream-Skin
+仓库：https://github.com/EmiyaKatuz/Codex-Dream-Skin
 
 ---
 
@@ -14,7 +14,7 @@ Codex 也能「换皮肤」了。
 本机注入，不改官方安装包，还能一键恢复。
 
 开源地址：  
-https://github.com/Fei-Away/Codex-Dream-Skin
+https://github.com/EmiyaKatuz/Codex-Dream-Skin
 
 感谢 Passion8 赞助：https://passion8.cc/register?aff=TuPe
 
@@ -38,7 +38,7 @@ https://github.com/Fei-Away/Codex-Dream-Skin
 你看到的热巴紫夜、千玺清透、Miku 蓝粉、KUN 黑金、ENFP 小宇宙……都是同一套能力换图 + 换色的结果。
 
 开源仓库（含效果图与安装脚本）：  
-https://github.com/Fei-Away/Codex-Dream-Skin
+https://github.com/EmiyaKatuz/Codex-Dream-Skin
 
 想稳定接模型的话，可以走赞助方 Passion8（与换肤分开配置）：  
 https://passion8.cc/register?aff=TuPe
@@ -54,7 +54,7 @@ https://passion8.cc/register?aff=TuPe
 - Mac / Windows 脚本都在仓库里  
 - 效果图直接看 README Gallery  
 
-👉 https://github.com/Fei-Away/Codex-Dream-Skin
+👉 https://github.com/EmiyaKatuz/Codex-Dream-Skin
 
 ---
 

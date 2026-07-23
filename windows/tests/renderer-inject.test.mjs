@@ -11,7 +11,9 @@ const css = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css")
 const buildPayload = (config = {}) => template
   .replace("__DREAM_CSS_JSON__", JSON.stringify(".fixture { color: blue; }"))
   .replace("__DREAM_ART_JSON__", JSON.stringify("data:image/png;base64,AA=="))
-  .replace("__DREAM_THEME_JSON__", JSON.stringify(config));
+  .replace("__DREAM_THEME_JSON__", JSON.stringify(config))
+  .replace("__DREAM_SKIN_VERSION_JSON__", JSON.stringify("1.3.5"))
+  .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify("test-revision"));
 const payload = buildPayload();
 
 assert.match(template, /速率限制重置机会\|rate limit reset opportunity/i,
@@ -489,6 +491,7 @@ function createFixture({
   const nodes = new Map();
   const rootClasses = new Set(staleSkin ? ["codex-dream-skin"] : []);
   const rootStyles = new Map(staleSkin ? [["--dream-art", "url(\"blob:stale\")"]] : []);
+  const rootAttributes = new Map();
   const revokedUrls = [];
   const observers = [];
   let objectUrlCount = 0;
@@ -531,7 +534,9 @@ function createFixture({
   root = {
     className: shellAppearance,
     classList: makeClassList(rootClasses, queueRootClassMutation),
-    getAttribute() { return null; },
+    getAttribute(name) { return rootAttributes.get(name) ?? null; },
+    setAttribute(name, value) { rootAttributes.set(name, String(value)); },
+    removeAttribute(name) { rootAttributes.delete(name); },
     style: {
       setProperty(key, value) { rootStyles.set(key, value); },
       removeProperty(key) { rootStyles.delete(key); },
@@ -717,6 +722,7 @@ function createFixture({
     nodes,
     observers,
     rootClasses,
+    rootAttributes,
     rootStyles,
     revokedUrls,
     routeClasses,
@@ -739,6 +745,8 @@ assert.equal(main.rootClasses.has("codex-dream-skin"), true);
 assert.equal(main.rootStyles.get("--dream-art"), 'url("blob:fixture-1")');
 assert.equal(main.nodes.has("codex-dream-skin-style"), true);
 assert.equal(main.nodes.has("codex-dream-skin-chrome"), true);
+assert.equal(main.context.window.__CODEX_DREAM_SKIN_STATE__.styleNode,
+  main.nodes.get("codex-dream-skin-style"));
 assert.equal(main.rootClasses.has("dream-theme-dark"), true);
 assert.equal(main.rootClasses.has("dream-art-standard"), true);
 assert.equal(main.rootClasses.has("dream-task-ambient"), true);

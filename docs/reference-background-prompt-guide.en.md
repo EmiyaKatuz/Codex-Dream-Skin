@@ -6,7 +6,7 @@ Chinese guide: [`reference-background-prompt-guide.md`](./reference-background-p
 
 > Public prompts default to an original fictional adult. They do not name or imitate a celebrity, private individual, copyrighted character, or living artist's signature style. Use an authorized identity reference only when you hold the necessary likeness and asset rights. Generated artwork is not an official OpenAI/Codex visual or endorsement.
 
-## Current Tested Feature: Arina Hashimoto
+## Source-Only Reference: Arina Hashimoto (Excluded From Public Packages)
 
 - **Switchable theme:** macOS retains `macos/presets/preset-arina-hashimoto/`; Windows independently seeds two Internet Angel / Choten-chan variants: `windows/assets/theme.json` plus `dream-reference.jpg`, and `theme-choten.json` plus `codex-dream-skin-pixel-cafe.png`.
 - **User-supplied pure source:** `docs/images/presets/arina-hashimoto-source.png` (`1672 × 941`). The preset's `2560 × 1440` JPEG is a standardized release derivative and does not create additional source detail.
@@ -29,7 +29,7 @@ The “effect” shown in a README is not automatically an importable wallpaper.
 
 `docs/images/hero-banner-red-white.png` and `macos/assets/portal-hero.png` are legacy 3:1 banner assets, not the current 16:9 universal-theme master. Do not substitute either for `preset-*/background.jpg` unless the output is intentionally homepage-banner-only.
 
-Rule of thumb: **switch themes from `macos/presets/preset-*`; generate from this guide; study directions in `docs/images/gallery/`; inspect runtime results in `docs/images/presets/*-light.jpg` / `*-dark.jpg`.** A `theme.json` and a `background.jpg` in the same `preset-*` directory form a seedable theme; `docs/images/` is documentation/archive space, not a mirror of the theme library.
+Rule of thumb: **public installers default to Gothic Void Crusade; use the source-only reference preset locally only after a rights review.** Generate from this guide; study directions in `docs/images/gallery/`; inspect runtime results in `docs/images/presets/*-light.jpg` / `*-dark.jpg`. A `theme.json` and a `background.jpg` in the same `preset-*` directory form a seedable theme; `docs/images/` is documentation/archive space, not a mirror of the theme library.
 
 Path classification is not a likeness or redistribution license. The current `preset-arina-hashimoto` contains user-provided human/AI portrait material included at the maintainer's direction. Public repository inclusion neither grants nor proves likeness, generation, commercial-use, or further-redistribution rights; see `macos/NOTICE.md` for the file-level boundary.
 

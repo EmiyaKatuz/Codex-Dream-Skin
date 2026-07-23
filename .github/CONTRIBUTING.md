@@ -9,7 +9,7 @@
 ## 开始之前
 
 1. 阅读[项目 README](../README.md)和[平台对照](../docs/platforms.md)。macOS 的使用说明在 [`macos/README.md`](../macos/README.md)，Windows 的实现约束在 [`windows/SKILL.md`](../windows/SKILL.md)。
-2. 搜索[现有 Issue](https://github.com/Fei-Away/Codex-Dream-Skin/issues)和[开放 PR](https://github.com/Fei-Away/Codex-Dream-Skin/pulls)。相同文件已有活跃改动时，优先补充原讨论，或把新方案拆成不重叠的小改动。
+2. 搜索[现有 Issue](https://github.com/EmiyaKatuz/Codex-Dream-Skin/issues)和[开放 PR](https://github.com/EmiyaKatuz/Codex-Dream-Skin/pulls)。相同文件已有活跃改动时，优先补充原讨论，或把新方案拆成不重叠的小改动。
 3. 从最新的上游 `main` 创建分支。一个 PR 只解决一个问题，不要把新主题、运行时修复和无关整理混在一起。
 
 ## 提交 Issue
@@ -50,7 +50,7 @@ macos/scripts/doctor-macos.sh
 运行 Windows 回归测试：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\tests\run-tests.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\tests\run-tests.ps1
 ```
 
 改动安装、启动、注入或恢复流程时，请运行对应脚本和 `windows/scripts/verify-dream-skin.ps1`，并在 PR 中注明 Windows 版本与 Codex 来源。

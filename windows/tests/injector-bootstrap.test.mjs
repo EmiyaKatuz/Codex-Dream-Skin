@@ -10,30 +10,39 @@ const injectorPath = path.resolve(here, "../scripts/injector.mjs");
 const source = await fs.readFile(injectorPath, "utf8");
 
 function createFixture() {
-  const observers = [];
+  const domReady = [];
   const timers = new Map();
+  const intervals = new Map();
   let nextTimer = 1;
-  const markers = { shell: false, header: false, sidebar: false };
+  let nextInterval = 1;
+  const markers = {
+    shell: false,
+    sidebar: false,
+    header: false,
+    composer: false,
+    main: false,
+    settings: false,
+  };
+  let root = {};
+  let body = {};
   const context = {
     window: { installs: [] },
+    location: { protocol: "app:" },
     document: {
-      documentElement: {},
-      body: {},
+      get documentElement() { return root; },
+      get body() { return body; },
+      addEventListener(type, callback) { if (type === "DOMContentLoaded") domReady.push(callback); },
       querySelector(selector) {
         if (selector === "main.main-surface") return markers.shell ? {} : null;
-        if (selector === "main.main-surface > header.app-header-tint") return markers.header ? {} : null;
+        if (selector === "header.app-header-tint") return markers.header ? {} : null;
         if (selector === "aside.app-shell-left-panel") return markers.sidebar ? {} : null;
+        if (selector === ".composer-surface-chrome") return markers.composer ? {} : null;
+        if (selector.includes("[role=\"main\"]")) return markers.main ? {} : null;
+        if (selector.includes("appearance-theme") || selector.includes("theme-preview")) {
+          return markers.settings ? {} : null;
+        }
         return null;
       },
-    },
-    MutationObserver: class {
-      constructor(callback) {
-        this.callback = callback;
-        this.connected = true;
-        observers.push(this);
-      }
-      observe() {}
-      disconnect() { this.connected = false; }
     },
     setTimeout(callback) {
       const id = nextTimer++;
@@ -41,26 +50,47 @@ function createFixture() {
       return id;
     },
     clearTimeout(id) { timers.delete(id); },
+    setInterval(callback) {
+      const id = nextInterval++;
+      intervals.set(id, callback);
+      return id;
+    },
+    clearInterval(id) { intervals.delete(id); },
   };
-  return { context, markers, observers };
+  return {
+    context,
+    markers,
+    makeNotReady() { root = null; body = null; },
+    makeReady() { root = {}; body = {}; },
+    fireDomReady() { for (const callback of [...domReady]) callback(); },
+    tick() { for (const callback of [...intervals.values()]) callback(); },
+    observers: [],
+  };
 }
 
 const guarded = createFixture();
 vm.runInNewContext(earlyPayloadFor('window.installs.push("guarded")', "guarded"), guarded.context);
 assert.deepEqual(guarded.context.window.installs, [], "Auxiliary app targets must remain untouched.");
+assert.equal(guarded.observers.length, 0, "Early bootstrap must not install a broad MutationObserver.");
 guarded.markers.shell = true;
-guarded.observers[0].callback([]);
-assert.deepEqual(guarded.context.window.installs, [], "A main surface without the native app header is not sufficient.");
+guarded.tick();
+assert.deepEqual(guarded.context.window.installs, [], "A bare shell is not sufficient for identity.");
 guarded.markers.header = true;
-guarded.observers[0].callback([]);
-assert.deepEqual(guarded.context.window.installs, ["guarded"], "The guarded payload should support the verified shell while its sidebar is collapsed.");
+guarded.tick();
+assert.deepEqual(guarded.context.window.installs, [], "A header without a composer or sidebar is not sufficient.");
+guarded.markers.composer = true;
+guarded.tick();
+assert.deepEqual(guarded.context.window.installs, ["guarded"],
+  "A verified shell and composer must support the collapsed-sidebar renderer.");
 
 const generations = createFixture();
+generations.makeNotReady();
+generations.markers.shell = true;
+generations.markers.sidebar = true;
 vm.runInNewContext(earlyPayloadFor('window.installs.push("old")', "old"), generations.context);
 vm.runInNewContext(earlyPayloadFor('window.installs.push("new")', "new"), generations.context);
-generations.markers.shell = true;
-generations.markers.header = true;
-for (const observer of generations.observers) observer.callback([]);
+generations.makeReady();
+generations.fireDomReady();
 assert.deepEqual(
   generations.context.window.installs,
   ["new"],
@@ -68,6 +98,13 @@ assert.deepEqual(
 );
 assert.equal(generations.context.window.__CODEX_DREAM_SKIN_EARLY_APPLIED__, "new");
 
+const earlyStart = source.indexOf("export function earlyPayloadFor");
+const earlySource = source.slice(earlyStart, earlyStart + 2200);
+assert.ok(earlyStart >= 0, "Early payload helper must remain exported for bootstrap tests.");
+assert.doesNotMatch(earlySource, /MutationObserver|childList|subtree/,
+  "Early bootstrap must not observe the entire renderer DOM.");
+assert.match(earlySource, /DOMContentLoaded/);
+assert.match(earlySource, /setInterval\(install, 250\)/);
 const registrationStart = source.indexOf("earlyScriptId = await registerEarlyPayload");
 const evaluateStart = source.indexOf("await session.evaluate(earlyPayloadFor", registrationStart);
 const probeStart = source.indexOf("const probe = await waitForCodexProbe", registrationStart);
@@ -94,11 +131,11 @@ assert.match(source, /process\.off\("SIGINT", stop\);\s*process\.off\("SIGTERM",
   "Watcher shutdown must release process signal listeners.");
 assert.match(source, /Page\.removeScriptToEvaluateOnNewDocument/,
   "Watcher shutdown and theme refresh must unregister persistent Page scripts.");
-assert.match(source, /markers\.shell && markers\.header && \(markers\.composer \|\| markers\.main\)/,
-  "Collapsed-sidebar renderers must remain valid only when the native header identifies the main app shell.");
-assert.match(source, /Boolean\(result\.composer\) && Boolean\(result\.header\)/,
-  "Post-install verification must not reject a renderer solely because its left sidebar is collapsed.");
-assert.doesNotMatch(source, /markers\.shell && markers\.sidebar|Boolean\(result\.composer\) && Boolean\(result\.sidebar\)/,
-  "Sidebar presence must remain diagnostic-only throughout renderer detection and verification.");
+assert.match(source, /markers\.shell && \(markers\.sidebar \|\| \(markers\.header && markers\.composer\)\)/,
+  "Collapsed-sidebar renderers must require the native header and composer identity anchors.");
+assert.match(source, /Boolean\(result\.sidebar\) \|\| Boolean\(result\.header\)/,
+  "Post-install verification must accept a collapsed sidebar when the native header remains present.");
+assert.match(source, /result\.stylePresent && structurePass && payloadPass/,
+  "Post-install verification must retain upstream staged theme and payload revision checks.");
 
-console.log("PASS: Windows early injection is shell-guarded, generation-safe, ordered before probing, and reload-resilient.");
+console.log("PASS: Windows early injection is selector-guarded, generation-safe, revision-verified, and reload-resilient.");

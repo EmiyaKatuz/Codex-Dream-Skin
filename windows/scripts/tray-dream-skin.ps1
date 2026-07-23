@@ -15,6 +15,8 @@ $paths = Initialize-DreamSkinThemeStore -SkillRoot $SkillRoot -StateRoot $StateR
 $powershell = (Get-Command powershell.exe -ErrorAction Stop).Source
 $startScript = Join-Path $PSScriptRoot 'start-dream-skin.ps1'
 $restoreScript = Join-Path $PSScriptRoot 'restore-dream-skin.ps1'
+$checkUpdateScript = Join-Path $PSScriptRoot 'check-update.ps1'
+$startupShortcut = Join-Path ([Environment]::GetFolderPath('Startup')) 'Codex Dream Skin.lnk'
 
 $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $mutex = [System.Threading.Mutex]::new($false, "Local\CodexDreamSkin.$sid.Tray")
@@ -52,9 +54,9 @@ try {
   function Start-DreamSkinPowerShell {
     param([Parameter(Mandatory = $true)][string]$Script, [string[]]$Arguments = @())
     $scriptToken = ConvertTo-DreamSkinProcessArgument -Value $Script
-    $argumentLine = '-NoProfile -ExecutionPolicy RemoteSigned -File ' + $scriptToken
+    $argumentLine = '-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File ' + $scriptToken
     if ($Arguments.Count -gt 0) { $argumentLine += ' ' + ($Arguments -join ' ') }
-    Start-Process -FilePath $powershell -ArgumentList $argumentLine | Out-Null
+    Start-Process -FilePath $powershell -ArgumentList $argumentLine -WindowStyle Hidden | Out-Null
   }
 
   function Add-DreamSkinTrayItem {
@@ -64,10 +66,12 @@ try {
       [System.Windows.Forms.ToolStripItemCollection]$Items,
       [Parameter(Mandatory = $true)][string]$Text,
       [AllowNull()][scriptblock]$Action,
-      [bool]$Enabled = $true
+      [bool]$Enabled = $true,
+      [bool]$Checked = $false
     )
     $item = [System.Windows.Forms.ToolStripMenuItem]::new($Text)
     $item.Enabled = $Enabled
+    $item.Checked = $Checked
     if ($null -ne $Action) {
       $item.add_Click({
         try { & $Action } catch { Show-DreamSkinTrayError -Message $_.Exception.Message }
@@ -75,6 +79,21 @@ try {
     }
     [void]$Items.Add($item)
     return $item
+  }
+
+  function Set-DreamSkinAutoStart {
+    param([Parameter(Mandatory = $true)][bool]$Enabled)
+    if (-not $Enabled) {
+      Remove-Item -LiteralPath $startupShortcut -Force -ErrorAction SilentlyContinue
+      return
+    }
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($startupShortcut)
+    $shortcut.TargetPath = $powershell
+    $shortcut.Arguments = "-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$PSScriptRoot\tray-dream-skin.ps1`""
+    $shortcut.WorkingDirectory = $SkillRoot
+    $shortcut.Description = 'Start Codex Dream Skin in the notification area'
+    $shortcut.Save()
   }
 
   function Rebuild-DreamSkinTrayMenu {
@@ -190,8 +209,22 @@ try {
     [void]$menu.Items.Add($savedMenu)
 
     $null = Add-DreamSkinTrayItem -Items $menu.Items -Text '打开图片文件夹' -Action {
-      Start-Process -FilePath explorer.exe -ArgumentList @($paths.Images) | Out-Null
+      $imageDirectoryToken = ConvertTo-DreamSkinProcessArgument -Value $paths.Images
+      Start-Process -FilePath explorer.exe -ArgumentList $imageDirectoryToken | Out-Null
     }
+    [void]$menu.Items.Add([System.Windows.Forms.ToolStripSeparator]::new())
+    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text '检查更新…' -Action {
+      Start-DreamSkinPowerShell -Script $checkUpdateScript -Arguments @('-Interactive')
+    }
+    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text '打开 DreamSkin.cc' -Action {
+      Start-Process -FilePath 'https://dreamskin.cc' | Out-Null
+    }
+    $autoStartEnabled = Test-Path -LiteralPath $startupShortcut -PathType Leaf
+    $autoStartAction = {
+      Set-DreamSkinAutoStart -Enabled:(-not $autoStartEnabled)
+    }.GetNewClosure()
+    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text '登录时启动' `
+      -Action $autoStartAction -Checked $autoStartEnabled
     [void]$menu.Items.Add([System.Windows.Forms.ToolStripSeparator]::new())
     $null = Add-DreamSkinTrayItem -Items $menu.Items -Text '完全恢复 Codex' -Action {
       Start-DreamSkinPowerShell -Script $restoreScript -Arguments @(

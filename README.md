@@ -12,6 +12,8 @@
 
 > 当前 fork 版本：`1.3.5`。主要开发与验证平台为 Windows；macOS 能力继承自上游项目并继续保留。
 
+Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases)。
+
 ## 这是什么
 
 这是基于 [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) 开发的独立 fork。当前版本围绕「超天酱 · INTERNET ANGEL」重新设计了 Windows Codex Desktop 的视觉、交互与主题管理体验。
@@ -22,9 +24,9 @@
 
 ## 本 Fork 的主要改动
 
-### 超天酱主题已固定为 Windows 默认体验
+### 超天酱主题已固定为 Windows 源码安装的默认体验
 
-首次初始化会自动创建三套可切换主题：
+源码安装首次初始化会自动创建三套可切换主题：
 
 | 主题 | 资源 | 说明 |
 |------|------|------|
@@ -62,8 +64,24 @@
 
 - 收起或重建左侧栏时继续保留主题，避免短暂闪回 Codex 原生配色。
 - 只在确认主 Codex 窗口后应用皮肤，宠物等透明辅助窗口会清理残留背景。
+- DOM 主题刷新设有 `120ms` 最小间隔，文本匹配先于可见性测量，降低长会话中的重复扫描与布局读取。
+- CDP WebSocket、domain enable、同步和异步事件回调均有独立异常边界，失败会完整释放 session。
+- 暂停、恢复、renderer reload 与 watcher 退出会清理 fallback timer、监听器和持久化注入脚本。
+- 主壳重建时会释放旧 `ResizeObserver` target；托盘菜单重建及退出会释放 WinForms 资源。
 - 导入和注入前校验图片格式、尺寸、像素总量和文件大小。
 - 主题仓库、状态文件、恢复流程和运行时替换保留原子写入与路径边界检查。
+
+### 已整合的上游更新
+
+当前分支已合并上游 `upstream/main` 的 `7c4c19f`（上游版本 `1.3.3`），并纳入以下能力：
+
+- Windows Inno Setup 安装器、Release 构建流程、版本检查与手动覆盖更新支持。
+- `tools/selectors.json` 选择器契约，用于窗口身份验证、早期注入和主题 payload 校验。
+- 冷启动首帧等待、Store 自动更新后的路径识别、watcher 退出和引擎原子回滚改进。
+- 注入验证会核对当前活动主题 ID 与内容 revision，降低暂存资源和活动主题不一致的风险。
+- macOS 菜单栏应用、DMG 构建、应用图标、更新检查和统一通用运行时继续保留。
+
+Windows 使用本 fork 的超天酱专属渲染覆盖层；macOS 使用上游通用运行时。两端共享选择器契约、主题格式和注入安全边界。
 
 ## 快速开始（Windows）
 
@@ -71,7 +89,7 @@
 
 - Windows 10/11
 - 已安装官方 Codex Desktop
-- Node.js 22 或更高版本
+- 源码安装需要 Node.js 22 或更高版本；Release 安装器可携带受校验的 Node.js 运行时
 - PowerShell 5.1 或 PowerShell 7
 
 ### 安装
@@ -84,6 +102,8 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\
 ```
 
 安装器会把运行时原子复制到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，并创建启动、恢复和托盘快捷方式。安装完成后，运行时不依赖当前源码目录的位置。
+
+图形安装包的构建与使用说明见 [`docs/install-windows.md`](./docs/install-windows.md)。图形安装包沿用上游发布安全策略，以 Gothic Void Crusade 作为首次活动主题；构建载荷包含本 fork 的超天酱资源时，Pixel Cafe 会同时加入「已保存主题」。源码安装继续默认启用超天酱主题。使用 Release 安装包前应核对发布来源和 SHA-256 校验值。
 
 ### 日常使用
 
@@ -122,7 +142,7 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\tests\ru
 node .\windows\scripts\injector.mjs --check-payload
 ```
 
-测试覆盖主题播种与切换、图片校验、运行时替换、状态安全、暂停/恢复、侧栏折叠、响应式首页、renderer 清理和 CDP 回环验证。
+测试覆盖主题播种与切换、图片校验、运行时替换、安装器静态检查、选择器契约、状态安全、暂停/恢复、侧栏折叠、响应式首页、renderer 清理、payload revision 和 CDP 回环验证。
 
 ## 目录说明
 
@@ -131,10 +151,12 @@ node .\windows\scripts\injector.mjs --check-payload
 | [`windows/assets/`](./windows/assets/) | 超天酱背景、托盘图标、CSS、renderer 注入代码和主题配置 |
 | [`windows/scripts/`](./windows/scripts/) | 安装、启动、恢复、主题仓库、托盘与 CDP 注入逻辑 |
 | [`windows/tests/`](./windows/tests/) | Windows 与 renderer 回归测试 |
+| [`windows/installer/`](./windows/installer/) | Windows 图形安装器与 Release 构建配置 |
 | [`windows/README.md`](./windows/README.md) | Windows 详细操作说明 |
 | [`windows/CHANGELOG.md`](./windows/CHANGELOG.md) | 超天酱版本更新记录 |
 | [`docs/platforms.md`](./docs/platforms.md) | 平台差异与主题格式说明 |
 | [`macos/`](./macos/) | 继承并维护的上游 macOS 实现 |
+| [`runtime/`](./runtime/) 与 [`tools/`](./tools/) | 上游通用运行时、选择器契约和诊断工具；Windows 主题保留专属覆盖层 |
 
 ## 未来计划
 

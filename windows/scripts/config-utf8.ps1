@@ -95,8 +95,15 @@ function Remove-DreamSkinAtomicArtifact {
     [string]$Path
   )
 
-  if ([System.IO.File]::Exists($Path)) {
-    [System.IO.File]::Delete($Path)
+  for ($attempt = 1; $attempt -le 3; $attempt++) {
+    if (-not [System.IO.File]::Exists($Path)) { return }
+    try {
+      [System.IO.File]::Delete($Path)
+      return
+    } catch {
+      if ($attempt -eq 3) { throw }
+      Start-Sleep -Milliseconds (20 * $attempt)
+    }
   }
 }
 
@@ -406,6 +413,8 @@ function Install-DreamSkinBaseTheme {
   $originalBytes = [System.IO.File]::ReadAllBytes($ConfigPath)
   $content = ConvertFrom-DreamSkinUtf8Bytes -Bytes $originalBytes -Path $ConfigPath
   $appearanceMarker = Read-DreamSkinAppearanceMarker -BackupPath $BackupPath
+  $appearanceMarkerPath = Get-DreamSkinAppearanceMarkerPath -BackupPath $BackupPath
+  $appearanceMarkerExisted = Test-Path -LiteralPath $appearanceMarkerPath -PathType Leaf
   $backupCreated = $false
   if (-not (Test-Path -LiteralPath $BackupPath)) {
     Write-DreamSkinBytesAtomically -Path $BackupPath -Bytes $originalBytes -ExpectedBytes $null
@@ -448,12 +457,33 @@ function Install-DreamSkinBaseTheme {
 
     $content = $content.Substring(0, $desktop.BodyStart) + $body +
       $content.Substring($desktop.BodyStart + $desktop.BodyLength)
-    Write-DreamSkinUtf8FileAtomically -Path $ConfigPath -Content $content -ExpectedBytes $originalBytes
+    # Commit the metadata first. A config commit must never exist without the
+    # marker that tells restore exactly which appearance keys we own.
     Write-DreamSkinAppearanceMarker -BackupPath $BackupPath
+    Write-DreamSkinUtf8FileAtomically -Path $ConfigPath -Content $content -ExpectedBytes $originalBytes
     $writeCompleted = $true
   } catch {
-    if ($backupCreated -and -not $writeCompleted) {
-      Remove-Item -LiteralPath $BackupPath -Force -ErrorAction SilentlyContinue
+    if (-not $writeCompleted) {
+      $configUnchanged = $false
+      try {
+        $configUnchanged = (Test-Path -LiteralPath $ConfigPath -PathType Leaf) -and
+          (Test-DreamSkinBytesEqual -Left $originalBytes -Right ([System.IO.File]::ReadAllBytes($ConfigPath)))
+      } catch {
+        $configUnchanged = $false
+      }
+      if ($configUnchanged) {
+        $markerCleanupSucceeded = $true
+        if (-not $appearanceMarkerExisted -and (Test-Path -LiteralPath $appearanceMarkerPath)) {
+          try {
+            Remove-Item -LiteralPath $appearanceMarkerPath -Force -ErrorAction Stop
+          } catch {
+            $markerCleanupSucceeded = $false
+          }
+        }
+        if ($markerCleanupSucceeded -and $backupCreated) {
+          Remove-Item -LiteralPath $BackupPath -Force -ErrorAction SilentlyContinue
+        }
+      }
     }
     throw
   }
