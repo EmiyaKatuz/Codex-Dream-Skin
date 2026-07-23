@@ -57,7 +57,7 @@ assert.notEqual(fallbackStart, -1, "side-workspace first-frame fallback marker i
 assert.notEqual(fallbackEnd, -1, "side-workspace fallback section has no stable end marker");
 
 const fallbackSection = css.slice(fallbackStart, fallbackEnd);
-assert.match(fallbackSection, /main\.main-surface aside > \[class\*="contain:layout_paint"\][\s\S]*?:has\(button:has\(kbd\)\)/);
+assert.match(fallbackSection, /main\.main-surface aside > \[class\*="contain:layout_paint"\][\s\S]*?:has\(button kbd\)/);
 assert.match(fallbackSection, /:not\(:has\(\.xterm\)\):not\(:has\(\.thread-scroll-container\)\)/);
 assert.match(fallbackSection, /SIDE CHANNEL \/\/ ANGEL RELAY/);
 assert.match(fallbackSection, /AFFECTION\s+9999\+/);
