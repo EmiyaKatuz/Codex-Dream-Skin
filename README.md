@@ -7,10 +7,10 @@
 
 <p align="center">
   <img src="windows/assets/dream-reference.jpg" alt="超天酱 INTERNET ANGEL 默认主题背景" width="900"><br>
-  <sub>Windows 默认主题素材；界面、动画与控件皮肤由运行时注入层生成</sub>
+  <sub>Windows 源码安装的默认主题素材；界面、动画与控件皮肤由运行时注入层生成</sub>
 </p>
 
-> 当前 fork 版本：`1.3.5`。主要开发与验证平台为 Windows；macOS 能力继承自上游项目并继续保留。
+> 当前 fork 版本：`1.3.5`（2026-07-23 修订版）。主要开发与验证平台为 Windows；macOS 能力继承自上游项目并继续保留。
 
 Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases)。
 
@@ -83,50 +83,79 @@ Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://githu
 
 Windows 使用本 fork 的超天酱专属渲染覆盖层；macOS 使用上游通用运行时。两端共享选择器契约、主题格式和注入安全边界。
 
-## 快速开始（Windows）
+### v1.3.5 重发修复
 
-### 要求
+- 纳入本 fork [PR #1](https://github.com/EmiyaKatuz/Codex-Dream-Skin/pull/1) 的 Windows CSS 修复。
+- 将变更卡片与侧边工作区规则中的嵌套 `:has()` 改写为等价的后代选择器组合，满足 CSS Selectors 规范及静态检查要求。
+- 更新响应式首页回归测试，持续校验侧边工作区首帧 fallback、终端排除条件和超天酱装饰标记。
 
-- Windows 10/11
-- 已安装官方 Codex Desktop
-- 源码安装需要 Node.js 22 或更高版本；Release 安装器可携带受校验的 Node.js 运行时
-- PowerShell 5.1 或 PowerShell 7
+## 快速安装（Windows）
 
-### 安装
+### Release Setup（普通用户推荐）
 
-先关闭 Codex 与旧版 Dream Skin 托盘，然后在仓库根目录运行：
+Release 安装需要 Windows 10/11 x64，以及已注册到当前用户的 Microsoft Store 官方 `OpenAI.Codex` 应用。首次安装前请至少启动一次 Codex，随后退出 Codex 与旧版 Dream Skin 托盘。
+
+1. 从本 fork 的 [Latest Release](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases/latest) 下载 `CodexDreamSkin-Setup-vX.Y.Z.exe` 和 `SHA256SUMS.txt`。
+2. 对照校验文件确认 Setup.exe 的 SHA-256，再双击运行安装向导。
+3. 保持默认的当前用户安装方式。安装过程不需要管理员权限。
+4. 安装完成后，从开始菜单打开 `Codex Dream Skin`；安装向导也可以在结束时直接启动托盘。
+
+Release Setup 内置经过固定版本与哈希校验的 Node.js 运行时。普通用户无需 clone 仓库、安装 Node.js 或手动执行 PowerShell 脚本。当前安装包尚未进行代码签名；若 SmartScreen 显示警告，请核对文件名、下载来源和 SHA-256，再选择「更多信息 → 仍要运行」。请保留 Defender、SmartScreen 和 Smart App Control 的现有安全设置。
+
+图形安装器只创建开始菜单中的 `Codex Dream Skin` 入口，并提供可选的登录时启动项。它会把受管运行时安装到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，主题和图片保存在 `%LOCALAPPDATA%\CodexDreamSkin`。详细说明见 [`docs/install-windows.md`](./docs/install-windows.md)。
+
+图形安装包沿用上游发布安全策略，以 Gothic Void Crusade 作为首次活动主题；超天酱 Pixel Cafe 会加入「已保存主题」。
+
+### 从源码安装（开发者与高级用户）
+
+源码安装额外需要 `PATH` 中可用的 Node.js 22 或更高版本，以及 Windows PowerShell 5.1 或 PowerShell 7。在仓库根目录运行：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\install-dream-skin.ps1
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\start-dream-skin.ps1
 ```
 
-安装器会把运行时原子复制到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，并创建启动、恢复和托盘快捷方式。安装完成后，运行时不依赖当前源码目录的位置。
+源码安装会原子部署受管运行时、启动托盘，并在桌面创建 `Codex Dream Skin`、`Codex Dream Skin - Tray` 和 `Codex Dream Skin - Restore`；开始菜单会创建启动与托盘入口。安装完成后可以移动或删除当前源码目录，受管运行时仍会从 LocalAppData 工作。
 
-图形安装包的构建与使用说明见 [`docs/install-windows.md`](./docs/install-windows.md)。图形安装包沿用上游发布安全策略，以 Gothic Void Crusade 作为首次活动主题；构建载荷包含本 fork 的超天酱资源时，Pixel Cafe 会同时加入「已保存主题」。源码安装继续默认启用超天酱主题。使用 Release 安装包前应核对发布来源和 SHA-256 校验值。
+源码安装首次启用超天酱 JPEG 主题，并保存 Pixel Cafe 与 Gothic Void Crusade 供托盘切换。
 
 ### 日常使用
 
-打开 `Codex Dream Skin - Tray`：
+Release 用户从开始菜单打开 `Codex Dream Skin`；源码安装用户也可以打开桌面的 `Codex Dream Skin - Tray`。托盘菜单支持：
 
-- 从「已保存主题」切换默认版、Pixel Cafe 或 Gothic Void Crusade。
+- 切换安装包内置主题和用户保存的主题。
 - 使用「更换背景图」导入自己的纯背景，再选择「保存当前主题」。
 - 使用「暂停皮肤」立即恢复当前窗口的原生外观。
 - 使用「继续显示皮肤」或「应用或重新应用」恢复主题。
 - 使用「完全恢复 Codex」清理 Dream Skin 状态并回到官方外观。
+- 手动检查本 fork 的最新 Release；该操作不会后台轮询、自动下载或静默安装。
 
 导入图片必须是纯背景，不要使用包含窗口、侧栏、输入框、文字或按钮的效果截图。图片最大 `16 MB`，单边不超过 `16384` 像素，总像素不超过 `5000 万`。
 
-## 更新
+## 更新与卸载
 
-本 fork 后续更新时：
+### Release Setup 更新
 
 1. 退出 Dream Skin 托盘并关闭 Codex。
-2. 拉取本 fork 的最新代码。
-3. 重新运行安装脚本，让受管运行时、安全检查和快捷方式一起更新。
-4. 再运行启动脚本。
+2. 下载最新 Setup.exe，并核对对应的 SHA-256。
+3. 运行安装向导覆盖现有安装，再从开始菜单启动 `Codex Dream Skin`。
 
-重装不会删除 `%LOCALAPPDATA%\CodexDreamSkin` 中已有的活动主题、自定义主题和导入图片。
+覆盖安装会保留活动主题、已保存主题、导入图片和配置备份。本次 `v1.3.5` 修订版沿用相同版本号；已安装早期 `v1.3.5` 的用户需要手动重新下载安装包，托盘的版本比较无法识别同版本号内的重发修订。
+
+Release 用户可以从「设置 → 应用 → 已安装的应用」卸载 Codex Dream Skin。卸载器会先恢复 Codex 官方外观，并默认保留 `%LOCALAPPDATA%\CodexDreamSkin` 中的主题与图片。
+
+### 源码安装更新
+
+1. 退出 Dream Skin 托盘并关闭 Codex。
+2. 拉取本 fork 的最新代码，或重新下载最新源码。
+3. 重新运行 `install-dream-skin.ps1`，让运行时、安全检查和快捷方式一起更新。
+
+源码安装用户可以使用 `Codex Dream Skin - Restore` 恢复官方外观。更完整的更新、恢复和自定义端口说明见 [`windows/README.md`](./windows/README.md)。
+
+## macOS 安装
+
+macOS 普通用户可以从 [Latest Release](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases/latest) 下载 `CodexDreamSkin-vX.Y.Z.dmg`，把 `Codex Dream Skin.app` 拖入 Applications 后启动。DMG 已包含所需运行时，无需安装 Node.js、Homebrew 或执行 shell 命令。
+
+当前 macOS 安装包没有 Apple Developer ID 签名。首次打开遇到 Gatekeeper 提示时，请在「系统设置 → 隐私与安全性」核对并选择「仍要打开」，无需执行 `xattr` 或关闭 Gatekeeper。应用启动后可从菜单栏选择「安装 / 升级引擎」。完整步骤、更新和卸载方法见 [`docs/install-macos.md`](./docs/install-macos.md)。
 
 ## 验证
 
