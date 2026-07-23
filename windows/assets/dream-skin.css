@@ -1789,9 +1789,7 @@ html.codex-dream-skin .dream-changes-shell {
    frame; the injected class keeps the rule resilient after DOM refactors. */
 html.codex-dream-skin :where(
   .dream-changes-clip-host,
-  div[class~="relative"][class~="z-10"][class~="max-w-full"][class~="min-w-0"][class~="overflow-hidden"][class~="rounded-3xl"]:has(
-    button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])
-  )
+  div[class~="relative"][class~="z-10"][class~="max-w-full"][class~="min-w-0"][class~="overflow-hidden"][class~="rounded-3xl"]:has(button [class*="git-decoration-added"]):has(button [class*="git-decoration-deleted"])
 ) {
   overflow: visible !important;
   border-radius: 0 !important;
@@ -4182,8 +4180,8 @@ html.codex-dream-skin .dream-side-workspace kbd {
    panel into a compact CHOTEN relay deck without inventing controls. */
 html.codex-dream-skin :where(
   .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd)),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd))
+  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
+  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
 ) {
   position: relative !important;
   isolation: isolate;
@@ -4213,8 +4211,8 @@ html.codex-dream-skin :where(
 
 html.codex-dream-skin :where(
   .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd)),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd))
+  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
+  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
 ) > * {
   position: relative;
   z-index: 1;
@@ -4222,16 +4220,16 @@ html.codex-dream-skin :where(
 
 html.codex-dream-skin :where(
   .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd)),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd))
+  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
+  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
 ) [class~="bg-token-main-surface-primary"] {
   background: transparent !important;
 }
 
 html.codex-dream-skin :where(
   .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd)),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd))
+  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
+  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
 )::before {
   content: "\2665  SIDE CHANNEL // ANGEL RELAY";
   position: absolute;
@@ -4255,8 +4253,8 @@ html.codex-dream-skin :where(
 
 html.codex-dream-skin :where(
   .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd)),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd))
+  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
+  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
 )::after {
   content: "LIVE  99%    AFFECTION  9999+";
   position: absolute;
@@ -4283,8 +4281,8 @@ html.codex-dream-skin :where(
 
 html.codex-dream-skin :where(
   .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd)),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd))
+  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
+  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
 ) :is(button:has(kbd), ul button[class~="bg-token-bg-fog"]) {
   position: relative;
   min-height: 50px;
@@ -4301,8 +4299,8 @@ html.codex-dream-skin :where(
 
 html.codex-dream-skin :where(
   .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd)),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd))
+  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
+  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
 ) :is(button:has(kbd), ul button[class~="bg-token-bg-fog"]):hover {
   border-color: var(--angel-cyan) !important;
   translate: -2px -1px;
@@ -4316,8 +4314,8 @@ html.codex-dream-skin :where(
 
 html.codex-dream-skin :where(
   .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd)),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button:has(kbd))
+  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
+  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
 ) :where(kbd, svg) {
   color: var(--angel-cyan) !important;
 }
