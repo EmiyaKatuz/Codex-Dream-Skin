@@ -69,10 +69,11 @@ UPDATE_JSON="$({
 })"
 "$NODE" -e '
   const value = JSON.parse(process.argv[1]);
-  if (value.currentVersion !== "v1.3.3" || value.latestVersion !== "v9.8.7") process.exit(1);
+  const expectedCurrentVersion = `v${process.argv[2]}`;
+  if (value.currentVersion !== expectedCurrentVersion || value.latestVersion !== "v9.8.7") process.exit(1);
   if (!value.updateAvailable) process.exit(1);
   if (value.releaseUrl !== "https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases/latest") process.exit(1);
-' "$UPDATE_JSON"
+' "$UPDATE_JSON" "$(/usr/bin/tr -d '[:space:]' < "$ROOT/VERSION")"
 if /usr/bin/grep -R -n -E --exclude-dir='.build' \
   'xattr|spctl[[:space:]]+--master-disable' \
   "$ROOT/menubar-app" "$ROOT/scripts/build-menubar-app.sh" "$ROOT/scripts/build-dmg.sh" >/dev/null; then
@@ -113,15 +114,19 @@ if ! /usr/bin/grep -F -q '# CodexDreamSkinStudio launcher' \
   exit 1
 fi
 
-# Shared runtime contract: selectors and renderer/CSS sources are compiled
-# once, then staged byte-for-byte into both platform asset directories.
+# Shared runtime contract: both platforms use the same selector contract.
+# macOS keeps the upstream canonical renderer/CSS while Windows keeps this
+# fork's Choten-specific renderer/CSS overlay.
 PROJECT_ROOT="$(cd "$ROOT/.." && pwd -P)"
 "$NODE" "$PROJECT_ROOT/tools/sync-runtime-assets.mjs" --check
 "$NODE" "$PROJECT_ROOT/tools/doctor-selectors.test.mjs"
-if ! /usr/bin/cmp -s "$ROOT/assets/dream-skin.css" "$PROJECT_ROOT/windows/assets/dream-skin.css" ||
-    ! /usr/bin/cmp -s "$ROOT/assets/renderer-inject.js" "$PROJECT_ROOT/windows/assets/renderer-inject.js" ||
-    ! /usr/bin/cmp -s "$ROOT/assets/selectors.json" "$PROJECT_ROOT/windows/assets/selectors.json"; then
-  printf 'macOS and Windows runtime assets are not byte-identical.\n' >&2
+if ! /usr/bin/cmp -s "$ROOT/assets/selectors.json" "$PROJECT_ROOT/windows/assets/selectors.json"; then
+  printf 'macOS and Windows selector contracts are not byte-identical.\n' >&2
+  exit 1
+fi
+if /usr/bin/cmp -s "$ROOT/assets/dream-skin.css" "$PROJECT_ROOT/windows/assets/dream-skin.css" ||
+    /usr/bin/cmp -s "$ROOT/assets/renderer-inject.js" "$PROJECT_ROOT/windows/assets/renderer-inject.js"; then
+  printf 'The Windows Choten runtime overlay was replaced by the canonical macOS runtime.\n' >&2
   exit 1
 fi
 if /usr/bin/grep -E -q 'getBoundingClientRect|ResizeObserver|childList|subtree|classList\.(add|remove|toggle)|syncRouteState|samplingNativeShell' \
@@ -926,7 +931,8 @@ CRLF_BACKUP="$TMP/config-crlf-backup.json"
 "$NODE" "$ROOT/scripts/theme-config.mjs" restore "$CRLF_CONFIG" "$CRLF_BACKUP" >/dev/null
 /usr/bin/cmp -s "$CRLF_CONFIG" "$TMP/original-crlf.toml"
 
-/usr/bin/env -u HOME /bin/bash -c '. "$1/scripts/common-macos.sh"; [ -n "$HOME" ] && [ "$SKIN_VERSION" = "1.3.5" ]' _ "$ROOT"
+EXPECTED_SKIN_VERSION="$(/usr/bin/tr -d '[:space:]' < "$ROOT/VERSION")"
+/usr/bin/env -u HOME /bin/bash -c '. "$1/scripts/common-macos.sh"; [ -n "$HOME" ] && [ "$SKIN_VERSION" = "$2" ]' _ "$ROOT" "$EXPECTED_SKIN_VERSION"
 if [ "${CODEX_DREAM_SKIN_SKIP_DOCTOR:-0}" = "1" ]; then
   printf 'SKIP: Doctor requires an installed, signed Codex app.\n'
   DOCTOR_RESULT="skipped"
