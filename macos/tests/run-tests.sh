@@ -113,6 +113,12 @@ if ! /usr/bin/grep -F -q '# CodexDreamSkinStudio launcher' \
   printf 'macOS uninstall must remove only launchers owned by Dream Skin.\n' >&2
   exit 1
 fi
+if ! /usr/bin/grep -F -q \
+   'switch-theme-macos.sh" --id preset-internet-angel-default --no-apply' \
+   "$ROOT/scripts/install-dream-skin-macos.sh"; then
+  printf 'Fresh macOS installs must select the Internet Angel JPEG preset.\n' >&2
+  exit 1
+fi
 
 # Shared runtime contract: both platforms use the same selector contract.
 # macOS keeps the upstream canonical renderer/CSS while Windows keeps this
@@ -284,12 +290,16 @@ fi
   seed_bundled_presets
   [ -f "$themes/preset-gothic-void-crusade/theme.json" ] || exit 1
   [ -f "$themes/preset-gothic-void-crusade/background.jpg" ] || exit 1
+  [ -f "$themes/preset-internet-angel-default/theme.json" ] || exit 1
+  [ -f "$themes/preset-internet-angel-default/dream-reference.jpg" ] || exit 1
+  [ -f "$themes/preset-internet-angel/theme.json" ] || exit 1
+  [ -f "$themes/preset-internet-angel/codex-dream-skin-pixel-cafe.png" ] || exit 1
   [ -f "$themes/preset-arina-hashimoto/theme.json" ] || exit 1
   [ -f "$themes/preset-arina-hashimoto/background.jpg" ] || exit 1
   [ -f "$themes/custom-keepme/theme.json" ] || exit 1
   for id in $retired; do [ ! -e "$themes/$id" ] || exit 1; done
   seeded="$(/usr/bin/find "$themes" -maxdepth 1 -type d -name "preset-*" | /usr/bin/wc -l | /usr/bin/tr -d " ")"
-  [ "$seeded" -eq 2 ] || exit 1
+  [ "$seeded" -eq 4 ] || exit 1
 ' _ "$ROOT"
 
 run_signed_runtime_switch_test() {

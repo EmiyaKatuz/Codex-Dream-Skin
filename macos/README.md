@@ -33,8 +33,8 @@ contributors, diagnostics, and legacy deployments.
 # 2) Install to the stable path and create Desktop launchers
 ./scripts/install-dream-skin-macos.sh --no-launch
 
-# 3) Switch to the tested featured preset, or import your own pure background
-~/.codex/codex-dream-skin-studio/scripts/switch-theme-macos.sh --id preset-arina-hashimoto
+# 3) Switch to the lossless Pixel Cafe preset, or import your own pure background
+~/.codex/codex-dream-skin-studio/scripts/switch-theme-macos.sh --id preset-internet-angel
 # ~/.codex/codex-dream-skin-studio/scripts/customize-theme-macos.sh
 
 # 4) Start/re-apply, verify, or restore via Desktop:
@@ -65,11 +65,10 @@ To build the “double-click install” folder layout for non-git users:
 ```
 
 That ZIP contains a visible installer plus a hidden `.codex-dream-skin-studio`
-engine and is staged as a rights-clean package with only the redistributable
-Gothic Void Crusade preset. It is retained for existing offline workflows;
-prefer the DMG for ordinary users, and do not share a source checkout or an
-archive containing the excluded Arina reference files. Do not ship only
-CSS/images.
+engine and the same three release presets as the DMG. It is retained for
+existing offline workflows; prefer the DMG for ordinary users, and do not share
+a source checkout or an archive containing the excluded Arina reference files.
+Do not ship only CSS/images.
 
 ## How it works (security boundary)
 
@@ -89,11 +88,17 @@ CDP is powerful and unauthenticated on loopback. Prefer Restore when you are don
 
 ## Bundled presets
 
-The public DMG seeds **Gothic Void Crusade**, contributed through PR #134, as
-its redistributable default. A source checkout also contains the
-**桥本有菜 / Arina Hashimoto** reference material, but the public app bundle
-deliberately excludes it until independent likeness and redistribution rights
-are confirmed.
+The DMG seeds three ready-to-use themes. Fresh installs start with
+**超天酱 · INTERNET ANGEL**, whose pack contains the byte-identical
+`theme.json` + `dream-reference.jpg` pair from the Windows edition. The saved
+theme menu also includes the lossless **超天酱 · INTERNET ANGEL · Pixel Cafe**
+PNG variant and **Gothic Void Crusade**, contributed through PR #134.
+
+A source checkout also contains the **桥本有菜 / Arina Hashimoto** reference
+material, but the app bundle deliberately excludes it until independent
+likeness and redistribution rights are confirmed. Internet Angel artwork is
+outside the MIT software license; review the asset terms in `NOTICE.md` before
+redistributing the DMG.
 
 The user-provided source PNG is `1672 × 941`. Its pack contains a standardized
 derived `2560 × 1440` JPEG plus theme metadata; the derived export does not add
