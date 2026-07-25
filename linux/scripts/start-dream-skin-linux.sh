@@ -25,7 +25,7 @@ if ! cdp_ready "$PORT"; then
   wait_for_cdp "$PORT" || fail "Codex did not expose CDP on 127.0.0.1:$PORT within 45 seconds."
 fi
 
-"$NODE" "$INJECTOR" --once --reload --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 30000 >/dev/null
+"$NODE" "$INJECTOR" --once --reload --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 8000 >/dev/null
 nohup "$NODE" "$INJECTOR" --watch --port "$PORT" --theme-dir "$THEME_DIR" \
   >>"$LOG_PATH" 2>>"$ERROR_LOG" &
 pid=$!
