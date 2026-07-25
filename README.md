@@ -27,6 +27,8 @@ cd Codex-Dream-Skin
 ~/.codex/codex-dream-skin-linux/scripts/restore-dream-skin-linux.sh
 ```
 
+安装器会覆盖用户级 `Codex.desktop` 并刷新桌面入口缓存，所以常用的 Codex 图标会进入主题启动器。若 GNOME Dock 在首次安装后仍保留旧入口，注销并重新登录一次即可刷新其缓存。
+
 Linux 启动器会从 `codex-desktop` 或 `/usr/share/applications/Codex.desktop` 发现官方客户端。如采用其他安装方式，可在执行前指定：
 
 ```bash

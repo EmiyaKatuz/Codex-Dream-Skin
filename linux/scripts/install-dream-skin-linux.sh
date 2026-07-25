@@ -73,7 +73,20 @@ StartupNotify=true
 StartupWMClass=codex
 X-Codex-Dream-Skin=true
 EOF
-chmod 600 "$desktop_file"
+chmod 644 "$desktop_file"
+
+# Desktop shells resolve an existing dock icon through its desktop ID. Refresh
+# that ID after replacing the user-level override so it points at this launcher.
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database "$desktop_dir" || printf 'Warning: could not refresh the desktop entry cache.\n' >&2
+fi
+if command -v xdg-mime >/dev/null 2>&1; then
+  mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}"
+  xdg-mime default Codex.desktop x-scheme-handler/codex \
+    || printf 'Warning: could not set the Codex URL handler.\n' >&2
+fi
 printf 'Codex Dream Skin %s installed at %s.\n' "$SKIN_VERSION" "$INSTALL_ROOT"
 [ -f "$desktop_file" ] && printf 'The OpenAI Codex desktop entry now starts Dream Skin automatically.\n'
-[ "$LAUNCH" = true ] && exec "$INSTALL_ROOT/scripts/start-dream-skin-linux.sh" --port "$PORT"
+if [ "$LAUNCH" = true ]; then
+  exec "$INSTALL_ROOT/scripts/start-dream-skin-linux.sh" --port "$PORT"
+fi
