@@ -38,7 +38,10 @@ rm -rf "$previous"
 replace_legacy_default="$($NODE -e '
   try {
     const theme = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
-    process.stdout.write(String(theme.id === "custom-1784123441349" && theme.name === "Dream Skin"));
+    const isLegacyGeneric = theme.id === "custom-1784123441349" && theme.name === "Dream Skin";
+    const isUnversionedChoten = theme.id === "preset-internet-angel-default" &&
+      theme.performanceMode === undefined;
+    process.stdout.write(String(isLegacyGeneric || isUnversionedChoten));
   } catch { process.stdout.write("false"); }
 ' "$THEME_DIR/theme.json")"
 if [ ! -f "$THEME_DIR/theme.json" ] || [ "$replace_legacy_default" = true ]; then
@@ -48,5 +51,29 @@ if [ ! -f "$THEME_DIR/theme.json" ] || [ "$replace_legacy_default" = true ]; the
   chmod 600 "$THEME_DIR/"*
 fi
 "$NODE" "$INSTALL_ROOT/scripts/injector.mjs" --check-payload --theme-dir "$THEME_DIR" >/dev/null
+
+desktop_dir="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+desktop_file="$desktop_dir/Codex.desktop"
+if [ -e "$desktop_file" ] && ! grep -Fqx 'X-Codex-Dream-Skin=true' "$desktop_file"; then
+  fail "Refusing to replace an unrelated user desktop entry: $desktop_file"
+fi
+mkdir -p "$desktop_dir"
+cat > "$desktop_file" <<EOF
+[Desktop Entry]
+Type=Application
+Name=OpenAI Codex
+Comment=OpenAI Codex desktop app with Dream Skin
+Exec=$INSTALL_ROOT/scripts/start-dream-skin-linux.sh
+TryExec=$INSTALL_ROOT/scripts/start-dream-skin-linux.sh
+Icon=openai-codex-desktop
+Terminal=false
+Categories=Development;IDE;
+MimeType=x-scheme-handler/codex;
+StartupNotify=true
+StartupWMClass=codex
+X-Codex-Dream-Skin=true
+EOF
+chmod 600 "$desktop_file"
 printf 'Codex Dream Skin %s installed at %s.\n' "$SKIN_VERSION" "$INSTALL_ROOT"
+[ -f "$desktop_file" ] && printf 'The OpenAI Codex desktop entry now starts Dream Skin automatically.\n'
 [ "$LAUNCH" = true ] && exec "$INSTALL_ROOT/scripts/start-dream-skin-linux.sh" --port "$PORT"

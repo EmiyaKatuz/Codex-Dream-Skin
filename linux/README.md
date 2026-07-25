@@ -17,6 +17,7 @@ Close Codex first, then run:
 ```
 
 The engine is copied to `~/.codex/codex-dream-skin-linux`; state, logs, and the active theme are kept in `${XDG_STATE_HOME:-~/.local/state}/CodexDreamSkin`.
+The installer also creates a user-level `Codex.desktop` entry, so the usual OpenAI Codex app icon starts the themed CDP session. Restore removes only that marked entry.
 
 ## Daily commands
 
