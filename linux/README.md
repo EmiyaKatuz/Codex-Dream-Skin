@@ -30,7 +30,7 @@ The engine is copied to `~/.codex/codex-dream-skin-linux`; state, logs, and the 
 
 ## Performance
 
-Linux defaults to `"performanceMode": "low"` in `assets/theme.json`. It keeps the Choten artwork, color, and primary layout while disabling continuous DOM observation, costly animated ornaments, and backdrop blur. To restore the full animated effect, set `performanceMode` to `"full"` in the active `theme.json` and restart the skin.
+Linux defaults to `"performanceMode": "full"`, preserving the complete Choten animation, particles, and filters. DOM refresh is deliberately limited: only shell-level mutations, navigation actions, resize/appearance changes, and a 15-second fallback can trigger a full scan; streamed text updates do not. Set `performanceMode` to `"low"` in the active `theme.json` to disable animated ornaments and blur when battery life or GPU load matters more.
 
 ## Build a distributable archive
 

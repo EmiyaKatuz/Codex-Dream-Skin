@@ -141,7 +141,10 @@
     "dream-goal-mode-trigger",
   ];
   const installToken = {};
-  const MUTATION_REFRESH_INTERVAL_MS = 120;
+  // Do not rescan while Codex streams tokens. Only shell-level changes and
+  // navigation requests schedule a delayed refresh.
+  const DOM_REFRESH_DEBOUNCE_MS = 1500;
+  const FALLBACK_REFRESH_MS = 15000;
   const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
   let samplingNativeShell = false;
   let observer = null;
@@ -1485,6 +1488,10 @@
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
     if (state?.scheduler?.frame) window.cancelAnimationFrame?.(state.scheduler.frame);
     if (state?.resizeHandler) window.removeEventListener("resize", state.resizeHandler);
+    if (state?.navigationHandler) {
+      window.removeEventListener("popstate", state.navigationHandler);
+      document.removeEventListener("click", state.navigationHandler, true);
+    }
     state?.motionQuery?.removeEventListener?.("change", state.motionHandler);
     if (state?.artUrl) URL.revokeObjectURL(state.artUrl);
     delete window[STATE_KEY];
@@ -1527,35 +1534,40 @@
     .filter((className) => className && className !== "codex-dream-skin" && !className.startsWith("dream-"))
     .sort()
     .join(" ");
-  const resizeHandler = () => scheduleEnsure();
-  const motionHandler = () => scheduleEnsure();
+  const resizeHandler = () => scheduleEnsure(100);
+  const motionHandler = () => scheduleEnsure(100);
+  const navigationHandler = () => scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
   window.addEventListener("resize", resizeHandler, { passive: true });
   motionQuery?.addEventListener?.("change", motionHandler);
+  window.addEventListener("popstate", navigationHandler);
+  document.addEventListener("click", navigationHandler, true);
   if (typeof ResizeObserver === "function") {
-    resizeObserver = new ResizeObserver(() => scheduleEnsure(lowPerformance ? 500 : 0));
+    resizeObserver = new ResizeObserver(() => scheduleEnsure(250));
   }
   if (!lowPerformance) {
     observer = new MutationObserver((records) => {
       if (samplingNativeShell) return;
-      const hasApplicationChange = records.some((record) => {
-        if (record.type !== "attributes" || record.attributeName !== "class") return true;
-        return withoutManagedClasses(record.oldValue)
-          !== withoutManagedClasses(record.target?.getAttribute?.("class"));
+      // Observing descendants makes every streamed assistant token produce a
+      // record and triggers a full selector pass. Restrict this to shell-level
+      // mutations; route navigation is additionally covered by click/popstate.
+      const hasShellChange = records.some((record) => {
+        if (record.type === "childList") return record.target === document.documentElement;
+        return record.target === document.documentElement &&
+          withoutManagedClasses(record.oldValue) !==
+            withoutManagedClasses(record.target?.getAttribute?.("class"));
       });
-      if (!hasApplicationChange) return;
-      scheduleEnsure(MUTATION_REFRESH_INTERVAL_MS);
+      if (hasShellChange) scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
     });
     observer.observe(document.documentElement, {
       childList: true,
-      subtree: true,
       attributes: true,
       attributeOldValue: true,
       attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
     });
   }
-  const timer = setInterval(runEnsureSafely, lowPerformance ? 30000 : 5000);
+  const timer = setInterval(runEnsureSafely, lowPerformance ? 30000 : FALLBACK_REFRESH_MS);
   const runtimeState = {
-    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, motionQuery, motionHandler,
+    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, navigationHandler, motionQuery, motionHandler,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
     themeId: config.themeId,
     revision: PAYLOAD_REVISION,
