@@ -102,5 +102,8 @@ stop_injector() {
   case "$pid" in ''|*[!0-9]*) return 0 ;; esac
   if kill -0 "$pid" 2>/dev/null && tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -Fq "$INJECTOR --watch"; then
     kill -TERM "$pid" 2>/dev/null || return 1
+    local deadline=$((SECONDS + 5))
+    while kill -0 "$pid" 2>/dev/null && [ "$SECONDS" -lt "$deadline" ]; do sleep 0.1; done
+    kill -0 "$pid" 2>/dev/null && return 1
   fi
 }

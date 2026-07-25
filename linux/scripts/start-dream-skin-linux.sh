@@ -14,6 +14,9 @@ case "$PORT" in ''|*[!0-9]*) fail 'Port must be numeric.' ;; esac
 require_node
 discover_codex
 ensure_state_root
+# An upgraded engine must not race a watcher that has an older renderer
+# template in memory. Stop it before the first payload is built.
+stop_injector || fail 'Could not stop the previous injector.'
 
 if ! cdp_ready "$PORT"; then
   codex_is_running && fail 'Codex is already running without the Dream Skin CDP port. Close it, then run start again.'
@@ -22,8 +25,7 @@ if ! cdp_ready "$PORT"; then
   wait_for_cdp "$PORT" || fail "Codex did not expose CDP on 127.0.0.1:$PORT within 45 seconds."
 fi
 
-"$NODE" "$INJECTOR" --once --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 30000 >/dev/null
-stop_injector || fail 'Could not stop the previous injector.'
+"$NODE" "$INJECTOR" --once --reload --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 30000 >/dev/null
 nohup "$NODE" "$INJECTOR" --watch --port "$PORT" --theme-dir "$THEME_DIR" \
   >>"$LOG_PATH" 2>>"$ERROR_LOG" &
 pid=$!

@@ -677,6 +677,8 @@ async function loadPayload(themeDir) {
     .replace("__DREAM_CSS_JSON__", JSON.stringify(css))
     .replace("__DREAM_ART_JSON__", JSON.stringify(artDataUrl))
     .replace("__DREAM_THEME_JSON__", JSON.stringify(theme));
+  const unresolved = payload.match(/__DREAM(?:_SKIN)?_[A-Z_]+__/g);
+  if (unresolved) throw new Error(`Payload has unresolved placeholders: ${[...new Set(unresolved)].join(", ")}`);
   return {
     imageBytes: art.length,
     payload,
