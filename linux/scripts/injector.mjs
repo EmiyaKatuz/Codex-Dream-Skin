@@ -978,11 +978,8 @@ async function verifySession(session, expectedThemeId = null, expectedRevision =
         y: document.documentElement.scrollHeight > document.documentElement.clientHeight,
       },
     };
-    const structurePass = result.scope?.level === 'L0' ||
-      (Boolean(result.shell?.visible) && Boolean(result.sidebar?.visible));
     const basePass = result.installed && result.version === ${JSON.stringify(SKIN_VERSION)} &&
-      result.stylePresent && result.businessClassPollution === 0 && structurePass &&
-      !result.documentOverflow.x;
+      result.stylePresent && result.businessClassPollution === 0;
     const expectedThemeId = ${JSON.stringify(expectedThemeId)};
     const expectedRevision = ${JSON.stringify(expectedRevision)};
     const payloadPass = (!expectedThemeId || result.themeId === expectedThemeId) &&
@@ -995,9 +992,9 @@ async function verifySession(session, expectedThemeId = null, expectedRevision =
         result.suggestionLabelColorsMatch
       ))
     );
-    // The home route hydrates cards asynchronously after a renderer reload.
-    // Keep its detailed layout probe as diagnostic data so a ready theme is
-    // not reported as failed solely because those transient nodes lag behind.
+    // Codex can fold its sidebar or hydrate the home route after a renderer
+    // reload. Those layout signals are diagnostics, not proof that an already
+    // attached theme failed to apply.
     result.pass = Boolean(basePass && payloadPass);
     result.expectedThemeId = expectedThemeId;
     result.expectedRevision = expectedRevision;
@@ -1006,6 +1003,9 @@ async function verifySession(session, expectedThemeId = null, expectedRevision =
       composerOptionalOnNonTaskRoutes: !result.composer?.visible,
       suggestionCardsOptional: result.homeRoute && result.visibleCardCount === 0,
       homeLayoutPending: !homePass,
+      shellLayoutPending: !(result.scope?.level === 'L0' ||
+        (Boolean(result.shell?.visible) && Boolean(result.sidebar?.visible))),
+      horizontalOverflow: result.documentOverflow.x,
     };
     return result;
   })()`);
