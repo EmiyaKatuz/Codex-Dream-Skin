@@ -10,6 +10,7 @@
   "quote": "BLESS YOUR CODE ♥",
   "image": "dream-reference.jpg",
   "appearance": "auto",
+  "performanceMode": "low",
   "art": {
     "focusX": 0.72,
     "focusY": 0.42,

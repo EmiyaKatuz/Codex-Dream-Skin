@@ -28,6 +28,10 @@ The engine is copied to `~/.codex/codex-dream-skin-linux`; state, logs, and the 
 
 `restore` removes the live renderer payload and stops only the recorded injector process. It does not modify Codex configuration or binaries.
 
+## Performance
+
+Linux defaults to `"performanceMode": "low"` in `assets/theme.json`. It keeps the Choten artwork, color, and primary layout while disabling continuous DOM observation, costly animated ornaments, and backdrop blur. To restore the full animated effect, set `performanceMode` to `"full"` in the active `theme.json` and restart the skin.
+
 ## Build a distributable archive
 
 ```bash

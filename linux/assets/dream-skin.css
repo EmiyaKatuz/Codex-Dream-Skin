@@ -1383,6 +1383,34 @@ html.codex-dream-skin.dream-safe-none #codex-dream-skin-chrome .dream-angel-webc
   50% { opacity: .68; }
 }
 
+/* Linux defaults to a quieter compositor profile: retain the theme's color,
+   artwork, and layout while removing decorations that continuously repaint. */
+html.codex-dream-skin.dream-performance-low #codex-dream-skin-chrome :is(
+  .dream-angel-chat-rain,
+  .dream-angel-signal-wave,
+  .dream-angel-sparkles,
+  .dream-angel-telemetry,
+  .dream-angel-window-stack,
+  .dream-angel-webcam-card
+) {
+  display: none !important;
+}
+
+html.codex-dream-skin.dream-performance-low #codex-dream-skin-chrome *,
+html.codex-dream-skin.dream-performance-low #codex-dream-sidebar-ornaments * {
+  animation: none !important;
+  transition: none !important;
+  filter: none !important;
+}
+
+html.codex-dream-skin.dream-performance-low :is(
+  aside.app-shell-left-panel,
+  main.main-surface,
+  .composer-surface-chrome
+) {
+  backdrop-filter: none !important;
+}
+
 @container angel-stage (max-width: 1100px) {
   .dream-angel-telemetry { width: 162px !important; }
   .dream-angel-window-stack { scale: .86; transform-origin: left bottom; }

@@ -536,6 +536,7 @@ async function loadTheme(themeDir) {
     "highlight", "text", "muted", "line",
   ];
   const appearance = choice(raw.appearance, "appearance", ["auto", "light", "dark"]);
+  const performanceMode = choice(raw.performanceMode, "performanceMode", ["low", "full"]);
   if (raw.art !== undefined && (!raw.art || typeof raw.art !== "object" || Array.isArray(raw.art))) {
     throw new Error(`${configPath} has an invalid art field`);
   }
@@ -576,6 +577,7 @@ async function loadTheme(themeDir) {
   };
   if (paletteAccent) theme.palette = { accent: paletteAccent };
   if (appearance !== undefined) theme.appearance = appearance;
+  if (performanceMode !== undefined) theme.performanceMode = performanceMode;
   if (Object.values(art).some((value) => value !== undefined)) {
     theme.art = Object.fromEntries(Object.entries(art).filter(([, value]) => value !== undefined));
   }

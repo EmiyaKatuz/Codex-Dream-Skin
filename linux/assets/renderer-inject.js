@@ -26,6 +26,7 @@
     "dream-task-banner",
     "dream-task-off",
     "dream-choten-art",
+    "dream-performance-low",
     "dream-reduced-motion",
     "dream-settings-active",
   ];
@@ -187,12 +188,14 @@
     const taskMode = ["auto", "ambient", "banner", "off"].includes(art.taskMode)
       ? art.taskMode
       : "auto";
+    const performanceMode = config.performanceMode === "full" ? "full" : "low";
     const metadataRatio = Number(config?.artMetadata?.ratio);
     const themeId = typeof config.id === "string" ? config.id.trim().toLowerCase() : "";
     return {
       appearance,
       safeArea,
       taskMode,
+      performanceMode,
       themeId,
       chotenArt: /(?:internet-angel|choten)/i.test(themeId),
       focusX: hasNumber(art.focusX) ? clamp(art.focusX) : null,
@@ -221,6 +224,7 @@
     return URL.createObjectURL(new Blob([bytes], { type: mime }));
   })();
   const config = normalizeConfig(rawConfig);
+  const lowPerformance = config.performanceMode === "low";
   const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") || null;
   let profile = {
     ...defaultProfile,
@@ -471,6 +475,7 @@
     root.classList.toggle("dream-art-wide", profile.aspect >= 1.75);
     root.classList.toggle("dream-art-standard", profile.aspect < 1.75);
     root.classList.toggle("dream-choten-art", config.chotenArt);
+    root.classList.toggle("dream-performance-low", lowPerformance);
     root.classList.toggle("dream-reduced-motion", Boolean(motionQuery?.matches));
     for (const value of ["left", "center", "right"]) {
       root.classList.toggle(`dream-focus-${value}`, focus === value);
@@ -1527,26 +1532,28 @@
   window.addEventListener("resize", resizeHandler, { passive: true });
   motionQuery?.addEventListener?.("change", motionHandler);
   if (typeof ResizeObserver === "function") {
-    resizeObserver = new ResizeObserver(() => scheduleEnsure());
+    resizeObserver = new ResizeObserver(() => scheduleEnsure(lowPerformance ? 500 : 0));
   }
-  observer = new MutationObserver((records) => {
-    if (samplingNativeShell) return;
-    const hasApplicationChange = records.some((record) => {
-      if (record.type !== "attributes" || record.attributeName !== "class") return true;
-      return withoutManagedClasses(record.oldValue)
-        !== withoutManagedClasses(record.target?.getAttribute?.("class"));
+  if (!lowPerformance) {
+    observer = new MutationObserver((records) => {
+      if (samplingNativeShell) return;
+      const hasApplicationChange = records.some((record) => {
+        if (record.type !== "attributes" || record.attributeName !== "class") return true;
+        return withoutManagedClasses(record.oldValue)
+          !== withoutManagedClasses(record.target?.getAttribute?.("class"));
+      });
+      if (!hasApplicationChange) return;
+      scheduleEnsure(MUTATION_REFRESH_INTERVAL_MS);
     });
-    if (!hasApplicationChange) return;
-    scheduleEnsure(MUTATION_REFRESH_INTERVAL_MS);
-  });
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeOldValue: true,
-    attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
-  });
-  const timer = setInterval(runEnsureSafely, 5000);
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
+    });
+  }
+  const timer = setInterval(runEnsureSafely, lowPerformance ? 30000 : 5000);
   const runtimeState = {
     ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, motionQuery, motionHandler,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
