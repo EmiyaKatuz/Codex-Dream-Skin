@@ -229,9 +229,20 @@ function validatedDebuggerUrl(target, port) {
   return url.href;
 }
 
+function isExpectedRendererUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol === "app:") return true;
+    return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+      && url.port === "5175" && url.pathname === "/" && !url.username && !url.password && !url.hash;
+  } catch {
+    return false;
+  }
+}
+
 function isValidCdpPageTarget(item, port) {
   if (
-    item?.type !== "page" || !item.url?.startsWith("app://")
+    item?.type !== "page" || !isExpectedRendererUrl(item.url)
     || typeof item.id !== "string" || !CDP_ID_PATTERN.test(item.id)
     || !item.webSocketDebuggerUrl
   ) return false;
@@ -388,7 +399,9 @@ async function probeSession(session) {
       title: document.title,
       href: location.href,
       markers,
-      codex: location.protocol === 'app:' &&
+      codex: (location.protocol === 'app:' || (location.protocol === 'http:' &&
+        (location.hostname === 'localhost' || location.hostname === '127.0.0.1') &&
+        location.port === '5175' && location.pathname === '/')) &&
         ((markers.shell && markers.sidebar) || settings || markers.main),
     };
   })()`);

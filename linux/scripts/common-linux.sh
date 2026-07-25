@@ -55,7 +55,18 @@ cdp_ready() {
   curl --noproxy '*' --silent --fail --max-time 1 "http://127.0.0.1:${port}/json/list" \
     | "$NODE" -e '
       let data=""; process.stdin.on("data", c => data += c).on("end", () => {
-        try { const pages = JSON.parse(data); process.exit(pages.some((p) => p.type === "page" && /^app:\/\//.test(p.url || "")) ? 0 : 1); } catch { process.exit(1); }
+        try {
+          const pages = JSON.parse(data);
+          const expected = (value) => {
+            try {
+              const url = new URL(value);
+              return url.protocol === "app:" || (url.protocol === "http:" &&
+                (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+                url.port === "5175" && url.pathname === "/" && !url.username && !url.password && !url.hash);
+            } catch { return false; }
+          };
+          process.exit(pages.some((p) => p.type === "page" && expected(p.url)) ? 0 : 1);
+        } catch { process.exit(1); }
       });'
 }
 
