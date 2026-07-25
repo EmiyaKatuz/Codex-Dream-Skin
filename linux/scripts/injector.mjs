@@ -524,6 +524,13 @@ async function loadTheme(themeDir) {
   };
   const rawColors = raw.colors && typeof raw.colors === "object" && !Array.isArray(raw.colors)
     ? raw.colors : null;
+  const palette = raw.palette && typeof raw.palette === "object" && !Array.isArray(raw.palette)
+    ? raw.palette : {};
+  const paletteAccent = typeof palette.accent === "string" && palette.accent.trim()
+    ? palette.accent.trim() : "";
+  if (paletteAccent && !/^(?:#[\da-f]{3,8}|(?:rgb|hsl|oklch|oklab)\([^;{}]{1,96}\))$/i.test(paletteAccent)) {
+    throw new Error("palette.accent is not a supported CSS color");
+  }
   const colorKeys = [
     "background", "panel", "panelAlt", "accent", "accentAlt", "secondary",
     "highlight", "text", "muted", "line",
@@ -550,13 +557,15 @@ async function loadTheme(themeDir) {
     statusText: text(raw.statusText, "DREAM SKIN ONLINE", 80, "statusText"),
     quote: text(raw.quote, "MAKE SOMETHING WONDERFUL", 80, "quote"),
     image: raw.image,
-    colorMode: rawColors ? "explicit" : "auto",
-    explicitColorKeys: rawColors ? colorKeys.filter((key) => Object.hasOwn(rawColors, key)) : [],
+    colorMode: rawColors ? "explicit" : (paletteAccent ? "explicit" : "auto"),
+    explicitColorKeys: rawColors
+      ? colorKeys.filter((key) => Object.hasOwn(rawColors, key))
+      : (paletteAccent ? ["accent"] : []),
     colors: {
       background: color(rawColors?.background, "#071116"),
       panel: color(rawColors?.panel, "#0b1a20"),
       panelAlt: color(rawColors?.panelAlt, "#10272c"),
-      accent: color(rawColors?.accent, "#7cff46"),
+      accent: color(rawColors?.accent, color(paletteAccent, "#7cff46")),
       accentAlt: color(rawColors?.accentAlt, "#b8ff3d"),
       secondary: color(rawColors?.secondary, "#36d7e8"),
       highlight: color(rawColors?.highlight, "#642a8c"),
@@ -565,6 +574,7 @@ async function loadTheme(themeDir) {
       line: color(rawColors?.line, "rgba(124, 255, 70, .28)"),
     },
   };
+  if (paletteAccent) theme.palette = { accent: paletteAccent };
   if (appearance !== undefined) theme.appearance = appearance;
   if (Object.values(art).some((value) => value !== undefined)) {
     theme.art = Object.fromEntries(Object.entries(art).filter(([, value]) => value !== undefined));
@@ -663,7 +673,10 @@ async function loadPayload(themeDir) {
     .replace("__DREAM_SKIN_THEME_JSON__", JSON.stringify(theme))
     .replace("__DREAM_SKIN_VERSION_JSON__", JSON.stringify(SKIN_VERSION))
     .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", JSON.stringify(styleRevision))
-    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify(revision));
+    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify(revision))
+    .replace("__DREAM_CSS_JSON__", JSON.stringify(css))
+    .replace("__DREAM_ART_JSON__", JSON.stringify(artDataUrl))
+    .replace("__DREAM_THEME_JSON__", JSON.stringify(theme));
   return {
     imageBytes: art.length,
     payload,

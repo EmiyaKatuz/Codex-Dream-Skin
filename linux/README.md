@@ -1,6 +1,6 @@
 # Codex Dream Skin for Linux
 
-Linux engine for the official Codex Desktop app. It starts the official client with a loopback-only CDP port, injects the theme into the verified Codex renderer, and never modifies `app.asar` or the installed application files.
+Linux engine for the official Codex Desktop app. It starts the official client with a loopback-only CDP port, injects the Choten / INTERNET ANGEL theme into the verified Codex renderer, and never modifies `app.asar` or the installed application files.
 
 ## Requirements
 

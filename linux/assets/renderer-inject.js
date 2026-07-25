@@ -1,726 +1,1571 @@
-// Canonical cross-platform renderer. Run tools/sync-runtime-assets.mjs after editing.
-((cssText, artDataUrl, themeConfig) => {
-  const SELECTOR_CONTRACT = {"schema":"codex-dream-skin-selectors/1","selectors":[{"key":"shell-main","selector":"main.main-surface","tier":"L1","scope":"all","required":true},{"key":"left-panel","selector":"aside.app-shell-left-panel","tier":"L1","scope":"all","required":true},{"key":"header-tint","selector":"header.app-header-tint","tier":"L1","scope":"all","required":true},{"key":"home-icon","selector":"[data-testid=\"home-icon\"]","tier":"L1","scope":"home","required":true},{"key":"home-route","selector":"[role=\"main\"]:has([data-testid=\"home-icon\"])","tier":"L1","scope":"home","required":true},{"key":"home-route-css","selector":"[role=\"main\"]","tier":"L1","scope":"home","required":true},{"key":"composer-chrome","selector":".composer-surface-chrome","tier":"L2","scope":"home+thread","required":false},{"key":"home-utility","selector":"[class*=\"_homeUtilityBar_\"]","tier":"L2","scope":"home","required":false},{"key":"game-source","selector":"[data-feature=\"game-source\"]","tier":"L2","scope":"home","required":false},{"key":"home-suggestions","selector":".group\\/home-suggestions","tier":"L2","scope":"home","required":false},{"key":"project-selector","selector":".group\\/project-selector","tier":"L2","scope":"home config","required":false},{"key":"markdown","selector":"[class*=\"_markdown\"]","tier":"L2","scope":"thread","required":false},{"key":"appearance-radio","selector":"input[name=\"appearance-theme\"]","tier":"L2","scope":"settings","required":false},{"key":"overlay-menu","selector":"[role=\"menu\"]","tier":"L2","scope":"overlay","required":false},{"key":"overlay-dialog","selector":"[role=\"dialog\"]","tier":"L2","scope":"overlay","required":false},{"key":"overlay-popper","selector":"[data-radix-popper-content-wrapper]","tier":"L2","scope":"overlay","required":false}],"stableTestids":["app-shell-header-context-menu-surface","home-icon","theme-preview"]};
+((cssText, artDataUrl, rawConfig) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
-  const DISABLED_KEY = "__CODEX_DREAM_SKIN_DISABLED__";
-  const STYLE_REGISTRY_KEY = "__CODEX_DREAM_SKIN_STYLE_SHEETS__";
   const STYLE_ID = "codex-dream-skin-style";
-  const SHELL_ATTR = "data-dream-shell";
-  const ROOT_ATTRS = [
-    "data-dream-skin", SHELL_ATTR,
-    "data-dream-art-wide", "data-dream-art-safe", "data-dream-task-mode",
-    "data-dream-art-safe-area", "data-dream-art-task-mode", "data-dream-art-aspect",
-    "data-dream-art-ready",
-  ];
-  const VERSION = __DREAM_SKIN_VERSION_JSON__;
-  const STYLE_REVISION = __DREAM_SKIN_STYLE_REVISION_JSON__;
+  const STYLE_REVISION = "8";
+  const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
-  const THEME = themeConfig && typeof themeConfig === "object" ? themeConfig : {};
-  const ART = THEME.art && typeof THEME.art === "object" ? THEME.art : {};
-  const ART_METADATA = THEME.artMetadata && typeof THEME.artMetadata === "object"
-    ? THEME.artMetadata : null;
-  const ANALYSIS_CACHE_KEY = "__CODEX_DREAM_SKIN_ANALYSIS_CACHE__";
-  const THEME_VARIABLES = [
-    "--ds-bg", "--ds-panel", "--ds-panel-2", "--ds-green", "--ds-lime",
-    "--ds-cyan", "--ds-purple", "--ds-text", "--ds-muted", "--ds-line",
-    "--ds-bg-rgb", "--ds-panel-rgb", "--ds-panel-2-rgb", "--ds-accent-rgb",
-    "--ds-accent-alt-rgb", "--ds-secondary-rgb", "--ds-highlight-rgb",
-    "--ds-text-rgb", "--ds-muted-rgb", "--ds-line-rgb",
-    "--dream-art-focus-x", "--dream-art-focus-y", "--dream-art-position",
-    "--dream-skin-focus-x", "--dream-skin-focus-y", "--dream-skin-art-position",
-    "--dream-skin-name", "--dream-skin-tagline", "--dream-skin-project-prefix",
-    "--dream-skin-project-label", "--dream-skin-brand-subtitle", "--dream-skin-status",
-    "--dream-skin-quote", "--dream-skin-art",
+  const CHROME_ID = "codex-dream-skin-chrome";
+  const FALLBACK_PRESETS_ID = "codex-dream-skin-presets";
+  const SIDEBAR_CHROME_ID = "codex-dream-sidebar-ornaments";
+  const SIDE_WORKSPACE_BRAND_ID = "codex-dream-side-workspace-brand";
+  const NEW_TASK_CLASS = "dream-new-task-button";
+  const ROOT_CLASSES = [
+    "codex-dream-skin",
+    "dream-theme-light",
+    "dream-theme-dark",
+    "dream-art-wide",
+    "dream-art-standard",
+    "dream-focus-left",
+    "dream-focus-center",
+    "dream-focus-right",
+    "dream-safe-left",
+    "dream-safe-center",
+    "dream-safe-right",
+    "dream-safe-none",
+    "dream-task-ambient",
+    "dream-task-banner",
+    "dream-task-off",
+    "dream-choten-art",
+    "dream-reduced-motion",
+    "dream-settings-active",
   ];
-  const selectorByKey = new Map(SELECTOR_CONTRACT.selectors.map((entry) => [entry.key, entry]));
-  const stableTestidSelector = (testid) => SELECTOR_CONTRACT.stableTestids?.includes(testid)
-    ? `[data-testid="${testid}"]` : null;
+  const ROUTE_CLASSES = [
+    "dream-route-home",
+    "dream-route-task",
+    "dream-route-sites",
+    "dream-route-pulls",
+    "dream-route-scheduled",
+    "dream-route-plugins",
+    "dream-route-settings",
+    "dream-route-utility",
+  ];
+  const PRESET_CLASSES = [
+    "dream-codex-preset",
+    "dream-preset-explore",
+    "dream-preset-build",
+    "dream-preset-review",
+    "dream-preset-fix",
+  ];
+  const ROOT_PROPERTIES = [
+    "--dream-art",
+    "--dream-art-position",
+    "--dream-focus-x",
+    "--dream-focus-y",
+    "--dream-accent",
+    "--dream-accent-ink",
+    "--dream-image-luma",
+  ];
+  const HOME_UTILITY_CLASS = "dream-home-utility";
+  const SYSTEM_TOAST_CLASS = "dream-system-toast";
+  const CHANGES_SHELL_CLASS = "dream-changes-shell";
+  const CHANGES_CLIP_HOST_CLASS = "dream-changes-clip-host";
+  const PANEL_CLASSES = [
+    "dream-terminal-panel",
+    "dream-side-workspace",
+    "dream-side-chat-panel",
+    "dream-summary-panel",
+  ];
+  const HOME_PANEL_STATE_CLASSES = [
+    "dream-home-side-open",
+    "dream-home-bottom-open",
+    "dream-home-dual-panel",
+  ];
+  const EDITED_CARD_CLASSES = [
+    "dream-edited-card",
+    "dream-edited-card-header",
+    "dream-edited-card-icon",
+    "dream-edited-card-title",
+    "dream-edited-card-stats",
+    "dream-edited-card-actions",
+    "dream-edited-card-undo",
+    "dream-edited-card-review",
+  ];
+  const INTERACTION_CLASSES = [
+    "dream-selection-actions",
+    "dream-selection-action",
+    "dream-selected-fragment",
+    "dream-optional-comment",
+    "dream-optional-comment-input",
+    ...EDITED_CARD_CLASSES,
+  ];
+  const TURN_NAV_CLASSES = [
+    "dream-turn-nav-rail",
+    "dream-turn-nav-row",
+    "dream-turn-nav-marker",
+    "dream-turn-nav-marker-active",
+    "dream-turn-preview-tooltip",
+    "dream-turn-preview-surface",
+    "dream-turn-preview-title",
+    "dream-turn-preview-excerpt",
+  ];
+  const SETTINGS_CLASSES = [
+    "dream-settings-sidebar",
+    "dream-settings-nav",
+    "dream-settings-search",
+    "dream-settings-content",
+    "dream-settings-surface",
+    "dream-settings-row",
+    "dream-settings-control",
+    "dream-settings-input",
+    "dream-settings-segment-group",
+    "dream-settings-segment",
+    "dream-settings-menu",
+    "dream-settings-app-row",
+    "dream-settings-app-main",
+  ];
+  const SUBAGENT_CLASSES = [
+    "dream-subagent-frame",
+    "dream-subagent-shell",
+    "dream-subagent-toolbar",
+    "dream-subagent-panel",
+    "dream-subagent-scroller",
+    "dream-subagent-section",
+    "dream-subagent-section-live",
+    "dream-subagent-section-archive",
+    "dream-subagent-list",
+    "dream-subagent-row",
+    "dream-subagent-row-live",
+    "dream-subagent-row-archive",
+    "dream-subagent-more",
+  ];
+  const COMPOSER_UI_CLASSES = [
+    "dream-composer-palette",
+    "dream-composer-palette-scroll",
+    "dream-composer-palette-heading",
+    "dream-composer-palette-item",
+    "dream-composer-context-strip",
+    "dream-active-goal-strip",
+    "dream-goal-progress-group",
+    "dream-goal-step",
+    "dream-goal-mode-trigger",
+  ];
   const installToken = {};
-  const existingAnalysisCache = window[ANALYSIS_CACHE_KEY];
-  const analysisCache = existingAnalysisCache && typeof existingAnalysisCache.get === "function" &&
-    typeof existingAnalysisCache.set === "function" ? existingAnalysisCache : new Map();
-  window[ANALYSIS_CACHE_KEY] = analysisCache;
-  let artAnalysis = typeof THEME.artKey === "string" ? analysisCache.get(THEME.artKey) ?? null : null;
-  let analysisTimer = null;
-  let rootObserver = null;
-  let bodyReadyHandler = null;
-  let styleMode = null;
-  let styleNode = null;
-  let styleSheet = null;
-  const now = () => typeof performance === "object" && typeof performance.now === "function"
-    ? performance.now() : Date.now();
-  const metrics = {
-    ensureCalls: 0,
-    rootPasses: 0,
-    routePasses: 0,
-    layoutReads: 0,
-    attributeWrites: 0,
-    styleWrites: 0,
-    styleRepairs: 0,
-    navigationEvents: 0,
-    safetyPasses: 0,
-    analysisRuns: 0,
-    analysisCacheHits: artAnalysis ? 1 : 0,
-    firstEnsureMs: null,
-    analysisMs: null,
+  const MUTATION_REFRESH_INTERVAL_MS = 120;
+  const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
+  let samplingNativeShell = false;
+  let observer = null;
+  let resizeObserver = null;
+  let resizeTargets = new Set();
+  window.__CODEX_DREAM_SKIN_DISABLED__ = false;
+
+  const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, Number(value)));
+  const luminance = (red, green, blue) => {
+    const linear = [red, green, blue].map((value) => {
+      const channel = value / 255;
+      return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+    });
+    return .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2];
+  };
+  const defaultProfile = {
+    appearance: "dark",
+    accent: [108, 131, 142],
+    focusX: .5,
+    focusY: .5,
+    aspect: 1.6,
+    luma: .32,
+    safeArea: "center",
+  };
+
+  const normalizeConfig = (value) => {
+    const config = value && typeof value === "object" ? value : {};
+    const art = config.art && typeof config.art === "object" ? config.art : {};
+    const hasNumber = (candidate) =>
+      (typeof candidate === "number" || (typeof candidate === "string" && candidate.trim() !== "")) &&
+      Number.isFinite(Number(candidate));
+    const requestedAccent = typeof config?.palette?.accent === "string"
+      ? config.palette.accent.trim()
+      : "";
+    const safeAccent = /^(?:#[\da-f]{3,8}|(?:rgb|hsl|oklch|oklab)\([^;{}]{1,96}\))$/i.test(requestedAccent)
+      ? requestedAccent
+      : null;
+    const appearance = ["auto", "light", "dark"].includes(config.appearance)
+      ? config.appearance
+      : "auto";
+    const safeArea = ["auto", "left", "right", "center", "none"].includes(art.safeArea)
+      ? art.safeArea
+      : "auto";
+    const taskMode = ["auto", "ambient", "banner", "off"].includes(art.taskMode)
+      ? art.taskMode
+      : "auto";
+    const metadataRatio = Number(config?.artMetadata?.ratio);
+    const themeId = typeof config.id === "string" ? config.id.trim().toLowerCase() : "";
+    return {
+      appearance,
+      safeArea,
+      taskMode,
+      themeId,
+      chotenArt: /(?:internet-angel|choten)/i.test(themeId),
+      focusX: hasNumber(art.focusX) ? clamp(art.focusX) : null,
+      focusY: hasNumber(art.focusY) ? clamp(art.focusY) : null,
+      accent: safeAccent,
+      initialAspect: Number.isFinite(metadataRatio) && metadataRatio > 0 ? metadataRatio : null,
+    };
   };
 
   const previous = window[STATE_KEY];
-  if (typeof previous?.cleanup === "function") previous.cleanup();
-  window[DISABLED_KEY] = false;
-
-  const existingStyleRegistry = window[STYLE_REGISTRY_KEY];
-  const styleRegistry = existingStyleRegistry instanceof Set ? existingStyleRegistry : new Set();
-  window[STYLE_REGISTRY_KEY] = styleRegistry;
+  if (previous?.observer) previous.observer.disconnect();
+  if (previous?.resizeObserver) previous.resizeObserver.disconnect();
+  if (previous?.timer) clearInterval(previous.timer);
+  if (previous?.scheduler?.timeout) clearTimeout(previous.scheduler.timeout);
+  if (previous?.scheduler?.frame) window.cancelAnimationFrame?.(previous.scheduler.frame);
+  if (previous?.resizeHandler) window.removeEventListener("resize", previous.resizeHandler);
+  previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
+  if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
+  document.documentElement?.classList?.remove?.("dream-preview-blink", "dream-preview-blink-half");
   const artUrl = (() => {
     const comma = artDataUrl.indexOf(",");
-    const mime = /^data:([^;,]+)/.exec(artDataUrl)?.[1] || "image/png";
     const binary = atob(artDataUrl.slice(comma + 1));
     const bytes = new Uint8Array(binary.length);
     for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const mime = /^data:([^;,]+)/.exec(artDataUrl)?.[1] || "image/png";
     return URL.createObjectURL(new Blob([bytes], { type: mime }));
   })();
-
-  const cssString = (value) => JSON.stringify(String(value ?? ""));
-
-  const setStyleProperty = (root, name, value) => {
-    if (root.style.getPropertyValue(name) !== value) {
-      root.style.setProperty(name, value);
-      metrics.styleWrites += 1;
-    }
+  const config = normalizeConfig(rawConfig);
+  const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") || null;
+  let profile = {
+    ...defaultProfile,
+    aspect: config.initialAspect ?? defaultProfile.aspect,
   };
-
-  const setAttribute = (root, name, value) => {
-    const normalized = String(value);
-    if (root.getAttribute(name) !== normalized) {
-      root.setAttribute(name, normalized);
-      metrics.attributeWrites += 1;
-    }
-  };
-
-  const parseRgb = (value) => {
-    if (!value || value === "transparent") return null;
-    const hex = String(value).trim().match(/^#([0-9a-f]{6})$/i);
-    if (hex) {
-      const number = Number.parseInt(hex[1], 16);
-      return { r: number >> 16, g: (number >> 8) & 255, b: number & 255 };
-    }
-    const m = String(value).match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
-    if (!m) return null;
-    return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
-  };
-
-  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-
-  const rgbString = (value) => {
-    const rgb = parseRgb(value);
-    return rgb ? `${Math.round(rgb.r)} ${Math.round(rgb.g)} ${Math.round(rgb.b)}` : null;
-  };
-
-  const rgbToHex = ({ r, g, b }) => `#${[r, g, b]
-    .map((value) => clamp(Math.round(value), 0, 255).toString(16).padStart(2, "0"))
-    .join("")}`;
-
-  const rgbToHsl = ({ r, g, b }) => {
-    const values = [r, g, b].map((value) => value / 255);
-    const max = Math.max(...values);
-    const min = Math.min(...values);
-    const lightness = (max + min) / 2;
-    if (max === min) return { h: 0, s: 0, l: lightness };
-    const delta = max - min;
-    const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
-    let hue;
-    if (max === values[0]) hue = (values[1] - values[2]) / delta + (values[1] < values[2] ? 6 : 0);
-    else if (max === values[1]) hue = (values[2] - values[0]) / delta + 2;
-    else hue = (values[0] - values[1]) / delta + 4;
-    return { h: hue * 60, s: saturation, l: lightness };
-  };
-
-  const hslToRgb = ({ h, s, l }) => {
-    const hue = ((h % 360) + 360) % 360 / 360;
-    if (s === 0) {
-      const neutral = Math.round(l * 255);
-      return { r: neutral, g: neutral, b: neutral };
-    }
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    const channel = (offset) => {
-      let t = hue + offset;
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-    return { r: channel(1 / 3) * 255, g: channel(0) * 255, b: channel(-1 / 3) * 255 };
-  };
-
-  const detectShellAppearance = () => {
-    const root = document.documentElement;
-    if (root?.classList?.contains("electron-dark")) return "dark";
-    if (root?.classList?.contains("electron-light")) return "light";
-    try { return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } catch {}
-    return "light";
-  };
-
-  const makeAdaptivePalette = (sample, shell) => {
-    const source = sample || { r: 108, g: 126, b: 136 };
-    const hsl = rgbToHsl(source);
-    const hue = hsl.s < 0.12 ? 214 : hsl.h;
-    const saturation = clamp(hsl.s, 0.38, 0.72);
-    const accent = hslToRgb({ h: hue, s: saturation, l: shell === "light" ? 0.42 : 0.66 });
-    const accentAlt = hslToRgb({ h: hue + 12, s: saturation * 0.82, l: shell === "light" ? 0.52 : 0.73 });
-    const secondary = hslToRgb({ h: hue - 24, s: saturation * 0.64, l: shell === "light" ? 0.56 : 0.62 });
-    const highlight = hslToRgb({ h: hue + 24, s: saturation * 0.76, l: shell === "light" ? 0.36 : 0.58 });
-    const neutral = (lightness, chroma = 0.08) => rgbToHex(hslToRgb({ h: hue, s: chroma, l: lightness }));
-    return shell === "light" ? {
-      background: neutral(0.965, 0.07),
-      panel: neutral(0.987, 0.035),
-      panelAlt: neutral(0.945, 0.09),
-      accent: rgbToHex(accent),
-      accentAlt: rgbToHex(accentAlt),
-      secondary: rgbToHex(secondary),
-      highlight: rgbToHex(highlight),
-      text: neutral(0.13, 0.10),
-      muted: neutral(0.42, 0.08),
-      line: `rgba(${Math.round(accent.r)}, ${Math.round(accent.g)}, ${Math.round(accent.b)}, .24)`,
-    } : {
-      background: neutral(0.055, 0.045),
-      panel: neutral(0.085, 0.04),
-      panelAlt: neutral(0.125, 0.05),
-      accent: rgbToHex(accent),
-      accentAlt: rgbToHex(accentAlt),
-      secondary: rgbToHex(secondary),
-      highlight: rgbToHex(highlight),
-      text: neutral(0.93, 0.025),
-      muted: neutral(0.69, 0.03),
-      line: `rgba(${Math.round(accent.r)}, ${Math.round(accent.g)}, ${Math.round(accent.b)}, .28)`,
-    };
-  };
-
-  const resolvedShell = () => {
-    if (THEME.appearance === "light" || THEME.appearance === "dark") return THEME.appearance;
-    // Image luminance may tune accents and scrims, but auto appearance follows
-    // Codex/ChatGPT (or the OS fallback) so a bright wallpaper cannot flip a
-    // native dark session back to a light shell after analysis.
-    return detectShellAppearance();
-  };
-
-  const applyTheme = (root, shell) => {
-    const declaredColors = THEME.colors && typeof THEME.colors === "object" ? THEME.colors : {};
-    const legacyPalette = THEME.palette && typeof THEME.palette === "object" ? THEME.palette : {};
-    // macOS themes use the full `colors` contract; older Windows themes used
-    // `palette.accent`. Accept both while keeping one renderer source.
-    const colors = Object.keys(declaredColors).length ? declaredColors : legacyPalette;
-    const hasExplicitKeyList = Array.isArray(THEME.explicitColorKeys);
-    const explicit = new Set(hasExplicitKeyList ? THEME.explicitColorKeys : []);
-    if (!hasExplicitKeyList && (THEME.colorMode === "explicit" || !Object.hasOwn(THEME, "colorMode"))) {
-      for (const key of Object.keys(declaredColors)) explicit.add(key);
-    }
-    if (typeof legacyPalette.accent === "string") explicit.add("accent");
-    const adaptive = makeAdaptivePalette(artAnalysis?.accentRgb, shell);
-    const legacyLight = (THEME.appearance === undefined || THEME.appearance === "auto") && shell === "light";
-    const structural = new Set(["background", "panel", "panelAlt", "text", "muted"]);
-    const pick = (name) => {
-      const allowExplicit = explicit.has(name) && !(legacyLight && structural.has(name));
-      return allowExplicit && typeof colors[name] === "string" ? colors[name] : adaptive[name];
-    };
-    const accent = pick("accent");
-    const accentAlt = explicit.has("accentAlt") ? pick("accentAlt") : (explicit.has("accent") ? accent : adaptive.accentAlt);
-    const variables = {
-      "--ds-bg": pick("background"),
-      "--ds-panel": pick("panel"),
-      "--ds-panel-2": pick("panelAlt"),
-      "--ds-green": accent,
-      "--ds-lime": accentAlt,
-      "--ds-cyan": pick("secondary"),
-      "--ds-purple": pick("highlight"),
-      "--ds-text": pick("text"),
-      "--ds-muted": pick("muted"),
-      "--ds-line": explicit.has("line") && typeof colors.line === "string" ? colors.line : adaptive.line,
-    };
-
-    for (const [name, value] of Object.entries(variables)) {
-      if (typeof value === "string" && value) setStyleProperty(root, name, value);
-    }
-    const rgbVariables = {
-      "--ds-bg-rgb": variables["--ds-bg"],
-      "--ds-panel-rgb": variables["--ds-panel"],
-      "--ds-panel-2-rgb": variables["--ds-panel-2"],
-      "--ds-accent-rgb": variables["--ds-green"],
-      "--ds-accent-alt-rgb": variables["--ds-lime"],
-      "--ds-secondary-rgb": variables["--ds-cyan"],
-      "--ds-highlight-rgb": variables["--ds-purple"],
-      "--ds-text-rgb": variables["--ds-text"],
-      "--ds-muted-rgb": variables["--ds-muted"],
-      "--ds-line-rgb": variables["--ds-line"],
-    };
-    for (const [name, value] of Object.entries(rgbVariables)) {
-      const rgb = rgbString(value);
-      if (rgb) setStyleProperty(root, name, rgb);
-    }
-    setStyleProperty(root, "--dream-skin-name", cssString(THEME.name || "Codex Dream Skin"));
-    setStyleProperty(root, "--dream-skin-tagline", cssString(THEME.tagline || "Make something wonderful."));
-    setStyleProperty(root, "--dream-skin-quote", cssString(THEME.quote || "MAKE SOMETHING WONDERFUL"));
-    setStyleProperty(root, "--dream-skin-brand-subtitle", cssString(
-      THEME.brandSubtitle || "CODEX DREAM SKIN",
-    ));
-    setStyleProperty(root, "--dream-skin-status", cssString(THEME.statusText || "DREAM SKIN ONLINE"));
-    setStyleProperty(root, "--dream-skin-project-prefix", cssString(THEME.projectPrefix || "选择项目 · "));
-    setStyleProperty(root, "--dream-skin-project-label", cssString(THEME.projectLabel || "◉  选择项目"));
-  };
-
-  const applyArtMetadata = (root) => {
-    const profile = artAnalysis || ART_METADATA;
-    const inferredSafe = profile?.safeArea || "center";
-    const safeArea = ART.safeArea && ART.safeArea !== "auto" ? ART.safeArea : inferredSafe;
-    const canonicalSafe = ["left", "right", "center", "none"].includes(safeArea)
-      ? safeArea : "center";
-    const focusX = typeof ART.focusX === "number" ? ART.focusX
-      : profile?.focusX ?? (safeArea === "left" ? 0.72 : safeArea === "right" ? 0.28 : 0.5);
-    const focusY = typeof ART.focusY === "number" ? ART.focusY : profile?.focusY ?? 0.5;
-    const taskMode = ART.taskMode && ART.taskMode !== "auto"
-      ? ART.taskMode : profile?.taskMode || "ambient";
-    const wide = profile?.wide || false;
-    const aspect = profile?.aspect || "unknown";
-    const focusXValue = `${(clamp(focusX, 0, 1) * 100).toFixed(2)}%`;
-    const focusYValue = `${(clamp(focusY, 0, 1) * 100).toFixed(2)}%`;
-
-    setAttribute(root, "data-dream-art-wide", wide ? "true" : "false");
-    setAttribute(root, "data-dream-art-safe", canonicalSafe);
-    setAttribute(root, "data-dream-task-mode", taskMode);
-    setAttribute(root, "data-dream-art-safe-area", safeArea);
-    setAttribute(root, "data-dream-art-task-mode", taskMode);
-    setAttribute(root, "data-dream-art-aspect", aspect);
-    setAttribute(root, "data-dream-art-ready", artAnalysis ? "true" : "false");
-    setStyleProperty(root, "--dream-art-focus-x", focusXValue);
-    setStyleProperty(root, "--dream-art-focus-y", focusYValue);
-    setStyleProperty(root, "--dream-art-position", `${focusXValue} ${focusYValue}`);
-    setStyleProperty(root, "--dream-skin-focus-x", focusXValue);
-    setStyleProperty(root, "--dream-skin-focus-y", focusYValue);
-    setStyleProperty(root, "--dream-skin-art-position", `${focusXValue} ${focusYValue}`);
-  };
+  let artGeometryReady = Boolean(config.initialAspect);
+  const existingStyle = document.getElementById(STYLE_ID);
+  if (existingStyle) {
+    existingStyle.textContent = cssText;
+    existingStyle.dataset.dreamVersion = STYLE_REVISION;
+  }
 
   const analyzeArt = () => new Promise((resolve) => {
-    const startedAt = now();
-    metrics.analysisRuns += 1;
-    if (typeof window.Image !== "function" || !document?.createElement) {
-      metrics.analysisMs = Number((now() - startedAt).toFixed(3));
-      resolve(null);
+    if (typeof Image !== "function") {
+      resolve(defaultProfile);
       return;
     }
-    const image = new window.Image();
-    let settled = false;
-    const finish = (value) => {
-      if (settled) return;
-      settled = true;
-      if (analysisTimer) clearTimeout(analysisTimer);
-      analysisTimer = null;
-      metrics.analysisMs = Number((now() - startedAt).toFixed(3));
-      resolve(value);
-    };
-    analysisTimer = setTimeout(() => finish(null), 6000);
-    image.onerror = () => finish(null);
+    const image = new Image();
     image.onload = () => {
       try {
-        const ratio = image.naturalWidth / image.naturalHeight;
-        if (!Number.isFinite(ratio) || ratio <= 0) throw new Error("Invalid image dimensions");
-        const maxDimension = 96;
-        const width = Math.max(16, Math.round(ratio >= 1 ? maxDimension : maxDimension * ratio));
-        const height = Math.max(16, Math.round(ratio >= 1 ? maxDimension / ratio : maxDimension));
+        const width = 48;
+        const height = Math.max(12, Math.round(width * image.naturalHeight / image.naturalWidth));
         const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
         const context = canvas.getContext?.("2d", { willReadFrequently: true });
         if (!context) throw new Error("Canvas is unavailable");
         context.drawImage(image, 0, 0, width, height);
-        const data = context.getImageData(0, 0, width, height).data;
-        const samples = new Array(width * height);
-        const bins = Array.from({ length: 24 }, () => ({ weight: 0, r: 0, g: 0, b: 0 }));
-        let lightTotal = 0;
+        const pixels = context.getImageData(0, 0, width, height).data;
         let count = 0;
-
-        for (let y = 0; y < height; y += 1) {
-          for (let x = 0; x < width; x += 1) {
-            const offset = (y * width + x) * 4;
-            if (data[offset + 3] < 32) continue;
-            const rgb = { r: data[offset], g: data[offset + 1], b: data[offset + 2] };
-            const light = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
-            const hsl = rgbToHsl(rgb);
-            samples[y * width + x] = { light, saturation: hsl.s };
-            lightTotal += light;
-            count += 1;
-            if (hsl.s >= 0.16 && hsl.l >= 0.16 && hsl.l <= 0.86) {
-              const bin = bins[Math.min(23, Math.floor(hsl.h / 15))];
-              const weight = hsl.s * (1 - Math.abs(hsl.l - 0.52) * 0.85);
-              bin.weight += weight;
-              bin.r += rgb.r * weight;
-              bin.g += rgb.g * weight;
-              bin.b += rgb.b * weight;
-            }
-          }
+        let totalRed = 0;
+        let totalGreen = 0;
+        let totalBlue = 0;
+        let totalBrightness = 0;
+        const samples = [];
+        const sampleMap = new Array(width * height);
+        for (let offset = 0; offset < pixels.length; offset += 4) {
+          if (pixels[offset + 3] < 96) continue;
+          const red = pixels[offset];
+          const green = pixels[offset + 1];
+          const blue = pixels[offset + 2];
+          const light = (.2126 * red + .7152 * green + .0722 * blue) / 255;
+          const sample = { red, green, blue, light, index: offset / 4 };
+          samples.push(sample);
+          sampleMap[sample.index] = sample;
+          totalRed += red;
+          totalGreen += green;
+          totalBlue += blue;
+          totalBrightness += light;
+          count += 1;
         }
-        if (!count) throw new Error("Image has no visible pixels");
-        const brightness = lightTotal / count;
+        if (!count) throw new Error("Image contains no opaque pixels");
+        const average = [totalRed / count, totalGreen / count, totalBlue / count];
+        const averageBrightness = totalBrightness / count;
         const information = (start, end) => {
           let total = 0;
           let totalSquared = 0;
           let edges = 0;
           let edgeCount = 0;
-          let pixels = 0;
+          let sampleCount = 0;
           for (let y = 0; y < height; y += 1) {
             for (let x = start; x < end; x += 1) {
-              const sample = samples[y * width + x];
+              const sample = sampleMap[y * width + x];
               if (!sample) continue;
               total += sample.light;
               totalSquared += sample.light * sample.light;
-              pixels += 1;
-              const previous = x > start ? samples[y * width + x - 1] : null;
-              const above = y > 0 ? samples[(y - 1) * width + x] : null;
-              if (previous) { edges += Math.abs(sample.light - previous.light); edgeCount += 1; }
+              sampleCount += 1;
+              const previousSample = x > start ? sampleMap[y * width + x - 1] : null;
+              const above = y > 0 ? sampleMap[(y - 1) * width + x] : null;
+              if (previousSample) { edges += Math.abs(sample.light - previousSample.light); edgeCount += 1; }
               if (above) { edges += Math.abs(sample.light - above.light); edgeCount += 1; }
             }
           }
-          const mean = pixels ? total / pixels : 0;
-          const variance = pixels ? Math.max(0, totalSquared / pixels - mean * mean) : 1;
-          return Math.sqrt(variance) * 0.58 + (edgeCount ? edges / edgeCount : 1) * 0.42;
+          const mean = sampleCount ? total / sampleCount : 0;
+          const variance = sampleCount ? Math.max(0, totalSquared / sampleCount - mean * mean) : 1;
+          return Math.sqrt(variance) * .58 + (edgeCount ? edges / edgeCount : 1) * .42;
         };
-        const zoneWidth = Math.max(1, Math.floor(width * 0.38));
+        const zoneWidth = Math.max(1, Math.floor(width * .38));
         const leftInformation = information(0, zoneWidth);
         const rightInformation = information(width - zoneWidth, width);
         let safeArea = "center";
-        if (leftInformation < rightInformation * 0.86) safeArea = "left";
-        else if (rightInformation < leftInformation * 0.86) safeArea = "right";
-
-        let saliencyTotal = 0;
-        let saliencyX = 0;
-        let saliencyY = 0;
-        for (let y = 0; y < height; y += 1) {
-          for (let x = 0; x < width; x += 1) {
-            const sample = samples[y * width + x];
-            if (!sample) continue;
-            const previous = x > 0 ? samples[y * width + x - 1] : null;
-            const above = y > 0 ? samples[(y - 1) * width + x] : null;
-            const edge = (previous ? Math.abs(sample.light - previous.light) : 0) +
-              (above ? Math.abs(sample.light - above.light) : 0);
-            const weight = 0.01 + Math.abs(sample.light - brightness) * 0.48 +
-              sample.saturation * 0.34 + edge * 0.28;
-            saliencyTotal += weight;
-            saliencyX += (x + 0.5) / width * weight;
-            saliencyY += (y + 0.5) / height * weight;
-          }
+        if (leftInformation < rightInformation * .86) safeArea = "left";
+        else if (rightInformation < leftInformation * .86) safeArea = "right";
+        let focusWeight = 0;
+        let focusX = 0;
+        let focusY = 0;
+        let accentWeight = 0;
+        let accent = [0, 0, 0];
+        for (const sample of samples) {
+          const x = sample.index % width;
+          const y = Math.floor(sample.index / width);
+          const difference = Math.sqrt(
+            (sample.red - average[0]) ** 2 +
+            (sample.green - average[1]) ** 2 +
+            (sample.blue - average[2]) ** 2,
+          ) / 441.7;
+          const saliency = .03 + difference ** 1.35;
+          focusX += (x / Math.max(1, width - 1)) * saliency;
+          focusY += (y / Math.max(1, height - 1)) * saliency;
+          focusWeight += saliency;
+          const max = Math.max(sample.red, sample.green, sample.blue);
+          const min = Math.min(sample.red, sample.green, sample.blue);
+          const saturation = max ? (max - min) / max : 0;
+          const usableLight = 1 - Math.min(1, Math.abs(sample.light - .46) / .54);
+          const weight = saturation ** 2 * (.15 + usableLight);
+          accent[0] += sample.red * weight;
+          accent[1] += sample.green * weight;
+          accent[2] += sample.blue * weight;
+          accentWeight += weight;
         }
-        let focusX = saliencyTotal ? saliencyX / saliencyTotal : 0.5;
-        let focusY = saliencyTotal ? saliencyY / saliencyTotal : 0.5;
-        if (safeArea === "left") focusX = Math.max(0.64, focusX);
-        if (safeArea === "right") focusX = Math.min(0.36, focusX);
-        focusX = clamp(focusX, 0.12, 0.88);
-        focusY = clamp(focusY, 0.18, 0.82);
-
-        const accentBin = bins.reduce((best, candidate) => candidate.weight > best.weight ? candidate : best, bins[0]);
-        const accentRgb = accentBin.weight > 0 ? {
-          r: accentBin.r / accentBin.weight,
-          g: accentBin.g / accentBin.weight,
-          b: accentBin.b / accentBin.weight,
-        } : null;
-        const aspect = ratio >= 2.25 ? "ultrawide" : ratio >= 1.45 ? "wide"
-          : ratio >= 1.08 ? "landscape" : ratio >= 0.9 ? "square" : "portrait";
-        finish({
-          width: image.naturalWidth,
-          height: image.naturalHeight,
-          ratio,
-          wide: ratio >= 1.75,
-          aspect,
-          brightness,
-          shell: brightness >= 0.58 ? "light" : "dark",
+        const resolvedAccent = accentWeight > 1
+          ? accent.map((channel) => Math.round(channel / accentWeight))
+          : average.map((channel) => Math.round(channel));
+        let resolvedFocusX = clamp(focusX / focusWeight);
+        if (safeArea === "left") resolvedFocusX = Math.max(.64, resolvedFocusX);
+        if (safeArea === "right") resolvedFocusX = Math.min(.36, resolvedFocusX);
+        resolve({
+          appearance: averageBrightness >= .58 ? "light" : "dark",
+          accent: resolvedAccent,
+          focusX: resolvedFocusX,
+          focusY: clamp(focusY / focusWeight),
+          aspect: image.naturalWidth / Math.max(1, image.naturalHeight),
+          luma: clamp(averageBrightness),
           safeArea,
-          focusX,
-          focusY,
-          taskMode: ratio >= 2.25 ? "banner" : "ambient",
-          accentRgb,
         });
       } catch {
-        finish(null);
+        resolve(defaultProfile);
       }
     };
+    image.onerror = () => resolve(defaultProfile);
     image.src = artUrl;
   });
 
-  const installStyle = () => {
-    try {
-      if (!("adoptedStyleSheets" in document) || typeof CSSStyleSheet !== "function") {
-        throw new Error("Constructable stylesheets are unavailable");
-      }
-      const sheet = new CSSStyleSheet();
-      if (typeof sheet.replaceSync !== "function") throw new Error("replaceSync is unavailable");
-      sheet.replaceSync(cssText);
-      const retained = [...document.adoptedStyleSheets]
-        .filter((candidate) => !styleRegistry.has(candidate));
-      document.adoptedStyleSheets = [...retained, sheet];
-      styleRegistry.clear();
-      styleRegistry.add(sheet);
-      document.getElementById(STYLE_ID)?.remove();
-      styleSheet = sheet;
-      styleMode = "adopted";
-      return;
-    } catch {
-      styleSheet = null;
-    }
-
-    styleNode = document.getElementById(STYLE_ID) || document.createElement("style");
-    styleNode.id = STYLE_ID;
-    styleNode.textContent = cssText;
-    if (!styleNode.parentElement) (document.head || document.documentElement).appendChild(styleNode);
-    styleMode = "style";
-  };
-
-  const ensureStyle = () => {
-    if (styleMode === "adopted" && styleSheet) {
-      const current = [...document.adoptedStyleSheets];
-      if (!current.includes(styleSheet)) {
-        document.adoptedStyleSheets = [...current, styleSheet];
-        metrics.styleRepairs += 1;
-      }
-      return;
-    }
-    if (styleNode && document.getElementById(STYLE_ID) !== styleNode) {
-      document.getElementById(STYLE_ID)?.remove();
-      (document.head || document.documentElement).appendChild(styleNode);
-      metrics.styleRepairs += 1;
-    }
-  };
-
-  installStyle();
-
-  const applyRootState = (root) => {
-    metrics.rootPasses += 1;
-    ensureStyle();
-    const shell = resolvedShell();
-    setAttribute(root, "data-dream-skin", "active");
-    setAttribute(root, SHELL_ATTR, shell);
-    setStyleProperty(root, "--dream-skin-art", `url("${artUrl}")`);
-    applyTheme(root, shell);
-    applyArtMetadata(root);
-    return shell;
-  };
-
-  const selectorHit = (key) => {
-    const selector = selectorByKey.get(key)?.selector;
-    if (!selector) return false;
-    try { return Boolean(document.querySelector(selector)); } catch { return false; }
-  };
-
-  const stableTestidHit = (testid) => {
-    const selector = stableTestidSelector(testid);
-    if (!selector) return false;
-    try { return Boolean(document.querySelector(selector)); } catch { return false; }
-  };
-
-  const scopeMatches = (scope, baseState, overlay) => {
-    const active = new Set([baseState]);
-    if (baseState !== "settings") active.add("all");
-    if (overlay) active.add("overlay");
-    const tokens = String(scope || "all").toLowerCase().match(/[a-z]+/g) || ["all"];
-    return tokens.some((token) => token !== "config" && active.has(token));
-  };
-
-  const detectScope = () => {
-    const overlay = selectorHit("overlay-menu") || selectorHit("overlay-dialog") ||
-      selectorHit("overlay-popper");
-    let baseState = "thread";
-    if (selectorHit("appearance-radio") || stableTestidHit("theme-preview")) baseState = "settings";
-    else if (selectorHit("home-icon") || selectorHit("home-route")) baseState = "home";
-    else if (!selectorHit("shell-main")) baseState = "settings";
-    const missingL1 = SELECTOR_CONTRACT.selectors
-      .filter((entry) => entry.tier === "L1" && entry.required &&
-        scopeMatches(entry.scope, baseState, overlay) && !selectorHit(entry.key))
-      .map((entry) => entry.key);
-    return {
-      state: overlay ? "overlay" : baseState,
-      baseState,
-      overlay,
-      // Settings replaces (or partially replaces) the app shell on macOS and
-      // can retain a shell on Windows.  It is therefore always an L0 scope;
-      // never treat the absence of the home/thread L1 anchors as a failure.
-      level: baseState === "settings" || missingL1.length ? "L0" : "L1",
-      missingL1,
-    };
-  };
-
-  const refreshScope = () => {
-    metrics.routePasses += 1;
-    const scope = detectScope();
-    const state = window[STATE_KEY];
-    if (state?.installToken === installToken) state.scope = scope;
-    return scope;
-  };
-
-  const ensure = ({ root: rootPass = true, scope: scopePass = false } = {}) => {
-    if (window[DISABLED_KEY]) return;
+  const detectShellAppearance = () => {
     const root = document.documentElement;
-    if (!root) return;
-    metrics.ensureCalls += 1;
-    if (rootPass) applyRootState(root);
-    if (scopePass) refreshScope();
+    const body = document.body;
+    const classes = `${root?.className || ""} ${body?.className || ""}`
+      .toLowerCase()
+      .replace(/\bdream-theme-(?:dark|light)\b/g, "");
+    if (/\b(dark|electron-dark|theme-dark|appearance-dark)\b/.test(classes)) return "dark";
+    if (/\b(light|electron-light|theme-light|appearance-light)\b/.test(classes)) return "light";
+
+    const dataTheme = (
+      root?.getAttribute?.("data-theme") ||
+      root?.getAttribute?.("data-appearance") ||
+      root?.getAttribute?.("data-color-mode") ||
+      body?.getAttribute?.("data-theme") ||
+      body?.getAttribute?.("data-appearance") ||
+      ""
+    ).toLowerCase();
+    if (dataTheme.includes("dark")) return "dark";
+    if (dataTheme.includes("light")) return "light";
+
+    try {
+      const hadSkin = root?.classList?.contains?.("codex-dream-skin");
+      const savedSkinClasses = hadSkin
+        ? ROOT_CLASSES.filter((className) => root.classList.contains(className))
+        : [];
+      samplingNativeShell = true;
+      if (hadSkin) root.classList.remove(...ROOT_CLASSES);
+      try {
+        const colorScheme = getComputedStyle(root).colorScheme || "";
+        if (colorScheme.includes("dark") && !colorScheme.includes("light")) return "dark";
+        if (colorScheme.includes("light") && !colorScheme.includes("dark")) return "light";
+      } finally {
+        if (hadSkin) root.classList.add(...savedSkinClasses);
+        observer?.takeRecords?.();
+        samplingNativeShell = false;
+      }
+    } catch {
+      samplingNativeShell = false;
+    }
+    try {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    } catch {}
+    return "light";
+  };
+
+  const clearSkinDom = () => {
+    const root = document.documentElement;
+    if (resizeObserver) {
+      for (const target of resizeTargets) {
+        try { resizeObserver.unobserve(target); } catch {}
+      }
+    }
+    resizeTargets.clear();
+    root?.removeAttribute("data-dream-skin");
+    root?.classList.remove(...ROOT_CLASSES);
+    root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
+    root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
+    for (const property of ROOT_PROPERTIES) root?.style.removeProperty(property);
+    document.querySelectorAll(".dream-home").forEach((node) => node.classList.remove("dream-home"));
+    document.querySelectorAll(".dream-task").forEach((node) => node.classList.remove("dream-task"));
+    document.querySelectorAll(".dream-home-shell").forEach((node) => node.classList.remove("dream-home-shell"));
+    document.querySelectorAll(`.${ROUTE_CLASSES.join(", .")}`).forEach((node) => node.classList.remove(...ROUTE_CLASSES));
+    document.querySelectorAll(".dream-permission-banner").forEach((node) => node.classList.remove("dream-permission-banner"));
+    document.querySelectorAll(`.${PRESET_CLASSES.join(", .")}`).forEach((node) => node.classList.remove(...PRESET_CLASSES));
+    document.querySelectorAll(".dream-changes-pill").forEach((node) => node.classList.remove("dream-changes-pill"));
+    document.querySelectorAll(`.${CHANGES_SHELL_CLASS}`).forEach((node) => node.classList.remove(CHANGES_SHELL_CLASS));
+    document.querySelectorAll(`.${CHANGES_CLIP_HOST_CLASS}`).forEach((node) => node.classList.remove(CHANGES_CLIP_HOST_CLASS));
+    document.querySelectorAll(`.${SYSTEM_TOAST_CLASS}`).forEach((node) => node.classList.remove(SYSTEM_TOAST_CLASS));
+    document.querySelectorAll(`.${PANEL_CLASSES.filter((name) => name !== "dream-summary-panel").join(", .")}`).forEach((node) => {
+      node.style?.removeProperty?.("--dream-summary-safe-height");
+      node.classList.remove(...PANEL_CLASSES.filter((name) => name !== "dream-summary-panel"));
+    });
+    const transientInteractionClasses = INTERACTION_CLASSES.filter((name) => !EDITED_CARD_CLASSES.includes(name));
+    document.querySelectorAll(`.${transientInteractionClasses.join(", .")}`).forEach((node) => {
+      node.classList.remove(...transientInteractionClasses);
+    });
+    document.querySelectorAll(`.${TURN_NAV_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...TURN_NAV_CLASSES);
+    });
+    document.querySelectorAll(`.${SETTINGS_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...SETTINGS_CLASSES);
+    });
+    document.querySelectorAll(`.${SUBAGENT_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...SUBAGENT_CLASSES);
+    });
+    document.querySelectorAll(`.${COMPOSER_UI_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...COMPOSER_UI_CLASSES);
+    });
+    document.querySelectorAll(`.${HOME_UTILITY_CLASS}`).forEach((node) => node.classList.remove(HOME_UTILITY_CLASS));
+    document.querySelectorAll(`.${HOME_PANEL_STATE_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...HOME_PANEL_STATE_CLASSES);
+    });
+    document.querySelectorAll(`#${SIDE_WORKSPACE_BRAND_ID}, .dream-side-workspace-brand`).forEach((node) => node.remove());
+    document.getElementById(STYLE_ID)?.remove();
+    document.getElementById(CHROME_ID)?.remove();
+    document.getElementById(FALLBACK_PRESETS_ID)?.remove();
+    document.getElementById(SIDEBAR_CHROME_ID)?.remove();
+    document.getElementById(SIDE_WORKSPACE_BRAND_ID)?.remove();
+  };
+
+  const applyProfile = (root) => {
+    const focusX = config.focusX ?? profile.focusX;
+    const focusY = config.focusY ?? profile.focusY;
+    const appearance = config.appearance === "auto" ? detectShellAppearance() : config.appearance;
+    const focus = focusX < .4 ? "left" : focusX > .6 ? "right" : "center";
+    const safeArea = config.safeArea === "auto" ? (profile.safeArea ||
+      (focus === "left" ? "right" : focus === "right" ? "left" : "center")) : config.safeArea;
+    const taskMode = config.taskMode === "auto"
+      ? profile.aspect >= 2.25 ? "banner" : "ambient"
+      : config.taskMode;
+    const accent = config.accent || `rgb(${profile.accent.join(" ")})`;
+    const accentInk = luminance(...profile.accent) > .42 ? "rgb(26 24 28)" : "rgb(250 248 251)";
+    root.classList.toggle("dream-theme-light", appearance === "light");
+    root.classList.toggle("dream-theme-dark", appearance === "dark");
+    root.classList.toggle("dream-art-wide", profile.aspect >= 1.75);
+    root.classList.toggle("dream-art-standard", profile.aspect < 1.75);
+    root.classList.toggle("dream-choten-art", config.chotenArt);
+    root.classList.toggle("dream-reduced-motion", Boolean(motionQuery?.matches));
+    for (const value of ["left", "center", "right"]) {
+      root.classList.toggle(`dream-focus-${value}`, focus === value);
+    }
+    for (const value of ["left", "center", "right", "none"]) {
+      root.classList.toggle(`dream-safe-${value}`, safeArea === value);
+    }
+    for (const value of ["ambient", "banner", "off"]) {
+      root.classList.toggle(`dream-task-${value}`, taskMode === value);
+    }
+    root.style.setProperty("--dream-art", `url("${artUrl}")`);
+    root.style.setProperty("--dream-art-position", `${Math.round(focusX * 100)}% ${Math.round(focusY * 100)}%`);
+    root.style.setProperty("--dream-focus-x", String(focusX));
+    root.style.setProperty("--dream-focus-y", String(focusY));
+    root.style.setProperty("--dream-accent", accent);
+    root.style.setProperty("--dream-accent-ink", accentInk);
+    root.style.setProperty("--dream-image-luma", profile.luma.toFixed(3));
+  };
+
+  /* The Choten preset keeps the raster artwork untouched and composites a
+     tiny pixel eyelid layer over the two eyes. Measuring the same fixed-cover
+     transform as the body background keeps the blink registered through
+     sidebar collapse, maximization and ordinary window resizing. */
+  const CHOTEN_ART_GEOMETRY = {
+    blink: { x: .582, y: .351, width: .132, height: .107 },
+    face: { x: .649, y: .346, size: .238 },
+  };
+  const CHOTEN_GEOMETRY_PROPERTIES = [
+    "--dream-blink-left", "--dream-blink-top", "--dream-blink-width", "--dream-blink-height",
+    "--dream-face-x", "--dream-face-y", "--dream-face-size",
+  ];
+  const updateChotenArtGeometry = (chrome, mainBox) => {
+    if (!chrome || !mainBox || !config.chotenArt || !artGeometryReady) {
+      chrome?.classList?.remove?.("dream-art-motion-ready");
+      for (const property of CHOTEN_GEOMETRY_PROPERTIES) chrome?.style?.removeProperty?.(property);
+      return;
+    }
+    const viewportWidth = Math.max(1, document.documentElement?.clientWidth || window.innerWidth || mainBox.right || 1);
+    const viewportHeight = Math.max(1, document.documentElement?.clientHeight || window.innerHeight || mainBox.bottom || 1);
+    const aspect = Math.max(.4, Number(profile.aspect) || defaultProfile.aspect);
+    const imageHeight = Math.max(viewportHeight, viewportWidth / aspect);
+    const imageWidth = imageHeight * aspect;
+    const focusX = config.focusX ?? profile.focusX;
+    const focusY = config.focusY ?? profile.focusY;
+    const imageLeft = (viewportWidth - imageWidth) * focusX;
+    const imageTop = (viewportHeight - imageHeight) * focusY;
+    const blink = CHOTEN_ART_GEOMETRY.blink;
+    const blinkLeft = imageLeft + imageWidth * blink.x - mainBox.left;
+    const blinkTop = imageTop + imageHeight * blink.y - mainBox.top;
+    const blinkWidth = imageWidth * blink.width;
+    const blinkHeight = imageHeight * blink.height;
+    const face = CHOTEN_ART_GEOMETRY.face;
+    const faceX = imageLeft + imageWidth * face.x - mainBox.left;
+    const faceY = imageTop + imageHeight * face.y - mainBox.top;
+    const faceSize = Math.min(320, Math.max(190, imageHeight * face.size));
+    chrome.style.setProperty("--dream-blink-left", `${blinkLeft.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-blink-top", `${blinkTop.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-blink-width", `${blinkWidth.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-blink-height", `${blinkHeight.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-face-x", `${faceX.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-face-y", `${faceY.toFixed(2)}px`);
+    chrome.style.setProperty("--dream-face-size", `${faceSize.toFixed(2)}px`);
+    const intersectsStage = blinkLeft + blinkWidth > 0
+      && blinkTop + blinkHeight > 0
+      && blinkLeft < mainBox.width
+      && blinkTop < mainBox.height;
+    chrome.classList.toggle("dream-art-motion-ready", intersectsStage);
+  };
+
+  const fallbackPresetDefinitions = [
+    {
+      className: "dream-preset-explore",
+      channel: "01 // EXPLORE",
+      title: "\u63a2\u7d22\u5e76\u7406\u89e3\u4ee3\u7801",
+      detail: "READ / MAP / TRACE",
+      prompt: "\u63a2\u7d22\u5e76\u7406\u89e3\u5f53\u524d\u9879\u76ee\u7684\u4ee3\u7801\u7ed3\u6784\u3001\u5173\u952e\u6a21\u5757\u4e0e\u8fd0\u884c\u6d41\u7a0b\u3002",
+      icon: '<path d="M5 18l3.4-1 7.7-7.7-2.4-2.4L6 14.6 5 18Z"/><path d="m12.8 7.8 2.4 2.4M16 5l3 3M7.7 15.3l1 1"/>'
+    },
+    {
+      className: "dream-preset-build",
+      channel: "02 // BUILD",
+      title: "\u6784\u5efa\u65b0\u529f\u80fd\u3001\u5e94\u7528\u6216\u5de5\u5177",
+      detail: "MAKE / SHIP / GROW",
+      prompt: "\u6784\u5efa\u4e00\u4e2a\u65b0\u529f\u80fd\u3001\u5e94\u7528\u6216\u5de5\u5177\uff1a",
+      icon: '<path d="m14.5 5.5 4 4-8.8 8.8H5.7v-4l8.8-8.8Z"/><path d="m12.5 7.5 4 4M4 20h16"/>'
+    },
+    {
+      className: "dream-preset-review",
+      channel: "03 // REVIEW",
+      title: "\u5ba1\u67e5\u4ee3\u7801\u5e76\u63d0\u51fa\u4fee\u6539\u5efa\u8bae",
+      detail: "SCAN / CHECK / SIGNAL",
+      prompt: "\u5ba1\u67e5\u5f53\u524d\u4ee3\u7801\uff0c\u5e76\u63d0\u51fa\u5177\u4f53\u3001\u53ef\u6267\u884c\u7684\u4fee\u6539\u5efa\u8bae\u3002",
+      icon: '<path d="M20 11a8 8 0 1 1-2.3-5.7"/><path d="M20 4v7h-7M8.5 12l2.2 2.2 4.8-5"/>'
+    },
+    {
+      className: "dream-preset-fix",
+      channel: "04 // RECOVER",
+      title: "\u4fee\u590d\u95ee\u9898\u548c\u5931\u8d25",
+      detail: "DEBUG / HEAL / RETRY",
+      prompt: "\u5b9a\u4f4d\u5e76\u4fee\u590d\u5f53\u524d\u9879\u76ee\u4e2d\u7684\u95ee\u9898\u3001\u9519\u8bef\u6216\u5931\u8d25\u3002",
+      icon: '<path d="M8 8a4 4 0 0 1 8 0v8a4 4 0 0 1-8 0V8Z"/><path d="M4 13h4m8 0h4M6 7l2 2m10-2-2 2M9 4l1.2 2m4.6-2L14 6M9.5 13h5"/>'
+    },
+  ];
+
+  const writePresetToComposer = (prompt) => {
+    const editor = document.querySelector(
+      '.dream-home .composer-surface-chrome .ProseMirror[contenteditable="true"], .dream-home .composer-surface-chrome [contenteditable="true"]',
+    );
+    if (!editor) return false;
+    editor.focus();
+    let inserted = false;
+    try {
+      const selection = window.getSelection?.();
+      const range = document.createRange?.();
+      if (selection && range) {
+        range.selectNodeContents(editor);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      inserted = Boolean(document.execCommand?.("insertText", false, prompt));
+    } catch {}
+    if (!inserted || !(editor.textContent || "").includes(prompt)) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = prompt;
+      editor.replaceChildren(paragraph);
+      try {
+        editor.dispatchEvent(new InputEvent("input", {
+          bubbles: true,
+          inputType: "insertText",
+          data: prompt,
+        }));
+      } catch {
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
+    editor.focus();
+    return true;
+  };
+
+  const ensureFallbackPresets = (home, nativePresetCount) => {
+    let deck = document.getElementById(FALLBACK_PRESETS_ID);
+    if (!home) {
+      deck?.remove();
+      return null;
+    }
+    if (!deck || deck.parentElement !== home) {
+      deck?.remove();
+      deck = document.createElement("section");
+      deck.id = FALLBACK_PRESETS_ID;
+      deck.className = "dream-presets-deck";
+      deck.setAttribute("aria-label", "New task presets");
+      deck.setAttribute("data-dream-ready", "false");
+      const heading = document.createElement("div");
+      heading.className = "dream-presets-heading";
+      heading.setAttribute("aria-hidden", "true");
+      heading.innerHTML = '<span>&hearts; ANGEL COMMAND DECK</span><b>4 CHANNELS ONLINE</b>';
+      deck.appendChild(heading);
+      const grid = document.createElement("div");
+      grid.className = "dream-presets-grid";
+      fallbackPresetDefinitions.forEach((preset) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `dream-codex-preset dream-generated-preset ${preset.className}`;
+        button.setAttribute("aria-label", preset.title);
+        button.innerHTML = `
+          <span class="dream-preset-channel" aria-hidden="true">${preset.channel}</span>
+          <span class="dream-preset-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${preset.icon}</svg><i>&hearts;</i></span>
+          <strong>${preset.title}</strong>
+          <small>${preset.detail}</small>
+          <em aria-hidden="true">LIVE</em>`;
+        button.addEventListener("click", () => writePresetToComposer(preset.prompt));
+        grid.appendChild(button);
+      });
+      deck.appendChild(grid);
+      home.appendChild(deck);
+    }
+    const ready = nativePresetCount < fallbackPresetDefinitions.length;
+    deck.setAttribute("data-dream-ready", String(ready));
+    if (ready) deck.removeAttribute?.("hidden");
+    else deck.setAttribute("hidden", "");
+    deck.setAttribute("aria-hidden", String(!ready));
+    [...(deck.querySelectorAll?.("button.dream-generated-preset") || [])].forEach((button, index) => {
+      const preset = fallbackPresetDefinitions[index];
+      if (!preset) return;
+      button.classList.add("dream-codex-preset", "dream-generated-preset", preset.className);
+    });
+    return deck;
+  };
+
+  const ensureSidebarOrnaments = (sidebar, settingsRoute) => {
+    let ornaments = document.getElementById(SIDEBAR_CHROME_ID);
+    if (!sidebar || settingsRoute || typeof sidebar.appendChild !== "function") {
+      ornaments?.remove();
+      return null;
+    }
+    if (!ornaments || ornaments.parentElement !== sidebar) {
+      ornaments?.remove();
+      ornaments = document.createElement("div");
+      ornaments.id = SIDEBAR_CHROME_ID;
+      ornaments.setAttribute("aria-hidden", "true");
+      ornaments.innerHTML = `
+        <i class="dream-sidebar-signal"></i>
+        <i class="dream-sidebar-halo"></i>
+        <i class="dream-sidebar-pixels"></i>
+        <span class="dream-sidebar-online"><b>&hearts;</b> CHOTEN LINK / ONLINE</span>
+        <span class="dream-sidebar-packet">AFFECTION 9999+</span>`;
+      sidebar.appendChild(ornaments);
+    }
+    return ornaments;
+  };
+
+  const ensureSideWorkspaceBrand = (workspace) => {
+    const existing = [...document.querySelectorAll(`#${SIDE_WORKSPACE_BRAND_ID}, .dream-side-workspace-brand`)];
+    for (const node of existing) {
+      if (!workspace || node.parentElement !== workspace) node.remove();
+    }
+    if (!workspace) return null;
+    let brand = existing.find((node) => node.parentElement === workspace) || null;
+    if (!brand) {
+      brand = document.createElement("div");
+      brand.id = SIDE_WORKSPACE_BRAND_ID;
+      brand.className = "dream-side-workspace-brand";
+      brand.setAttribute("aria-hidden", "true");
+      brand.innerHTML = `
+        <span><b>&hearts;</b> CHOTEN LINK</span>
+        <i><b></b><b></b><b></b><b></b></i>
+        <em>ONLINE 9999+</em>`;
+      workspace.appendChild(brand);
+    }
+    return brand;
+  };
+
+  const ensure = () => {
+    if (window.__CODEX_DREAM_SKIN_DISABLED__) return;
+    const root = document.documentElement;
+    if (!root || !document.body) return;
+
+    // Main Codex shell is the content surface. The left rail is optional: Codex
+    // removes or rebuilds aside.app-shell-left-panel while collapsing/expanding
+    // it, and clearing the skin there flashes native colors over the active theme.
+    // True auxiliary windows (pets, blank targets) still have no main surface, so
+    // they continue to clear residual skin state.
+    const shellMain = document.querySelector("main.main-surface") ||
+      document.querySelector("main") ||
+      document.querySelector('[role="main"]');
+    const shellSidebar = document.querySelector("aside.app-shell-left-panel");
+    if (!shellMain) {
+      clearSkinDom();
+      return;
+    }
+
+    root.setAttribute("data-dream-skin", "active");
+    root.classList.add("codex-dream-skin");
+    applyProfile(root);
+
+    let style = document.getElementById(STYLE_ID);
+    if (!style) {
+      style = document.createElement("style");
+      style.id = STYLE_ID;
+      (document.head || root).appendChild(style);
+    }
+    if (style.dataset.dreamVersion !== STYLE_REVISION) {
+      style.textContent = cssText;
+      style.dataset.dreamVersion = STYLE_REVISION;
+    }
+    const activeState = window[STATE_KEY];
+    if (activeState?.installToken === installToken) activeState.styleNode = style;
+
+    const routeMains = [...document.querySelectorAll('[role="main"]')];
+    if (!routeMains.length) routeMains.push(shellMain);
+    const settingsNav = document.querySelector('nav:has([data-settings-panel-slug])');
+    const settingsSidebar = settingsNav?.closest?.('aside.app-shell-left-panel') || null;
+    const settingsContent = document.querySelector(
+      'div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])',
+    );
+    const semanticHome = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
+    const homeMarker = shellMain.querySelector?.('[data-testid="home-icon"]') || null;
+    const homeHeading = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
+      .find((candidate) => /^(我们该构建什么|what should we build)\s*[？?]?$/i.test((candidate.textContent || "").trim()));
+    const home = semanticHome
+      || homeMarker?.closest?.('[role="main"]')
+      || (homeMarker ? shellMain : null)
+      || homeHeading?.closest?.('[role="main"]')
+      || (homeHeading ? shellMain : null);
+    if (resizeObserver) {
+      const nextResizeTargets = new Set([shellMain, home].filter(Boolean));
+      for (const target of resizeTargets) {
+        if (!nextResizeTargets.has(target)) resizeObserver.unobserve(target);
+      }
+      for (const target of nextResizeTargets) {
+        if (!resizeTargets.has(target)) resizeObserver.observe(target);
+      }
+      resizeTargets = nextResizeTargets;
+    }
+    const selectedCandidates = [...(shellSidebar?.querySelectorAll?.(
+      '[aria-current="page"], [aria-selected="true"], [data-state="active"], [class~="bg-token-list-hover-background"]'
+    ) || [])];
+    const selectedControl = selectedCandidates.find((candidate) => {
+      const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+      return box.width > 0 && box.height > 0;
+    });
+    const selectedText = (selectedControl?.textContent || "").trim().toLowerCase();
+    const headingText = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
+      .map((candidate) => (candidate.textContent || "").trim())
+      .filter(Boolean)
+      .join("\n")
+      .toLowerCase();
+    let route = "task";
+    if (settingsNav) route = "settings";
+    else if (home) route = "home";
+    else if (/^站点$|\bsites?\b/m.test(headingText)) route = "sites";
+    else if (/pull\s*requests?/.test(headingText)) route = "pulls";
+    else if (/已安排的任务|scheduled\s+tasks?/.test(headingText)) route = "scheduled";
+    else if (/^插件$|^plugins?$/m.test(headingText)) route = "plugins";
+    else if (/站点|\bsites?\b/.test(selectedText)) route = "sites";
+    else if (/拉取请求|pull\s*requests?/.test(selectedText)) route = "pulls";
+    else if (/已安排|scheduled/.test(selectedText)) route = "scheduled";
+    else if (/插件|plugins?/.test(selectedText)) route = "plugins";
+    const routeClass = `dream-route-${route}`;
+    const utilityRoute = ["sites", "pulls", "scheduled", "plugins"].includes(route);
+
+    shellMain.classList.remove(...ROUTE_CLASSES);
+    shellMain.classList.add(routeClass);
+    shellMain.classList.toggle("dream-route-utility", utilityRoute);
+    for (const candidate of routeMains) {
+      candidate.classList.toggle("dream-home", candidate === home);
+      candidate.classList.toggle("dream-task", route === "task" && candidate !== home);
+    }
+    if (!routeMains.includes(shellMain)) {
+      const hasSemanticTaskMain = routeMains.some((candidate) => candidate !== home);
+      shellMain.classList.toggle("dream-task", route === "task" && !hasSemanticTaskMain);
+    }
+    const utilityBars = new Set(home ? home.querySelectorAll('[class*="_homeUtilityBar_"]') : []);
+    for (const candidate of document.querySelectorAll(`.${HOME_UTILITY_CLASS}`)) {
+      if (!utilityBars.has(candidate)) candidate.classList.remove(HOME_UTILITY_CLASS);
+    }
+    for (const candidate of utilityBars) candidate.classList.add(HOME_UTILITY_CLASS);
+    shellMain.classList.toggle("dream-home-shell", Boolean(home));
+    root.classList.toggle("dream-settings-active", Boolean(settingsNav));
+
+    for (const candidate of document.querySelectorAll(`.${NEW_TASK_CLASS}`)) {
+      candidate.classList.remove(NEW_TASK_CLASS);
+    }
+    const newTaskButton = [...(shellSidebar?.querySelectorAll?.('button, [role="button"]') || [])]
+      .find((candidate) => /^(?:\u65b0\u5efa\u4efb\u52a1|new task)$/i.test((candidate.textContent || "").trim()));
+    newTaskButton?.classList.add(NEW_TASK_CLASS);
+
+    for (const candidate of document.querySelectorAll(`.${SETTINGS_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...SETTINGS_CLASSES);
+    }
+    for (const candidate of document.querySelectorAll(`.${TURN_NAV_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...TURN_NAV_CLASSES);
+    }
+    for (const candidate of document.querySelectorAll(`.${SUBAGENT_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...SUBAGENT_CLASSES);
+    }
+    settingsSidebar?.classList.add("dream-settings-sidebar");
+    ensureSidebarOrnaments(shellSidebar, Boolean(settingsNav));
+    settingsNav?.classList.add("dream-settings-nav");
+    const settingsSearch = settingsNav?.querySelector?.('[role="searchbox"]')?.closest?.('div[class~="rounded-lg"]')
+      || settingsNav?.querySelector?.('[role="searchbox"]');
+    settingsSearch?.classList.add("dream-settings-search");
+    settingsContent?.classList.add("dream-settings-content");
+    const settingsSurfaces = [...(settingsContent?.querySelectorAll?.(
+      'div[class~="flex"][class~="flex-col"][class~="overflow-hidden"][class~="rounded-2xl"]',
+    ) || [])].filter((surface) => {
+      const box = surface.getBoundingClientRect?.() || { width: 0, height: 0 };
+      return box.width >= 360 && box.height >= 44 && surface.childElementCount > 0;
+    });
+    for (const surface of settingsSurfaces) {
+      surface.classList.add("dream-settings-surface");
+      for (const row of [...(surface.children || [])].filter((candidate) => {
+        if (candidate.tagName !== "DIV") return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return box.width >= 280 && box.height >= 36;
+      })) {
+        row.classList.add("dream-settings-row");
+      }
+    }
+    for (const control of settingsContent?.querySelectorAll?.(
+      'button, input, textarea, [contenteditable="true"], [role="radiogroup"], [role="slider"]',
+    ) || []) {
+      control.classList.add("dream-settings-control");
+      if (control.matches?.('input, textarea, [contenteditable="true"]')) {
+        control.classList.add("dream-settings-input");
+      }
+      if (control.matches?.('[role="radiogroup"]')) {
+        control.classList.add("dream-settings-segment-group");
+        for (const segment of control.querySelectorAll?.('button, [role="radio"]') || []) {
+          segment.classList.add("dream-settings-segment");
+        }
+      }
+    }
+    for (const group of settingsContent?.querySelectorAll?.(
+      'div[class~="rounded-lg"]:has(> button + button), div[class~="rounded-xl"]:has(> button + button)',
+    ) || []) {
+      const box = group.getBoundingClientRect?.() || { width: 0, height: 0 };
+      if (box.width > 52 && box.width < 520 && box.height >= 24 && box.height <= 64) {
+        group.classList.add("dream-settings-segment-group");
+        for (const segment of group.querySelectorAll?.(':scope > button') || []) {
+          segment.classList.add("dream-settings-segment", "dream-settings-control");
+        }
+      }
+    }
+    const pressedGroups = new Set();
+    for (const segment of settingsContent?.querySelectorAll?.('button[aria-pressed]') || []) {
+      const group = segment.parentElement;
+      const siblings = [...(group?.children || [])].filter((candidate) => candidate.matches?.('button[aria-pressed]'));
+      if (siblings.length < 2) continue;
+      pressedGroups.add(group);
+      segment.classList.add("dream-settings-segment", "dream-settings-control");
+    }
+    for (const group of pressedGroups) group?.classList.add("dream-settings-segment-group");
+    for (const surface of settingsSurfaces) {
+      const appSelector = 'button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]';
+      if (!surface.querySelector?.(appSelector)) continue;
+      for (const row of [...(surface.children || [])].filter((candidate) => candidate.classList?.contains("dream-settings-row"))) {
+        row.classList.add("dream-settings-app-row");
+        const appMain = [...(row.children || [])].find((candidate) => candidate.matches?.(appSelector));
+        appMain?.classList.add("dream-settings-app-main");
+      }
+    }
+    for (const trigger of settingsContent?.querySelectorAll?.(
+      'button[aria-haspopup][aria-controls]',
+    ) || []) {
+      const menuId = trigger.getAttribute("aria-controls");
+      const menu = menuId ? document.getElementById(menuId) : null;
+      if (menu) menu.classList.add("dream-settings-menu");
+    }
+
+    for (const row of document.querySelectorAll('button[class*="navigation-row"]')) {
+      row.classList.add("dream-turn-nav-row");
+      row.parentElement?.classList.add("dream-turn-nav-rail");
+      const marker = row.querySelector?.('[class*="_marker_"]')
+        || row.firstElementChild?.firstElementChild
+        || row.firstElementChild;
+      marker?.classList.add("dream-turn-nav-marker");
+      marker?.classList.toggle(
+        "dream-turn-nav-marker-active",
+        marker.classList.contains("opacity-60") || marker.getAttribute("aria-current") === "true",
+      );
+    }
+    for (const previewSurface of document.querySelectorAll(
+      '[role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]',
+    )) {
+      const tooltip = previewSurface.closest?.('[role="tooltip"]');
+      tooltip?.classList.add("dream-turn-preview-tooltip");
+      previewSurface.classList.add("dream-turn-preview-surface");
+      previewSurface.querySelector?.('[class~="font-medium"]')?.classList.add("dream-turn-preview-title");
+      previewSurface.querySelector?.('[class*="_preview_"]')?.classList.add("dream-turn-preview-excerpt");
+    }
+
+    for (const candidate of document.querySelectorAll(`.${COMPOSER_UI_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...COMPOSER_UI_CLASSES);
+    }
+    const paletteScroll = [...document.querySelectorAll(
+      'div.vertical-scroll-fade-mask[class~="overflow-y-auto"]',
+    )].find((candidate) => candidate.parentElement?.matches?.(
+      'div[class~="border-token-border"][class*="bg-token-dropdown-background"][class~="relative"][class~="overflow-hidden"][class~="rounded-2xl"][class~="p-1"]',
+    ));
+    const composerPalette = paletteScroll?.parentElement || null;
+    composerPalette?.classList.add("dream-composer-palette");
+    paletteScroll?.classList.add("dream-composer-palette-scroll");
+    for (const heading of paletteScroll?.querySelectorAll?.('[class~="sticky"][class~="top-0"][class~="z-10"]') || []) {
+      heading.classList.add("dream-composer-palette-heading");
+    }
+    for (const item of paletteScroll?.querySelectorAll?.(
+      'button[class~="w-full"][class~="shrink-0"][class~="rounded-lg"][class~="text-left"]',
+    ) || []) {
+      item.classList.add("dream-composer-palette-item");
+    }
+
+    const stickyComposerArea = shellMain.querySelector?.('[class~="sticky"][class~="bottom-0"]');
+    const contextStrips = [...(stickyComposerArea?.querySelectorAll?.(
+      'div[class~="relative"][class~="min-w-0"][class~="overflow-clip"][class~="border-x"][class~="border-t"]',
+    ) || [])];
+    contextStrips.forEach((strip) => strip.classList.add("dream-composer-context-strip"));
+    const activeGoalPattern = /^(?:\u8fdb\u884c\u4e2d\u7684\u76ee\u6807|active goal)$/i;
+    const activeGoalLabel = [...(stickyComposerArea?.querySelectorAll?.("span") || [])]
+      .find((candidate) => activeGoalPattern.test((candidate.textContent || "").trim()));
+    const activeGoalStrip = activeGoalLabel?.closest?.(".dream-composer-context-strip") || null;
+    activeGoalStrip?.classList.add("dream-active-goal-strip");
+
+    const goalStepPattern = /^(?:\u7b2c\s*\d+\s*\/\s*\d+\s*\u6b65|step\s*\d+\s*\/\s*\d+)$/i;
+    const goalStepLabel = [...(stickyComposerArea?.querySelectorAll?.("span") || [])]
+      .find((candidate) => goalStepPattern.test((candidate.textContent || "").trim()));
+    const goalStepControl = goalStepLabel?.closest?.('span[class~="inline-flex"]') || goalStepLabel?.parentElement || null;
+    const goalProgressGroup = goalStepControl?.closest?.('div[class~="rounded-3xl"][class~="items-center"]') || null;
+    goalStepControl?.classList.add("dream-goal-step");
+    goalProgressGroup?.classList.add("dream-goal-progress-group");
+    const goalModePattern = /^(?:\u76ee\u6807|goal)$/i;
+    const goalModeButton = [...(document.querySelectorAll('.composer-surface-chrome button') || [])]
+      .find((button) => /\u76ee\u6807|goal/i.test(button.getAttribute("aria-label") || "")
+        || goalModePattern.test((button.textContent || "").trim()));
+    goalModeButton?.classList.add("dream-goal-mode-trigger");
+
+    /* The collaboration view is portal-like right-panel content with no
+       stable product id. Its utility-class structure is language-independent,
+       so use that for first-paint-safe classification and keep text out of the
+       selector entirely. */
+    const subagentScroller = [...document.querySelectorAll(
+      '[role="tabpanel"] > [class~="h-full"][class~="min-h-0"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]',
+    )].find((candidate) => [...candidate.querySelectorAll?.(':scope > section') || []]
+      .some((section) => section.querySelector?.(
+        ':scope > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]',
+      )));
+    const subagentPanel = subagentScroller?.parentElement?.matches?.('[role="tabpanel"]')
+      ? subagentScroller.parentElement
+      : null;
+    const subagentShell = subagentPanel?.parentElement || null;
+    const subagentToolbar = subagentPanel?.previousElementSibling?.matches?.('[class~="h-toolbar"]')
+      ? subagentPanel.previousElementSibling
+      : null;
+    const subagentFrame = subagentShell?.closest?.('[class~="border-l"][class~="bg-token-main-surface-primary"]')
+      || null;
+    subagentFrame?.classList.add("dream-subagent-frame");
+    subagentShell?.classList.add("dream-subagent-shell");
+    subagentToolbar?.classList.add("dream-subagent-toolbar");
+    subagentPanel?.classList.add("dream-subagent-panel");
+    subagentScroller?.classList.add("dream-subagent-scroller");
+    const subagentSections = [...subagentScroller?.querySelectorAll?.(':scope > section') || []];
+    subagentSections.forEach((section, sectionIndex) => {
+      const archived = section.matches?.('[class~="mt-6"]') || sectionIndex > 0;
+      section.classList.add(
+        "dream-subagent-section",
+        archived ? "dream-subagent-section-archive" : "dream-subagent-section-live",
+      );
+      const list = section.querySelector?.(':scope > [class~="relative"][class~="z-10"]');
+      list?.classList.add("dream-subagent-list");
+      for (const row of list?.querySelectorAll?.(':scope > button[class~="items-start"][class~="w-full"]') || []) {
+        row.classList.add(
+          "dream-subagent-row",
+          archived ? "dream-subagent-row-archive" : "dream-subagent-row-live",
+        );
+      }
+      for (const more of section.querySelectorAll?.(':scope > button:not([class~="items-start"])') || []) {
+        more.classList.add("dream-subagent-more");
+      }
+    });
+
+    const priorPermissionBanners = document.querySelectorAll(".dream-permission-banner");
+    for (const candidate of priorPermissionBanners) candidate.classList.remove("dream-permission-banner");
+    const permissionBanner = [...(shellMain.querySelectorAll?.("div, section, aside") || [])]
+      .filter((candidate) => {
+        const text = (candidate.textContent || "").trim();
+        if (!/Full access is on|完全访问/.test(text) || !/Hide from this session|隐藏/.test(text)) return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return box.width > 280 && box.height >= 44 && box.height < 180;
+      })
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    permissionBanner?.classList.add("dream-permission-banner");
+
+    document.querySelectorAll(`.${SYSTEM_TOAST_CLASS}`).forEach((node) => node.classList.remove(SYSTEM_TOAST_CLASS));
+    const resetToast = [...document.querySelectorAll("body div, body section, body aside")]
+      .filter((candidate) => {
+        const text = (candidate.textContent || "").trim();
+        if (!/速率限制重置机会|rate limit reset opportunity/i.test(text)) return false;
+        const action = [...candidate.querySelectorAll("button")]
+          .some((button) => /查看重置次数|view (?:reset|redemption)/i.test((button.textContent || "").trim()));
+        if (!action) return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return box.width > 320 && box.height >= 48 && box.height < 220;
+      })
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    const resetToastSurface = resetToast?.matches?.('aside[class~="rounded-2xl"]')
+      ? resetToast
+      : resetToast?.querySelector?.('aside[class~="rounded-2xl"]') || resetToast;
+    resetToastSurface?.classList.add(SYSTEM_TOAST_CLASS);
+
+    document.querySelectorAll(`.${PANEL_CLASSES.join(", .")}`).forEach((node) => {
+      node.style?.removeProperty?.("--dream-summary-safe-height");
+      node.classList.remove(...PANEL_CLASSES);
+    });
+    document.querySelectorAll(`.${INTERACTION_CLASSES.join(", .")}`).forEach((node) => {
+      node.classList.remove(...INTERACTION_CLASSES);
+    });
+
+    const terminalRoot = document.querySelector(".xterm")
+      ?.closest?.('[class*="contain:layout_paint"]')
+      || document.querySelector(".xterm")?.closest?.('[role="tabpanel"]')
+      || document.querySelector('[class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])')
+      || document.querySelector('[class*="contain:layout_paint"]:has([role="tablist"] [role="tab"])');
+    terminalRoot?.classList.add("dream-terminal-panel");
+
+    /* Text labels are used only for a handful of portal/panel fallbacks. Test
+       text first and measure the few matches so streaming output does not force
+       style/layout reads for every element in the document on each refresh. */
+    const textCandidates = [...document.querySelectorAll(
+      'body button, body [role="button"], body [role="tab"], body [role="heading"], body label, body span, body p, body div',
+    )]
+      .map((node) => ({ node, text: (node.textContent || "").trim() }))
+      .filter(({ text }) => text && text.length <= 64);
+    const textMeasurements = new Map();
+    const measureTextCandidate = (candidate) => {
+      if (textMeasurements.has(candidate)) return textMeasurements.get(candidate);
+      const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+      const style = getComputedStyle(candidate);
+      const measurement = {
+        visible: box.width > 0 && box.height > 0
+          && style.visibility !== "hidden" && Number(style.opacity || 1) > .05,
+      };
+      textMeasurements.set(candidate, measurement);
+      return measurement;
+    };
+    const exactVisibleTextMatches = (pattern) => textCandidates
+      .filter(({ text }) => pattern.test(text))
+      .filter(({ node }) => measureTextCandidate(node).visible)
+      .sort((left, right) => left.node.childElementCount - right.node.childElementCount)
+      .map(({ node }) => node);
+    const exactVisibleText = (pattern) => exactVisibleTextMatches(pattern)[0];
+
+    const sideLauncher = exactVisibleText(/^(?:\u4fa7\u8fb9\u4efb\u52a1|side tasks)$/i);
+    const browserMarkers = exactVisibleTextMatches(/^(?:\u6d4f\u89c8\u5668|browser)$/i);
+    const terminalMarkers = exactVisibleTextMatches(/^(?:\u7ec8\u7aef|terminal)$/i);
+    const shellBox = shellMain.getBoundingClientRect?.() || { left: 0, width: 0 };
+    const isRightDockedSurface = (candidate) => {
+      if (!candidate || candidate === terminalRoot) return false;
+      const box = candidate.getBoundingClientRect?.() || { left: 0, width: 0, height: 0 };
+      const right = Number.isFinite(box.right) ? box.right : box.left + box.width;
+      const shellRight = Number.isFinite(shellBox.right) ? shellBox.right : shellBox.left + shellBox.width;
+      const style = getComputedStyle(candidate);
+      return box.width >= 180
+        && box.height >= 140
+        && box.left >= shellBox.left + (shellBox.width * .32)
+        && right >= shellBox.left + (shellBox.width * .72)
+        && right <= shellRight + 24
+        && style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > .05;
+    };
+    const structuralSideWorkspace = [...document.querySelectorAll(
+      '[class*="contain:layout_paint"], [class*="bg-token-main-surface-primary"]',
+    )]
+      .filter((candidate) => isRightDockedSurface(candidate)
+        && browserMarkers.some((marker) => candidate.contains?.(marker))
+        && terminalMarkers.some((marker) => candidate.contains?.(marker)))
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    const semanticSideWorkspace = sideLauncher?.closest?.('[class*="contain:layout_paint"]')
+      || sideLauncher?.closest?.('[class*="bg-token-main-surface-primary"]');
+    const sideWorkspace = structuralSideWorkspace
+      || (isRightDockedSurface(semanticSideWorkspace) ? semanticSideWorkspace : null);
+    sideWorkspace?.classList.add("dream-side-workspace");
+    ensureSideWorkspaceBrand(sideWorkspace);
+
+    const isVisiblePanel = (candidate, minimumHeight) => {
+      if (!candidate) return false;
+      const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+      const style = getComputedStyle(candidate);
+      return box.width >= 160
+        && box.height >= minimumHeight
+        && style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > .05;
+    };
+    const sideOpen = Boolean(home && isVisiblePanel(sideWorkspace, 140));
+    const bottomOpen = Boolean(home && isVisiblePanel(terminalRoot, 64));
+    const panelStateTargets = new Set([root, shellMain, home].filter(Boolean));
+    document.querySelectorAll(`.${HOME_PANEL_STATE_CLASSES.join(", .")}`).forEach((candidate) => {
+      if (!panelStateTargets.has(candidate)) candidate.classList.remove(...HOME_PANEL_STATE_CLASSES);
+    });
+    for (const target of panelStateTargets) {
+      target.classList.toggle("dream-home-side-open", sideOpen);
+      target.classList.toggle("dream-home-bottom-open", bottomOpen);
+      target.classList.toggle("dream-home-dual-panel", sideOpen && bottomOpen);
+    }
+
+    const sideChatAside = [...document.querySelectorAll("main.main-surface aside")]
+      .find((candidate) => candidate.querySelector?.(".thread-scroll-container")
+        && candidate.querySelector?.(".composer-surface-chrome"));
+    const sideChatPanel = sideChatAside?.querySelector?.(':scope > [class*="contain:layout_paint"]')
+      || sideChatAside?.querySelector?.('[class*="contain:layout_paint"]')
+      || sideChatAside?.firstElementChild;
+    sideChatPanel?.classList.add("dream-side-chat-panel");
+
+    const outputLabel = exactVisibleText(/^(?:\u8f93\u51fa|output)$/i);
+    const summaryPanel = outputLabel?.closest?.('[class*="rounded-3xl"][class*="bg-token-dropdown-background"]')
+      || outputLabel?.closest?.('[class*="bg-token-dropdown-background"]');
+    document.querySelectorAll(".dream-summary-panel").forEach((node) => {
+      if (node !== summaryPanel) {
+        node.style?.removeProperty?.("--dream-summary-safe-height");
+        node.classList.remove("dream-summary-panel");
+      }
+    });
+    summaryPanel?.classList.add("dream-summary-panel");
+
+    const selectionLabelPattern = /^(?:\u6dfb\u52a0\u5230\u4efb\u52a1|add to task|\u66f4\u591a\u8be6\u60c5|more details|\u5728\u4fa7\u8fb9\u804a\u5929\u4e2d\u63d0\u95ee|ask in sidebar chat)$/i;
+    const selectionButtons = [...new Set([...document.querySelectorAll("button, [role=button]")]
+      .filter((candidate) => {
+        if (!selectionLabelPattern.test((candidate.textContent || "").trim())) return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const style = getComputedStyle(candidate);
+        return box.width > 0 && box.height > 0 && style.visibility !== "hidden" && Number(style.opacity || 1) > .05;
+      }))];
+    for (const button of selectionButtons) button.classList.add("dream-selection-action");
+    let selectionActions = selectionButtons[0]?.parentElement || null;
+    while (selectionActions && !selectionButtons.every((button) => selectionActions.contains(button))) {
+      selectionActions = selectionActions.parentElement;
+    }
+    while (selectionActions && selectionActions !== document.body) {
+      const box = selectionActions.getBoundingClientRect?.() || { width: 0, height: 0 };
+      if (box.width >= 120 && box.width < 720 && box.height >= 24 && box.height < 104) break;
+      selectionActions = selectionActions.parentElement;
+    }
+    selectionActions?.classList.add("dream-selection-actions");
+
+    const selectedFragmentText = [...document.querySelectorAll("button, div, span")]
+      .filter((candidate) => {
+        const text = (candidate.textContent || "").trim();
+        if (!/^\d+\s*(?:\u4e2a)?\s*(?:\u5df2\u9009\u6587\u672c\u7247\u6bb5|selected text (?:fragment|snippet)s?)$/i.test(text)) return false;
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return box.width > 40 && box.width < 360 && box.height > 16 && box.height < 72;
+      })
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    const selectedFragment = selectedFragmentText?.closest?.("button")
+      || selectedFragmentText?.closest?.('[class*="rounded"]')
+      || selectedFragmentText;
+    selectedFragment?.classList.add("dream-selected-fragment");
+
+    const optionalCommentInput = [...document.querySelectorAll('input, textarea, [contenteditable="true"]')]
+      .find((candidate) => /\u6dfb\u52a0\u53ef\u9009\u8bc4\u8bba|optional comment/i
+        .test(candidate.getAttribute?.("placeholder") || candidate.getAttribute?.("data-placeholder") || ""));
+    optionalCommentInput?.classList.add("dream-optional-comment-input");
+    let optionalComment = optionalCommentInput?.parentElement || null;
+    while (optionalComment && optionalComment !== document.body) {
+      const box = optionalComment.getBoundingClientRect?.() || { width: 0, height: 0 };
+      if (box.width >= 120 && box.width < 720 && box.height >= 32 && box.height < 104) break;
+      optionalComment = optionalComment.parentElement;
+    }
+    optionalComment?.classList.add("dream-optional-comment");
+
+    const editedTitlePattern = /^(?:\u5df2\u7f16\u8f91|edited)(?:\s+|[:\uff1a]\s*)\S/i;
+    const undoPattern = /^(?:\u64a4\u9500|undo)$/i;
+    const reviewPattern = /^(?:\u5ba1\u6838|review)$/i;
+    for (const editedHeader of document.querySelectorAll('[class*="group/turn-diff-header"]')) {
+      const editedTitle = [...editedHeader.querySelectorAll('span[class~="font-medium"][class*="text-token-foreground"]')]
+        .find((candidate) => candidate.childElementCount === 0
+          && editedTitlePattern.test((candidate.textContent || "").trim()));
+      if (!editedTitle) continue;
+
+      const directCard = editedHeader.parentElement;
+      const editedCard = directCard?.matches?.('[class*="--thread-resource-card-row-padding-x:"]')
+        ? directCard
+        : editedHeader.closest?.('[class*="rounded-lg"][class*="bg-token-dropdown-background"]');
+      const editedStats = editedCard?.querySelector?.(".turn-diff-default-subtitle");
+      if (!editedCard || !editedStats) continue;
+
+      const editedButtons = [...editedCard.querySelectorAll("button, [role=button]")];
+      const undoButton = editedButtons.find((button) => undoPattern.test((button.textContent || "").trim()));
+      const reviewButton = editedButtons.find((button) => reviewPattern.test((button.textContent || "").trim()));
+      if (!undoButton || !reviewButton) continue;
+
+      const editedIcon = editedHeader.querySelector?.('[class~="size-10"][class~="rounded-lg"]:has(> svg)');
+      let editedActions = undoButton.parentElement;
+      while (editedActions && editedActions !== editedCard && !editedActions.contains(reviewButton)) {
+        editedActions = editedActions.parentElement;
+      }
+
+      editedCard.classList.add("dream-edited-card");
+      editedHeader.classList.add("dream-edited-card-header");
+      editedIcon?.classList.add("dream-edited-card-icon");
+      editedTitle.classList.add("dream-edited-card-title");
+      editedStats?.classList.add("dream-edited-card-stats");
+      if (editedActions && editedActions !== editedCard) editedActions.classList.add("dream-edited-card-actions");
+      undoButton.classList.add("dream-edited-card-undo");
+      reviewButton.classList.add("dream-edited-card-review");
+    }
+
+    for (const candidate of document.querySelectorAll(`.${PRESET_CLASSES.join(", .")}`)) {
+      candidate.classList.remove(...PRESET_CLASSES);
+    }
+    const presetPatterns = [
+      ["dream-preset-explore", /\u63a2\u7d22\u5e76\u7406\u89e3\u4ee3\u7801|explore and understand code/i],
+      ["dream-preset-build", /\u6784\u5efa\u65b0\u529f\u80fd\u3001\u5e94\u7528\u6216\u5de5\u5177|build (?:a )?new (?:feature|app|tool)/i],
+      ["dream-preset-review", /\u5ba1\u67e5\u4ee3\u7801\u5e76\u63d0\u51fa\u4fee\u6539\u5efa\u8bae|review code/i],
+      ["dream-preset-fix", /\u4fee\u590d\u95ee\u9898\u548c\u5931\u8d25|fix (?:issues|problems|failures)/i],
+    ];
+    /* Release our own fallback visibility before measuring the native deck.
+       This happens inside one JS task, so native responsive hiding—not our
+       :has() rule—decides which deck is visible without a painted blank. */
+    const primedFallbackDeck = document.getElementById(FALLBACK_PRESETS_ID);
+    if (primedFallbackDeck) {
+      primedFallbackDeck.setAttribute("data-dream-ready", "false");
+      primedFallbackDeck.setAttribute("hidden", "");
+      primedFallbackDeck.setAttribute("aria-hidden", "true");
+    }
+    const isPresetRendered = (button) => {
+      const box = button?.getBoundingClientRect?.() || { width: 0, height: 0 };
+      const style = button ? getComputedStyle(button) : null;
+      return box.width > 0
+        && box.height > 0
+        && style?.display !== "none"
+        && style?.visibility !== "hidden"
+        && Number(style?.opacity || 1) > .05;
+    };
+    const matchedNativePresets = new Set();
+    for (const button of home?.querySelectorAll?.("button") || []) {
+      if (button.closest?.(`#${FALLBACK_PRESETS_ID}`)) continue;
+      const text = (button.textContent || "").trim();
+      const match = presetPatterns.find(([, pattern]) => pattern.test(text));
+      if (!match) continue;
+      button.classList.add("dream-codex-preset", match[0]);
+      if (isPresetRendered(button)) matchedNativePresets.add(button);
+    }
+    const structuralPresetButtons = [...(home?.querySelector?.(
+      '.group\\/home-suggestions, [data-testid*="home-suggestion"], [data-feature="home-suggestions"]',
+    )?.querySelectorAll?.("button") || [])]
+      .filter((button) => !button.closest?.(`#${FALLBACK_PRESETS_ID}`))
+      .slice(0, fallbackPresetDefinitions.length);
+    structuralPresetButtons.forEach((button, index) => {
+      button.classList.add("dream-codex-preset", fallbackPresetDefinitions[index].className);
+      if (isPresetRendered(button)) matchedNativePresets.add(button);
+    });
+    ensureFallbackPresets(home, matchedNativePresets.size);
+    if (!home) {
+      document.getElementById(FALLBACK_PRESETS_ID)?.remove();
+    }
+
+    const changedText = [...(shellMain.querySelectorAll?.("div, span") || [])]
+      .filter((candidate) => {
+        const text = (candidate.textContent || "").trim();
+        const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return /(个文件已更改|files? changed)/i.test(text)
+          && /\+\d+/.test(text) && /-\d+/.test(text)
+          && text.length < 100 && box.width > 80 && box.width < 420 && box.height > 18 && box.height < 90;
+      })
+      .sort((left, right) => {
+        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        return (a.width * a.height) - (b.width * b.height);
+      })[0];
+    const changedButton = changedText?.matches?.("button")
+      ? changedText
+      : [...(changedText?.querySelectorAll?.("button") || [])]
+        .find((button) => /(?:files? changed|\u4e2a\u6587\u4ef6\u5df2\u66f4\u6539)/i.test((button.textContent || "").trim()));
+    const changedPill = changedButton
+      || changedText?.closest?.("button")
+      || changedText?.closest?.('[class*="rounded-3xl"][class*="border"]')
+      || changedText?.parentElement;
+    const changedBarrier = changedPill?.parentElement?.closest?.(':not(button)[class*="rounded-3xl"][class*="border"]') || null;
+    const changedClipHost = changedPill?.parentElement?.closest?.(
+      ':not(button)[class~="overflow-hidden"][class~="rounded-3xl"]',
+    ) || null;
+    document.querySelectorAll(".dream-changes-pill").forEach((node) => {
+      if (node !== changedPill) node.classList.remove("dream-changes-pill");
+    });
+    document.querySelectorAll(`.${CHANGES_SHELL_CLASS}`).forEach((node) => {
+      if (node !== changedBarrier) node.classList.remove(CHANGES_SHELL_CLASS);
+    });
+    document.querySelectorAll(`.${CHANGES_CLIP_HOST_CLASS}`).forEach((node) => {
+      if (node !== changedClipHost) node.classList.remove(CHANGES_CLIP_HOST_CLASS);
+    });
+    changedPill?.classList.add("dream-changes-pill");
+    if (changedBarrier && changedBarrier !== changedPill) changedBarrier.classList.add(CHANGES_SHELL_CLASS);
+    if (changedClipHost && changedClipHost !== changedPill) changedClipHost.classList.add(CHANGES_CLIP_HOST_CLASS);
+
+    if (summaryPanel) {
+      const composerBarrier = document.querySelector(".composer-surface-chrome");
+      const barrier = changedBarrier || composerBarrier;
+      const panelBox = summaryPanel.getBoundingClientRect?.();
+      const barrierBox = barrier?.getBoundingClientRect?.();
+      if (panelBox && barrierBox && panelBox.top < barrierBox.top) {
+        const safeHeight = Math.max(128, Math.floor(barrierBox.top - panelBox.top - 12));
+        summaryPanel.style?.setProperty?.("--dream-summary-safe-height", `${safeHeight}px`);
+      }
+    }
+
+    let chrome = document.getElementById(CHROME_ID);
+    if (!chrome || chrome.parentElement !== document.body) {
+      chrome?.remove();
+      chrome = document.createElement("div");
+      chrome.id = CHROME_ID;
+      chrome.setAttribute("aria-hidden", "true");
+      document.body.appendChild(chrome);
+    }
+    const ornamentsIntact = chrome.dataset.dreamOrnaments === "7"
+      && (typeof chrome.querySelector !== "function"
+        || (chrome.querySelector(".dream-angel-blink") && chrome.querySelector(".dream-angel-live-ticker")));
+    if (!ornamentsIntact) {
+      chrome.innerHTML = `
+        <div class="dream-angel-stage">
+          <i class="dream-angel-frame"></i>
+          <i class="dream-angel-face-orbit"><b></b></i>
+          <div class="dream-angel-blink">
+            <svg viewBox="0 0 220 104" aria-hidden="true" focusable="false" shape-rendering="crispEdges">
+              <g class="dream-blink-frame dream-blink-half">
+                <g class="dream-blink-eye dream-blink-eye-left">
+                  <path class="dream-blink-pixel-skin" d="M23 27H47V29H55V31H59V33H63V35H67V39H69V43H71V47H73V49H69V47H63V49H57V51H47V49H39V47H33V45H29V43H25V39H21V35H19V31H17V29H21V27Z"/>
+                  <g class="dream-blink-pixel-lid">
+                    <rect x="19" y="31" width="4" height="4"/><rect x="23" y="35" width="6" height="4"/><rect x="29" y="39" width="6" height="4"/><rect x="35" y="43" width="6" height="4"/><rect x="41" y="47" width="8" height="4"/><rect x="49" y="49" width="8" height="4"/><rect x="57" y="51" width="6" height="4"/><rect x="63" y="49" width="6" height="4"/><rect x="69" y="47" width="4" height="4"/>
+                  </g>
+                </g>
+                <g class="dream-blink-eye dream-blink-eye-right">
+                  <path class="dream-blink-pixel-skin" d="M151 33H173V35H181V37H187V39H191V41H195V43H199V45H201V49H197V47H189V49H181V51H173V53H159V51H151V49H143V47H137V45H131V43H127V41H129V39H133V37H143V35H151Z"/>
+                  <g class="dream-blink-pixel-lid">
+                    <rect x="127" y="41" width="4" height="4"/><rect x="131" y="43" width="6" height="4"/><rect x="137" y="45" width="6" height="4"/><rect x="143" y="47" width="8" height="4"/><rect x="151" y="49" width="8" height="4"/><rect x="159" y="51" width="14" height="4"/><rect x="173" y="53" width="8" height="4"/><rect x="181" y="51" width="8" height="4"/><rect x="189" y="49" width="8" height="4"/><rect x="197" y="47" width="4" height="4"/>
+                  </g>
+                </g>
+              </g>
+              <g class="dream-blink-frame dream-blink-closed">
+                <g class="dream-blink-eye dream-blink-eye-left">
+                  <path class="dream-blink-pixel-skin" d="M23 27H47V29H55V31H59V33H63V35H67V39H69V43H71V47H73V61H71V67H69V71H67V75H65V79H61V81H55V79H51V75H47V71H43V67H39V63H35V59H33V55H31V51H29V47H27V43H23V39H21V35H19V31H17V29H21V27Z"/>
+                  <g class="dream-blink-pixel-lid">
+                    <rect x="19" y="39" width="4" height="4"/><rect x="23" y="43" width="6" height="4"/><rect x="29" y="47" width="6" height="4"/><rect x="35" y="51" width="6" height="4"/><rect x="41" y="55" width="8" height="4"/><rect x="49" y="59" width="8" height="4"/><rect x="57" y="61" width="6" height="4"/><rect x="63" y="59" width="6" height="4"/><rect x="69" y="55" width="4" height="4"/>
+                  </g>
+                </g>
+                <g class="dream-blink-eye dream-blink-eye-right">
+                  <path class="dream-blink-pixel-skin" d="M151 33H173V35H181V37H187V39H191V41H195V43H199V45H201V49H199V57H199V61H197V65H195V69H193V73H189V77H185V81H181V83H177V85H163V83H157V81H153V77H147V73H141V69H139V65H137V61H133V57H133V53H131V49H129V45H127V41H127V39H129V37H133V35H143V33Z"/>
+                  <g class="dream-blink-pixel-lid">
+                    <rect x="127" y="47" width="4" height="4"/><rect x="131" y="49" width="6" height="4"/><rect x="137" y="53" width="6" height="4"/><rect x="143" y="57" width="8" height="4"/><rect x="151" y="61" width="8" height="4"/><rect x="159" y="65" width="18" height="4"/><rect x="177" y="63" width="8" height="4"/><rect x="185" y="59" width="8" height="4"/><rect x="193" y="55" width="8" height="4"/>
+                  </g>
+                </g>
+              </g>
+            </svg>
+          </div>
+          <i class="dream-angel-halo"></i>
+          <div class="dream-angel-live-ticker"><b>&hearts; LIVE CHAT</b><span><i>CHOTEN ONLINE 9999+</i><i>BLESS YOUR CODE</i><i>INTERNET ANGEL FOREVER</i><i>&#25512; +1 +1 +1</i></span></div>
+          <div class="dream-angel-id-chip"><b>KANGEL.SYS</b><span>STREAM ID 01</span><i>ONLINE</i></div>
+          <div class="dream-angel-telemetry">
+            <div data-meter="love"><span>&hearts; AFFECTION</span><b><i></i></b><em>9999+</em></div>
+            <div data-meter="stress"><span>! STRESS</span><b><i></i></b><em>082</em></div>
+            <div data-meter="dark"><span>&#9673; DARK</span><b><i></i></b><em>066</em></div>
+          </div>
+          <div class="dream-angel-chat-rain">
+            <i>&hearts;</i><i>&#31070;</i><i>+1</i><i>!!!</i><i>&#25512;</i>
+          </div>
+          <i class="dream-angel-signal-wave"></i>
+          <div class="dream-angel-dose-strip"><i></i><i></i><i></i><b>+ DOSE 03</b></div>
+          <div class="dream-angel-window-stack"><i></i><i></i><b>CHAT OVERLOAD</b><em>9999+</em></div>
+          <div class="dream-angel-reaction-deck"><i>&hearts; KAWAII</i><i>&#31070; ANGEL</i><i>+1 LOVE</i></div>
+          <div class="dream-angel-heartbeat"><b>LOVE SIGNAL</b><span></span><em>98%</em></div>
+          <div class="dream-angel-now-playing"><span>&#9835; NOW PLAYING</span><b>INTERNET OVERDOSE</b><i></i></div>
+          <i class="dream-angel-spark-field"></i>
+          <div class="dream-angel-webcam-card"><i></i><b>KANGEL CAM / 01</b><em>&hearts;</em></div>
+        </div>`;
+      chrome.dataset.dreamOrnaments = "7";
+    }
+    const mainBox = shellMain.getBoundingClientRect?.();
+    const composerBox = home?.querySelector?.(".composer-surface-chrome")?.getBoundingClientRect?.();
+    if (mainBox?.width > 0 && mainBox?.height > 0) {
+      chrome.style?.setProperty?.("--dream-main-left", `${Math.round(mainBox.left)}px`);
+      chrome.style?.setProperty?.("--dream-main-top", `${Math.round(mainBox.top)}px`);
+      chrome.style?.setProperty?.("--dream-main-width", `${Math.round(mainBox.width)}px`);
+      chrome.style?.setProperty?.("--dream-main-height", `${Math.round(mainBox.height)}px`);
+      updateChotenArtGeometry(chrome, mainBox);
+      if (composerBox?.width > 0 && composerBox?.height > 0) {
+        chrome.style?.setProperty?.("--dream-composer-left", `${Math.round(composerBox.left - mainBox.left)}px`);
+        chrome.style?.setProperty?.("--dream-composer-right", `${Math.round(mainBox.right - composerBox.right)}px`);
+        chrome.style?.setProperty?.("--dream-composer-top", `${Math.round(composerBox.top - mainBox.top)}px`);
+      }
+    }
+    chrome.classList.toggle("dream-home-shell", Boolean(home));
+  };
+
+  const scheduler = { frame: null, timeout: null, dueAt: 0, lastRunAt: -Infinity };
+  let lastEnsureErrorLogAt = -Infinity;
+  const schedulerNow = () => {
+    try {
+      if (typeof performance !== "undefined" && typeof performance.now === "function") {
+        return performance.now();
+      }
+    } catch {}
+    return Date.now();
+  };
+  const runEnsureSafely = () => {
+    const now = schedulerNow();
+    scheduler.lastRunAt = now;
+    try {
+      ensure();
+      return true;
+    } catch (error) {
+      if (now - lastEnsureErrorLogAt >= ENSURE_ERROR_LOG_INTERVAL_MS) {
+        lastEnsureErrorLogAt = now;
+        try {
+          if (typeof console !== "undefined") {
+            console.error?.(`[dream-skin] renderer refresh failed: ${error?.message || String(error)}`);
+          }
+        } catch {}
+      }
+      return false;
+    }
   };
 
   const cleanup = () => {
     const state = window[STATE_KEY];
     if (state?.installToken !== installToken) return false;
-    window[DISABLED_KEY] = true;
-    const root = document.documentElement;
-    for (const name of ROOT_ATTRS) root?.removeAttribute(name);
-    for (const attribute of [...(root?.attributes || [])]) {
-      if (attribute.name.startsWith("data-dream-")) root.removeAttribute(attribute.name);
-    }
-    for (const name of THEME_VARIABLES) root?.style.removeProperty(name);
-    for (const property of [...(root?.style || [])]) {
-      if (property.startsWith("--dream-") || property.startsWith("--ds-")) {
-        root.style.removeProperty(property);
-      }
-    }
-    state?.rootObserver?.disconnect();
-    if (bodyReadyHandler && typeof document.removeEventListener === "function") {
-      document.removeEventListener("DOMContentLoaded", bodyReadyHandler);
-    }
+    window.__CODEX_DREAM_SKIN_DISABLED__ = true;
+    clearSkinDom();
+    state?.observer?.disconnect();
+    state?.resizeObserver?.disconnect();
     if (state?.timer) clearInterval(state.timer);
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
-    if (analysisTimer) clearTimeout(analysisTimer);
-    if (state?.mediaHandler && state?.mediaQuery) {
-      try { state.mediaQuery.removeEventListener("change", state.mediaHandler); } catch {}
-    }
-    if (state?.navigationHandler && state?.navigation) {
-      try { state.navigation.removeEventListener("navigate", state.navigationHandler); } catch {}
-    }
-    if (styleSheet) {
-      try {
-        document.adoptedStyleSheets = [...document.adoptedStyleSheets]
-          .filter((candidate) => candidate !== styleSheet);
-      } catch {}
-      styleRegistry.delete(styleSheet);
-    }
-    styleNode?.remove();
-    if (document.getElementById(STYLE_ID) === styleNode) document.getElementById(STYLE_ID)?.remove();
-    if (styleRegistry.size === 0) delete window[STYLE_REGISTRY_KEY];
+    if (state?.scheduler?.frame) window.cancelAnimationFrame?.(state.scheduler.frame);
+    if (state?.resizeHandler) window.removeEventListener("resize", state.resizeHandler);
+    state?.motionQuery?.removeEventListener?.("change", state.motionHandler);
     if (state?.artUrl) URL.revokeObjectURL(state.artUrl);
     delete window[STATE_KEY];
     return true;
   };
 
-  const scheduler = { timeout: null, root: false, scope: false };
-  const flushScheduledEnsure = () => {
-    if (scheduler.timeout) clearTimeout(scheduler.timeout);
-    scheduler.timeout = null;
-    const pending = { root: scheduler.root, scope: scheduler.scope };
-    scheduler.root = false;
-    scheduler.scope = false;
-    ensure(pending);
-  };
-  const scheduleEnsure = ({ root = false, scope = false } = {}, delay = 64) => {
-    scheduler.root ||= root;
-    scheduler.scope ||= scope;
-    if (scheduler.timeout) return;
-    scheduler.timeout = setTimeout(flushScheduledEnsure, delay);
-  };
-  if (typeof MutationObserver === "function") {
-    rootObserver = new MutationObserver(() => scheduleEnsure({ root: true }));
-  }
-
-  let mediaQuery = null;
-  let mediaHandler = null;
-  try {
-    mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    mediaHandler = () => scheduleEnsure({ root: true });
-  } catch {}
-
-  const navigationApi = window.navigation && typeof window.navigation.addEventListener === "function"
-    ? window.navigation : null;
-  const navigationHandler = navigationApi ? () => {
-    metrics.navigationEvents += 1;
-    scheduleEnsure({ scope: true }, 180);
-  } : null;
-
-  window[STATE_KEY] = {
-    ensure,
-    cleanup,
-    rootObserver,
-    timer: null,
-    scheduler,
-    mediaQuery,
-    mediaHandler,
-    navigation: navigationApi,
-    navigationHandler,
-    artUrl,
-    installToken,
-    styleMode,
-    styleNode,
-    styleSheet,
-    styleRevision: STYLE_REVISION,
-    analysis: artAnalysis,
-    artMetadata: ART_METADATA,
-    scope: null,
-    selectorsSchema: SELECTOR_CONTRACT.schema,
-    metrics,
-    version: VERSION,
-    themeId: THEME.id || "custom",
-    revision: PAYLOAD_REVISION,
-    detectShellAppearance,
-  };
-  const firstEnsureStartedAt = now();
-  ensure({ root: true });
-  const initialScope = refreshScope();
-  metrics.firstEnsureMs = Number((now() - firstEnsureStartedAt).toFixed(3));
-
-  if (rootObserver) {
-    const observeAttributes = (node) => {
-      if (!node) return;
-      rootObserver.observe(node, {
-        attributes: true,
-        attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
-      });
+  const scheduleEnsure = (minimumGapMs = 0) => {
+    if (scheduler.frame) return;
+    const now = schedulerNow();
+    const delay = Math.max(0, minimumGapMs - (now - scheduler.lastRunAt));
+    const dueAt = now + delay;
+    if (scheduler.timeout) {
+      if (scheduler.dueAt <= dueAt) return;
+      clearTimeout(scheduler.timeout);
+      scheduler.timeout = null;
+      scheduler.dueAt = 0;
+    }
+    const runEnsure = () => {
+      scheduler.frame = null;
+      scheduler.timeout = null;
+      scheduler.dueAt = 0;
+      runEnsureSafely();
     };
-    observeAttributes(document.documentElement);
-    if (document.body) observeAttributes(document.body);
-    else if (typeof document.addEventListener === "function") {
-      bodyReadyHandler = () => {
-        if (!window[DISABLED_KEY]) observeAttributes(document.body);
-      };
-      document.addEventListener("DOMContentLoaded", bodyReadyHandler, { once: true });
-    }
-  }
-  const timer = setInterval(() => {
-    metrics.safetyPasses += 1;
-    ensure({ root: true });
-  }, 30000);
-  window[STATE_KEY].timer = timer;
-  if (mediaHandler && mediaQuery && typeof mediaQuery.addEventListener === "function") {
-    mediaQuery.addEventListener("change", mediaHandler);
-  }
-  if (navigationHandler && navigationApi) {
-    navigationApi.addEventListener("navigate", navigationHandler);
-  }
-  const analysisPromise = artAnalysis ? Promise.resolve(null) : analyzeArt();
-  window[STATE_KEY].analysisTimer = analysisTimer;
-  analysisPromise.then((analysis) => {
-    const state = window[STATE_KEY];
-    if (!analysis || state?.installToken !== installToken || window[DISABLED_KEY]) return;
-    artAnalysis = analysis;
-    state.analysis = analysis;
-    if (typeof THEME.artKey === "string") {
-      analysisCache.set(THEME.artKey, analysis);
-      while (analysisCache.size > 8) analysisCache.delete(analysisCache.keys().next().value);
-    }
-    ensure({ root: true });
-  }).catch(() => {});
-  return {
-    installed: true,
-    version: VERSION,
-    themeId: THEME.id || "custom",
-    revision: PAYLOAD_REVISION,
-    shell: resolvedShell(),
-    scope: initialScope,
-    styleMode,
-    analysis: artAnalysis,
+    const queueFrame = () => {
+      scheduler.timeout = null;
+      scheduler.dueAt = 0;
+      if (typeof window.requestAnimationFrame === "function") {
+        scheduler.frame = window.requestAnimationFrame(runEnsure);
+      } else {
+        scheduler.timeout = setTimeout(runEnsure, 0);
+      }
+    };
+    if (delay > 0) {
+      scheduler.dueAt = dueAt;
+      scheduler.timeout = setTimeout(queueFrame, delay);
+    } else queueFrame();
   };
-})(__DREAM_SKIN_CSS_JSON__, __DREAM_SKIN_ART_JSON__, __DREAM_SKIN_THEME_JSON__)
+  const withoutManagedClasses = (value) => String(value || "")
+    .split(/\s+/)
+    .filter((className) => className && className !== "codex-dream-skin" && !className.startsWith("dream-"))
+    .sort()
+    .join(" ");
+  const resizeHandler = () => scheduleEnsure();
+  const motionHandler = () => scheduleEnsure();
+  window.addEventListener("resize", resizeHandler, { passive: true });
+  motionQuery?.addEventListener?.("change", motionHandler);
+  if (typeof ResizeObserver === "function") {
+    resizeObserver = new ResizeObserver(() => scheduleEnsure());
+  }
+  observer = new MutationObserver((records) => {
+    if (samplingNativeShell) return;
+    const hasApplicationChange = records.some((record) => {
+      if (record.type !== "attributes" || record.attributeName !== "class") return true;
+      return withoutManagedClasses(record.oldValue)
+        !== withoutManagedClasses(record.target?.getAttribute?.("class"));
+    });
+    if (!hasApplicationChange) return;
+    scheduleEnsure(MUTATION_REFRESH_INTERVAL_MS);
+  });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeOldValue: true,
+    attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
+  });
+  const timer = setInterval(runEnsureSafely, 5000);
+  const runtimeState = {
+    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, motionQuery, motionHandler,
+    artUrl, profile, config, installToken, version: SKIN_VERSION,
+    themeId: config.themeId,
+    revision: PAYLOAD_REVISION,
+    styleMode: "style",
+    styleNode: null,
+    scope: { level: "L1", baseState: "fork-windows" },
+  };
+  window[STATE_KEY] = runtimeState;
+  runEnsureSafely();
+  runtimeState.styleNode = document.getElementById(STYLE_ID);
+  analyzeArt().then((result) => {
+    const state = window[STATE_KEY];
+    if (state?.installToken !== installToken || window.__CODEX_DREAM_SKIN_DISABLED__) return;
+    profile = result;
+    artGeometryReady = true;
+    state.profile = result;
+    runEnsureSafely();
+  });
+  return { installed: true, version: SKIN_VERSION, revision: PAYLOAD_REVISION, adaptive: true };
+})(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__)

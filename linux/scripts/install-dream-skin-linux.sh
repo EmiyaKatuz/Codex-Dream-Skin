@@ -35,9 +35,16 @@ if ! mv "$temporary" "$INSTALL_ROOT"; then
 fi
 rm -rf "$previous"
 
-if [ ! -f "$THEME_DIR/theme.json" ]; then
+replace_legacy_default="$($NODE -e '
+  try {
+    const theme = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    process.stdout.write(String(theme.id === "custom-1784123441349" && theme.name === "Dream Skin"));
+  } catch { process.stdout.write("false"); }
+' "$THEME_DIR/theme.json")"
+if [ ! -f "$THEME_DIR/theme.json" ] || [ "$replace_legacy_default" = true ]; then
+  rm -f "$THEME_DIR/portal-hero.png"
   cp "$INSTALL_ROOT/assets/theme.json" "$THEME_DIR/theme.json"
-  cp "$INSTALL_ROOT/assets/portal-hero.png" "$THEME_DIR/portal-hero.png"
+  cp "$INSTALL_ROOT/assets/dream-reference.jpg" "$THEME_DIR/dream-reference.jpg"
   chmod 600 "$THEME_DIR/"*
 fi
 "$NODE" "$INSTALL_ROOT/scripts/injector.mjs" --check-payload --theme-dir "$THEME_DIR" >/dev/null

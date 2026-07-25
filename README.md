@@ -2,7 +2,7 @@
 
 为官方 Codex Desktop 提供的本地动态主题。主题通过仅绑定本机回环地址的 CDP 注入到 Codex renderer，不修改 `app.asar`、安装目录、应用签名或 Codex 配置。
 
-当前仓库包含 Windows、macOS 和 Linux 实现；Linux 版本已作为一等构建目标提供。
+当前仓库包含 Windows、macOS 和 Linux 实现；Linux 版默认使用本 fork 的「超天酱 · INTERNET ANGEL」主题运行时。
 
 ## Linux 快速开始
 

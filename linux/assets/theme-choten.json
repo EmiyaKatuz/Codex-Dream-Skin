@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "id": "preset-internet-angel-default",
-  "name": "超天酱 · INTERNET ANGEL",
+  "id": "preset-internet-angel",
+  "name": "超天酱 · INTERNET ANGEL · Pixel Cafe",
   "brandSubtitle": "CODEX // INTERNET ANGEL ♥",
   "tagline": "今天也要做最可爱的互联网天使。",
   "projectPrefix": "PROJECT CHANNEL // ",
   "projectLabel": "✦ 选择项目",
   "statusText": "INTERNET ANGEL // STREAM ONLINE",
   "quote": "BLESS YOUR CODE ♥",
-  "image": "dream-reference.jpg",
+  "image": "codex-dream-skin-pixel-cafe.png",
   "appearance": "auto",
   "art": {
     "focusX": 0.72,
