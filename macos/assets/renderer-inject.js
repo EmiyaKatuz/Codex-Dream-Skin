@@ -5,9 +5,12 @@
   const DISABLED_KEY = "__CODEX_DREAM_SKIN_DISABLED__";
   const STYLE_REGISTRY_KEY = "__CODEX_DREAM_SKIN_STYLE_SHEETS__";
   const STYLE_ID = "codex-dream-skin-style";
+  const HOME_DECK_ID = "chatgpt-internet-angel-deck";
+  const SIDEBAR_ORNAMENTS_ID = "chatgpt-internet-angel-sidebar";
+  const HOME_HUD_ID = "chatgpt-internet-angel-hud";
   const SHELL_ATTR = "data-dream-shell";
   const ROOT_ATTRS = [
-    "data-dream-skin", SHELL_ATTR,
+    "data-dream-skin", SHELL_ATTR, "data-dream-theme",
     "data-dream-art-wide", "data-dream-art-safe", "data-dream-task-mode",
     "data-dream-art-safe-area", "data-dream-art-task-mode", "data-dream-art-aspect",
     "data-dream-art-ready",
@@ -16,6 +19,9 @@
   const STYLE_REVISION = __DREAM_SKIN_STYLE_REVISION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
   const THEME = themeConfig && typeof themeConfig === "object" ? themeConfig : {};
+  const isInternetAngelTheme = /(?:internet-angel|choten)/i.test(
+    `${THEME.id || ""} ${THEME.name || ""}`,
+  );
   const ART = THEME.art && typeof THEME.art === "object" ? THEME.art : {};
   const ART_METADATA = THEME.artMetadata && typeof THEME.artMetadata === "object"
     ? THEME.artMetadata : null;
@@ -499,6 +505,7 @@
     const shell = resolvedShell();
     setAttribute(root, "data-dream-skin", "active");
     setAttribute(root, SHELL_ATTR, shell);
+    setAttribute(root, "data-dream-theme", isInternetAngelTheme ? "internet-angel" : "standard");
     setStyleProperty(root, "--dream-skin-art", `url("${artUrl}")`);
     applyTheme(root, shell);
     applyArtMetadata(root);
@@ -556,6 +563,190 @@
     return scope;
   };
 
+  const homePresets = [
+    {
+      tone: "explore",
+      channel: "01 // EXPLORE",
+      title: "探索并理解代码",
+      detail: "READ / MAP / TRACE",
+      prompt: "探索并理解当前项目的代码结构、关键模块与运行流程。",
+      icon: '<path d="M5 18l3.4-1 7.7-7.7-2.4-2.4L6 14.6 5 18Z"/><path d="m12.8 7.8 2.4 2.4M16 5l3 3M7.7 15.3l1 1"/>',
+    },
+    {
+      tone: "build",
+      channel: "02 // BUILD",
+      title: "构建新功能、应用或工具",
+      detail: "MAKE / SHIP / GROW",
+      prompt: "构建一个新功能、应用或工具：",
+      icon: '<path d="m14.5 5.5 4 4-8.8 8.8H5.7v-4l8.8-8.8Z"/><path d="m12.5 7.5 4 4M4 20h16"/>',
+    },
+    {
+      tone: "review",
+      channel: "03 // REVIEW",
+      title: "审查代码并提出修改建议",
+      detail: "SCAN / CHECK / SIGNAL",
+      prompt: "审查当前代码，并提出具体、可执行的修改建议。",
+      icon: '<path d="M20 11a8 8 0 1 1-2.3-5.7"/><path d="M20 4v7h-7M8.5 12l2.2 2.2 4.8-5"/>',
+    },
+    {
+      tone: "recover",
+      channel: "04 // RECOVER",
+      title: "修复问题和失败",
+      detail: "DEBUG / HEAL / RETRY",
+      prompt: "定位并修复当前项目中的问题、错误或失败。",
+      icon: '<path d="M8 8a4 4 0 0 1 8 0v8a4 4 0 0 1-8 0V8Z"/><path d="M4 13h4m8 0h4M6 7l2 2m10-2-2 2M9 4l1.2 2m4.6-2L14 6M9.5 13h5"/>',
+    },
+  ];
+
+  const writeHomePreset = (prompt) => {
+    const editor = document.querySelector(
+      '.composer-surface-chrome .ProseMirror[contenteditable="true"], .composer-surface-chrome [contenteditable="true"]',
+    );
+    if (!editor) return false;
+    let inserted = false;
+    try {
+      editor.focus?.();
+      const selection = window.getSelection?.();
+      const range = document.createRange?.();
+      if (selection && range) {
+        range.selectNodeContents(editor);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      inserted = Boolean(document.execCommand?.("insertText", false, prompt));
+    } catch {}
+    if (!inserted || !(editor.textContent || "").includes(prompt)) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = prompt;
+      if (typeof editor.replaceChildren !== "function") return false;
+      editor.replaceChildren(paragraph);
+      try {
+        editor.dispatchEvent(new InputEvent("input", {
+          bubbles: true,
+          inputType: "insertText",
+          data: prompt,
+        }));
+      } catch {
+        try { editor.dispatchEvent(new Event("input", { bubbles: true })); } catch {}
+      }
+    }
+    document.getElementById(HOME_DECK_ID)?.setAttribute("data-angel-composer", "open");
+    editor.focus?.();
+    return true;
+  };
+
+  const syncHomeDeck = () => {
+    let deck = document.getElementById(HOME_DECK_ID);
+    if (!isInternetAngelTheme) {
+      deck?.remove?.();
+      return null;
+    }
+    const homeSelector = selectorByKey.get("home-route")?.selector;
+    let home = null;
+    try { home = homeSelector ? document.querySelector(homeSelector) : null; } catch {}
+    if (!home || typeof home.appendChild !== "function") {
+      deck?.remove?.();
+      return null;
+    }
+    if (deck?.parentElement === home) return deck;
+    deck?.remove?.();
+    if (typeof document.createElement !== "function") return null;
+
+    deck = document.createElement("section");
+    deck.id = HOME_DECK_ID;
+    deck.className = "angel-command-deck";
+    deck.setAttribute("aria-label", "Internet Angel task presets");
+    deck.setAttribute("data-angel-ready", "true");
+
+    const heading = document.createElement("div");
+    heading.className = "angel-command-heading";
+    heading.setAttribute("aria-hidden", "true");
+    heading.innerHTML = "<span>♥ ANGEL COMMAND DECK</span><b>4 CHANNELS ONLINE</b>";
+    deck.appendChild(heading);
+
+    const grid = document.createElement("div");
+    grid.className = "angel-preset-grid";
+    for (const preset of homePresets) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `angel-preset-card angel-preset-${preset.tone}`;
+      button.setAttribute("aria-label", preset.title);
+      button.innerHTML = `
+        <span class="angel-preset-channel" aria-hidden="true">${preset.channel}</span>
+        <span class="angel-preset-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${preset.icon}</svg><i>♥</i></span>
+        <strong>${preset.title}</strong>
+        <small>${preset.detail}</small>
+        <em aria-hidden="true">LIVE</em>`;
+      button.addEventListener("click", () => writeHomePreset(preset.prompt));
+      grid.appendChild(button);
+    }
+    deck.appendChild(grid);
+    home.appendChild(deck);
+    return deck;
+  };
+
+  const syncInternetAngelChrome = () => {
+    let sidebarOrnaments = document.getElementById(SIDEBAR_ORNAMENTS_ID);
+    let homeHud = document.getElementById(HOME_HUD_ID);
+    if (!isInternetAngelTheme) {
+      sidebarOrnaments?.remove?.();
+      homeHud?.remove?.();
+      syncHomeDeck();
+      return;
+    }
+
+    const sidebarSelector = selectorByKey.get("left-panel")?.selector;
+    let sidebar = null;
+    try { sidebar = sidebarSelector ? document.querySelector(sidebarSelector) : null; } catch {}
+    if (!sidebar || typeof sidebar.appendChild !== "function") {
+      sidebarOrnaments?.remove?.();
+    } else if (sidebarOrnaments?.parentElement !== sidebar) {
+      sidebarOrnaments?.remove?.();
+      sidebarOrnaments = document.createElement("div");
+      sidebarOrnaments.id = SIDEBAR_ORNAMENTS_ID;
+      sidebarOrnaments.className = "angel-sidebar-ornaments";
+      sidebarOrnaments.setAttribute("aria-hidden", "true");
+      sidebarOrnaments.innerHTML = `
+        <i class="angel-sidebar-new-task"></i>
+        <i class="angel-sidebar-signal"></i>
+        <i class="angel-sidebar-halo"></i>
+        <i class="angel-sidebar-pixels"></i>
+        <span class="angel-sidebar-online"><b>♥</b> CHOTEN LINK / ONLINE</span>
+        <span class="angel-sidebar-packet">AFFECTION 9999+</span>`;
+      sidebar.appendChild(sidebarOrnaments);
+    }
+
+    const homeSelector = selectorByKey.get("home-route")?.selector;
+    let home = null;
+    try { home = homeSelector ? document.querySelector(homeSelector) : null; } catch {}
+    if (!home || typeof home.appendChild !== "function") {
+      homeHud?.remove?.();
+    } else if (homeHud?.parentElement !== home) {
+      homeHud?.remove?.();
+      homeHud = document.createElement("section");
+      homeHud.id = HOME_HUD_ID;
+      homeHud.className = "angel-home-hud";
+      homeHud.setAttribute("aria-hidden", "true");
+      homeHud.innerHTML = `
+        <i class="angel-hud-frame"></i>
+        <i class="angel-hud-signal"></i>
+        <i class="angel-hud-sparks"></i>
+        <div class="angel-desktop-chip">♥ LIVE // CHOTEN DESKTOP 01</div>
+        <div class="angel-connection-chip">♥ LIVE // CONNECTION: HEAVENLY // CHOTEN CHANNEL 01</div>
+        <div class="angel-live-ticker"><b>♥ LIVE CHAT</b><span><i>CHOTEN ONLINE 9999+</i><i>BLESS YOUR CODE</i><i>INTERNET ANGEL FOREVER</i><i>推 +1 +1 +1</i></span></div>
+        <div class="angel-id-chip"><b>KANGEL.SYS</b><span>STREAM ID 01</span><i>ONLINE</i></div>
+        <div class="angel-telemetry">
+          <div data-meter="love"><span>♥ AFFECTION</span><b><i></i></b><em>9999+</em></div>
+          <div data-meter="stress"><span>! STRESS</span><b><i></i></b><em>082</em></div>
+          <div data-meter="dark"><span>◉ DARK</span><b><i></i></b><em>066</em></div>
+        </div>
+        <div class="angel-reaction-deck"><i>♥ KAWAII</i><i>神 ANGEL</i><i>+1 LOVE</i></div>
+        <div class="angel-dose-strip"><i></i><i></i><i></i><b>+ DOSE 03</b></div>`;
+      home.appendChild(homeHud);
+    }
+    syncHomeDeck();
+  };
+
   const ensure = ({ root: rootPass = true, scope: scopePass = false } = {}) => {
     if (window[DISABLED_KEY]) return;
     const root = document.documentElement;
@@ -563,6 +754,7 @@
     metrics.ensureCalls += 1;
     if (rootPass) applyRootState(root);
     if (scopePass) refreshScope();
+    syncInternetAngelChrome();
   };
 
   const cleanup = () => {
@@ -585,6 +777,7 @@
       document.removeEventListener("DOMContentLoaded", bodyReadyHandler);
     }
     if (state?.timer) clearInterval(state.timer);
+    if (state?.deckTimer) clearInterval(state.deckTimer);
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
     if (analysisTimer) clearTimeout(analysisTimer);
     if (state?.mediaHandler && state?.mediaQuery) {
@@ -601,6 +794,9 @@
       styleRegistry.delete(styleSheet);
     }
     styleNode?.remove();
+    document.getElementById(HOME_DECK_ID)?.remove?.();
+    document.getElementById(SIDEBAR_ORNAMENTS_ID)?.remove?.();
+    document.getElementById(HOME_HUD_ID)?.remove?.();
     if (document.getElementById(STYLE_ID) === styleNode) document.getElementById(STYLE_ID)?.remove();
     if (styleRegistry.size === 0) delete window[STYLE_REGISTRY_KEY];
     if (state?.artUrl) URL.revokeObjectURL(state.artUrl);
@@ -646,6 +842,7 @@
     cleanup,
     rootObserver,
     timer: null,
+    deckTimer: null,
     scheduler,
     mediaQuery,
     mediaHandler,
@@ -694,6 +891,7 @@
     ensure({ root: true });
   }, 30000);
   window[STATE_KEY].timer = timer;
+  window[STATE_KEY].deckTimer = setInterval(syncInternetAngelChrome, 850);
   if (mediaHandler && mediaQuery && typeof mediaQuery.addEventListener === "function") {
     mediaQuery.addEventListener("change", mediaHandler);
   }

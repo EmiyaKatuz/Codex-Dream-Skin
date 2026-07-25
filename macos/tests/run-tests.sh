@@ -74,7 +74,9 @@ UPDATE_JSON="$({
   if (!value.updateAvailable) process.exit(1);
   if (value.releaseUrl !== "https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases/latest") process.exit(1);
 ' "$UPDATE_JSON" "$(/usr/bin/tr -d '[:space:]' < "$ROOT/VERSION")"
-if /usr/bin/grep -R -n -E --exclude-dir='.build' \
+# SwiftPM and the universal DMG builder both use hidden `.build*` scratch
+# directories. Keep generated object files out of the source-policy scan.
+if /usr/bin/grep -R -n -E --exclude-dir='.build*' \
   'xattr|spctl[[:space:]]+--master-disable' \
   "$ROOT/menubar-app" "$ROOT/scripts/build-menubar-app.sh" "$ROOT/scripts/build-dmg.sh" >/dev/null; then
   printf 'Native distribution must not bypass Gatekeeper or remove quarantine attributes.\n' >&2
@@ -117,6 +119,11 @@ if ! /usr/bin/grep -F -q \
    'switch-theme-macos.sh" --id preset-internet-angel-default --no-apply' \
    "$ROOT/scripts/install-dream-skin-macos.sh"; then
   printf 'Fresh macOS installs must select the Internet Angel JPEG preset.\n' >&2
+  exit 1
+fi
+if ! /usr/bin/grep -F -q -- '--timeout-ms 60000' "$ROOT/scripts/start-dream-skin-macos.sh" ||
+   ! /usr/bin/grep -F -q 'startup verification result:' "$ROOT/scripts/start-dream-skin-macos.sh"; then
+  printf 'macOS startup must tolerate slow first paint and retain verification diagnostics.\n' >&2
   exit 1
 fi
 

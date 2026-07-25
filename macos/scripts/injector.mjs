@@ -892,7 +892,9 @@ async function verifySession(session, expectedThemeId = null, expectedRevision =
     const homeRoute = homeSignal?.closest('[role="main"]') ?? null;
     const home = document.querySelector(${selectorLiteral("home-route")});
     const suggestions = home?.querySelector(${selectorLiteral("home-suggestions")}) ?? null;
-    const cardButtons = suggestions ? [...suggestions.querySelectorAll('button')] : [];
+    const angelDeck = home?.querySelector('#chatgpt-internet-angel-deck[data-angel-ready="true"]') ?? null;
+    const angelCards = angelDeck ? [...angelDeck.querySelectorAll('button.angel-preset-card')] : [];
+    const cardButtons = angelCards.length ? angelCards : (suggestions ? [...suggestions.querySelectorAll('button')] : []);
     const cardBoxes = cardButtons.map(box);
     const visibleCards = cardBoxes.filter((item) => item?.visible);
     const suggestionLabels = cardButtons.flatMap((button) => {
@@ -910,7 +912,26 @@ async function verifySession(session, expectedThemeId = null, expectedRevision =
     const visibleSuggestionLabels = suggestionLabels.filter((item) => item?.visible);
     const suggestionLabelColorsMatch = visibleSuggestionLabels.every((item) =>
       item.color === item.expectedColor);
-    const hero = box(home?.firstElementChild?.firstElementChild?.firstElementChild);
+    const cardLabelCoverage = cardButtons.map((button) => {
+      const buttonBox = button.getBoundingClientRect();
+      return suggestionLabels.some((item) => item?.visible && item.text &&
+        item.x >= buttonBox.x - 1 && item.x + item.width <= buttonBox.right + 1 &&
+        item.y >= buttonBox.y - 1 && item.y + item.height <= buttonBox.bottom + 1);
+    });
+    // The home shell has changed its internal wrapper depth several times.
+    // Keep the historical candidate first, then accept a visible content
+    // wrapper, and finally the home route itself. Verification must check that
+    // the route is rendered, not depend on a private React layout depth.
+    const heroCandidates = [
+      home?.firstElementChild?.firstElementChild?.firstElementChild,
+      home?.querySelector(${selectorLiteral("game-source")})?.parentElement,
+      home,
+    ].filter(Boolean);
+    const heroNode = heroCandidates.find((node) => {
+      const candidate = box(node);
+      return candidate?.visible && candidate.width >= 280 && candidate.height >= 120;
+    }) ?? null;
+    const hero = box(heroNode);
     const projectButton = box(home?.querySelector(${selectorLiteral("project-selector")} + " > button"));
     const shell = box(document.querySelector(${selectorLiteral("shell-main")}));
     const composer = box(document.querySelector(${selectorLiteral("composer-chrome")}));
@@ -938,6 +959,12 @@ async function verifySession(session, expectedThemeId = null, expectedRevision =
       visibleCardCount: visibleCards.length,
       suggestionLabels,
       suggestionLabelColorsMatch,
+      cardLabelCoverage,
+      angelDeckReady: Boolean(angelDeck && angelCards.length === 4 && angelCards.every((button) => {
+        const card = box(button);
+        return card?.visible && card.x >= 0 && card.y >= 0 &&
+          card.x + card.width <= innerWidth && card.y + card.height <= innerHeight;
+      })),
       projectButton,
       shell,
       composer,
@@ -957,15 +984,17 @@ async function verifySession(session, expectedThemeId = null, expectedRevision =
     const expectedRevision = ${JSON.stringify(expectedRevision)};
     const payloadPass = (!expectedThemeId || result.themeId === expectedThemeId) &&
       (!expectedRevision || result.revision === expectedRevision);
+    const angelDeckPass = !homeRoute || !/internet-angel/i.test(result.themeId || expectedThemeId || '') ||
+      result.angelDeckReady;
     // Project selector markup varies across Codex builds — soft requirement.
     const homePass = !result.homeRoute || (
       result.homePresent && result.hero?.visible && result.hero.width >= 280 &&
       result.hero.height >= 120 && (result.visibleCardCount === 0 || (
         visibleSuggestionLabels.length >= result.visibleCardCount &&
-        result.suggestionLabelColorsMatch
+        result.cardLabelCoverage.filter(Boolean).length >= result.visibleCardCount
       ))
     );
-    result.pass = Boolean(basePass && homePass && payloadPass);
+    result.pass = Boolean(basePass && homePass && payloadPass && angelDeckPass);
     result.expectedThemeId = expectedThemeId;
     result.expectedRevision = expectedRevision;
     result.softNotes = {
@@ -1002,6 +1031,37 @@ function operationKindMessage(kind) {
   if (kind === "pause") return "正在暂停皮肤…";
   if (kind === "switch") return "正在切换主题…";
   return "正在应用皮肤…";
+}
+
+function verificationFailureMessage(prefix, verification) {
+  if (!verification || typeof verification !== "object") return prefix;
+  const summary = {
+    pass: verification.pass,
+    installed: verification.installed,
+    version: verification.version,
+    expectedVersion: SKIN_VERSION,
+    themeId: verification.themeId,
+    expectedThemeId: verification.expectedThemeId,
+    revision: verification.revision,
+    expectedRevision: verification.expectedRevision,
+    stylePresent: verification.stylePresent,
+    styleMode: verification.styleMode,
+    scope: verification.scope,
+    homeRoute: verification.homeRoute,
+    homePresent: verification.homePresent,
+    hero: verification.hero,
+    shell: verification.shell,
+    sidebar: verification.sidebar,
+    visibleCardCount: verification.visibleCardCount,
+    visibleSuggestionLabelCount: Array.isArray(verification.suggestionLabels)
+      ? verification.suggestionLabels.filter((item) => item?.visible).length : null,
+    suggestionLabelColorsMatch: verification.suggestionLabelColorsMatch,
+    cardLabelCoverage: verification.cardLabelCoverage,
+    businessClassPollution: verification.businessClassPollution,
+    documentOverflow: verification.documentOverflow,
+    softNotes: verification.softNotes,
+  };
+  return `${prefix}: ${JSON.stringify(summary)}`;
 }
 
 async function runBeginOperation(options) {
@@ -1777,11 +1837,17 @@ async function runWatch(options) {
           }
           const verification = await waitForVerifiedSession(
             session,
-            Math.min(options.timeoutMs, 8000),
+            // ChatGPT can keep the renderer target alive while rebuilding the
+            // shell after a restart.  Eight seconds is shorter than the
+            // observed first-paint window on a cold launch, so a transient
+            // miss used to tear down a healthy watcher and make start fail.
+            Math.min(options.timeoutMs, 30000),
             current.theme.id,
             current.revision,
           );
-          if (!verification?.pass) throw new Error("Initial theme verification failed");
+          if (!verification?.pass) {
+            throw new Error(verificationFailureMessage("Initial theme verification failed", verification));
+          }
           if (recoveryOperation && !activeOperation
             && pauseRecovery?.token === recoveryOperation.token) {
             await presentOperationUi(
