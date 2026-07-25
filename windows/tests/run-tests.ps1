@@ -506,6 +506,21 @@ try {
     throw 'A safe single-line array containing bracket text was changed or rejected.'
   }
 
+  $multilineArrayPath = Join-Path $temporaryRoot 'config-multiline-array-outside-desktop.toml'
+  $multilineArrayBackup = Join-Path $temporaryRoot 'config-multiline-array-outside-desktop.before.toml'
+  $multilineArrayOriginal = "labels = [`r`n  `"one`",`r`n  `"two`"`r`n]`r`n"
+  [System.IO.File]::WriteAllText($multilineArrayPath, $multilineArrayOriginal, $utf8NoBom)
+  Install-DreamSkinBaseTheme -ConfigPath $multilineArrayPath -BackupPath $multilineArrayBackup
+  $multilineArrayInstalled = Read-DreamSkinUtf8File -Path $multilineArrayPath
+  if (-not $multilineArrayInstalled.Contains($multilineArrayOriginal.TrimEnd()) -or
+    -not [regex]::IsMatch($multilineArrayInstalled, '(?m)^\[desktop\]$')) {
+    throw 'Install rejected or changed a multiline array outside the [desktop] table.'
+  }
+  Restore-DreamSkinBaseTheme -ConfigPath $multilineArrayPath -BackupPath $multilineArrayBackup
+  if ((Read-DreamSkinUtf8File -Path $multilineArrayPath) -cne $multilineArrayOriginal) {
+    throw 'Restore did not keep a multiline array outside the [desktop] table unchanged.'
+  }
+
   foreach ($unsupported in @(
     'desktop.appearanceTheme = "system"',
     'desktop = { appearanceTheme = "system" }',

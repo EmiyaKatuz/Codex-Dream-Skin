@@ -201,9 +201,13 @@ function Assert-DreamSkinTomlLineEditingSafe {
   if ($Content.Contains('"""') -or $Content.Contains("'''")) {
     throw 'Refusing to rewrite TOML containing multiline strings; use single-line values before installing Dream Skin.'
   }
-  foreach ($match in [regex]::Matches($Content, '(?m)^[^\r\n]*=[\t ]*\[[^\r\n]*\r?$')) {
-    if ((Get-DreamSkinTomlArrayBracketBalance -Line $match.Value) -ne 0) {
-      throw 'Refusing to rewrite TOML containing multiline arrays; use single-line arrays before installing Dream Skin.'
+
+  $desktop = Get-DreamSkinDesktopSection -Content $Content
+  if ($null -ne $desktop) {
+    foreach ($match in [regex]::Matches($desktop.Body, '(?m)^[^\r\n]*=[\t ]*\[[^\r\n]*\r?$')) {
+      if ((Get-DreamSkinTomlArrayBracketBalance -Line $match.Value) -ne 0) {
+        throw 'Refusing to rewrite TOML containing multiline arrays; use single-line arrays before installing Dream Skin.'
+      }
     }
   }
 
