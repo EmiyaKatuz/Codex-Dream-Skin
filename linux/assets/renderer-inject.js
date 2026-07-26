@@ -64,6 +64,7 @@
   const PANEL_CLASSES = [
     "dream-terminal-panel",
     "dream-side-workspace",
+    "dream-side-workspace-shell",
     "dream-side-chat-panel",
     "dream-summary-panel",
   ];
@@ -1169,8 +1170,16 @@
       || sideLauncher?.closest?.('[class*="bg-token-main-surface-primary"]');
     const sideWorkspace = structuralSideWorkspace
       || (isRightDockedSurface(semanticSideWorkspace) ? semanticSideWorkspace : null);
+    const sideWorkspaceShell = sideWorkspace?.closest?.("aside") || null;
+    document.querySelectorAll(".dream-side-workspace").forEach((candidate) => {
+      if (candidate !== sideWorkspace) candidate.classList.remove("dream-side-workspace");
+    });
+    document.querySelectorAll(".dream-side-workspace-shell").forEach((candidate) => {
+      if (candidate !== sideWorkspaceShell) candidate.classList.remove("dream-side-workspace-shell");
+    });
     sideWorkspace?.classList.add("dream-side-workspace");
-    ensureSideWorkspaceBrand(sideWorkspace);
+    sideWorkspaceShell?.classList.add("dream-side-workspace-shell");
+    ensureSideWorkspaceBrand(sideWorkspaceShell);
 
     const isVisiblePanel = (candidate, minimumHeight) => {
       if (!candidate) return false;
@@ -1532,6 +1541,7 @@
     state?.resizeObserver?.disconnect();
     if (state?.timer) clearInterval(state.timer);
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
+    if (state?.scheduler?.navigationTimer) clearTimeout(state.scheduler.navigationTimer);
     if (state?.scheduler?.frame) window.cancelAnimationFrame?.(state.scheduler.frame);
     if (state?.geometryScheduler?.frame) {
       window.cancelAnimationFrame?.(state.geometryScheduler.frame);
@@ -1675,6 +1685,41 @@
       terminalRoot?.classList.add("dream-terminal-panel");
     }
 
+    const sideWorkspaceCandidates = new Set();
+    for (const root of roots) {
+      const candidates = new Set([
+        root.matches?.('[class*="contain:layout_paint"]') ? root : null,
+        root.closest?.('[class*="contain:layout_paint"]'),
+        ...(root.querySelectorAll?.('[class*="contain:layout_paint"]') || []),
+      ]);
+      for (const candidate of candidates) {
+        if (candidate?.closest?.("main.main-surface")
+          && candidate.closest?.("aside")
+          && !candidate.querySelector?.(".xterm, .thread-scroll-container")
+          && candidate.querySelector?.("button kbd")) {
+          sideWorkspaceCandidates.add(candidate);
+        }
+      }
+    }
+    const existingSideWorkspace = document.querySelector(".dream-side-workspace");
+    const existingSideWorkspaceValid = existingSideWorkspace?.isConnected
+      && !existingSideWorkspace.querySelector?.(".xterm, .thread-scroll-container");
+    const innermostSideWorkspaces = [...sideWorkspaceCandidates].filter((candidate) =>
+      ![...sideWorkspaceCandidates].some((other) => other !== candidate && candidate.contains(other)));
+    const workspace = innermostSideWorkspaces[0]
+      || (existingSideWorkspaceValid ? existingSideWorkspace : null)
+      || null;
+    const workspaceShell = workspace?.closest?.("aside") || null;
+    document.querySelectorAll(".dream-side-workspace").forEach((candidate) => {
+      if (candidate !== workspace) candidate.classList.remove("dream-side-workspace");
+    });
+    document.querySelectorAll(".dream-side-workspace-shell").forEach((candidate) => {
+      if (candidate !== workspaceShell) candidate.classList.remove("dream-side-workspace-shell");
+    });
+    workspace?.classList.add("dream-side-workspace");
+    workspaceShell?.classList.add("dream-side-workspace-shell");
+    ensureSideWorkspaceBrand(workspaceShell);
+
     const toastPattern = /\u901f\u7387\u9650\u5236\u91cd\u7f6e\u673a\u4f1a|rate limit reset opportunity/i;
     const toastActionPattern = /\u67e5\u770b\u91cd\u7f6e\u6b21\u6570|view (?:reset|redemption)/i;
     const toast = select("div, section, aside").find((candidate) =>
@@ -1712,9 +1757,16 @@
     }
   };
   const motionHandler = () => scheduleEnsure(100);
+  const scheduleNavigationRefresh = () => {
+    if (scheduler.navigationTimer) clearTimeout(scheduler.navigationTimer);
+    scheduler.navigationTimer = setTimeout(() => {
+      scheduler.navigationTimer = null;
+      scheduleEnsure();
+    }, 48);
+  };
   const navigationHandler = (event) => {
     if (event?.type === "popstate") {
-      scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+      scheduleNavigationRefresh();
       return;
     }
     const target = event?.target?.closest?.(
@@ -1722,7 +1774,7 @@
       '[data-settings-panel-slug], aside.app-shell-left-panel button, ' +
       'button[aria-controls], button[aria-expanded], button[aria-haspopup]',
     );
-    if (target) scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+    if (target) scheduleNavigationRefresh();
   };
   window.addEventListener("resize", resizeHandler, { passive: true });
   motionQuery?.addEventListener?.("change", motionHandler);

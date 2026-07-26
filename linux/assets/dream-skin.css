@@ -4156,23 +4156,6 @@ html.codex-dream-skin [class~="bg-token-main-surface-primary"]:has(.dream-termin
   background: color-mix(in oklab, var(--dream-surface) 96%, var(--angel-blue) 4%) !important;
 }
 
-html.codex-dream-skin .dream-side-workspace::before {
-  content: "AUX CHANNEL // ONLINE";
-  position: absolute;
-  z-index: 2;
-  top: 62px;
-  left: 22px;
-  padding: 5px 9px;
-  pointer-events: none;
-  color: var(--angel-ink);
-  border: 1px solid var(--angel-blue);
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--angel-cyan), color-mix(in oklab, var(--angel-pink) 72%, #fff));
-  box-shadow: 2px 2px 0 color-mix(in oklab, var(--angel-violet) 58%, var(--angel-ink));
-  font: 760 9px/1.1 var(--angel-font-mono);
-  letter-spacing: .08em;
-}
-
 html.codex-dream-skin .dream-side-workspace button:has(kbd),
 html.codex-dream-skin .dream-side-workspace ul button[class~="bg-token-bg-fog"] {
   min-height: 48px;
@@ -4254,11 +4237,12 @@ html.codex-dream-skin :where(
   background: transparent !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-)::before {
+html.codex-dream-skin .dream-side-workspace-shell {
+  position: relative !important;
+  isolation: isolate;
+}
+
+html.codex-dream-skin .dream-side-workspace-shell::before {
   content: "\2665  SIDE CHANNEL // ANGEL RELAY";
   position: absolute;
   z-index: 3;
@@ -4279,15 +4263,12 @@ html.codex-dream-skin :where(
   white-space: nowrap;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-)::after {
+html.codex-dream-skin .dream-side-workspace-shell::after {
   content: "LIVE  99%    AFFECTION  9999+";
   position: absolute;
   z-index: 2;
-  top: 101px;
+  top: auto;
+  bottom: 86px;
   left: 22px;
   right: 22px;
   box-sizing: border-box;
