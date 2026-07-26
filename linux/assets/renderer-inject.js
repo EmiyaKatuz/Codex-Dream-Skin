@@ -1,7 +1,7 @@
 ((cssText, artDataUrl, rawConfig) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
-  const STYLE_REVISION = "8";
+  const STYLE_REVISION = "9";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
   const CHROME_ID = "codex-dream-skin-chrome";
@@ -26,6 +26,7 @@
     "dream-task-banner",
     "dream-task-off",
     "dream-choten-art",
+    "dream-performance-low",
     "dream-reduced-motion",
     "dream-settings-active",
   ];
@@ -39,6 +40,7 @@
     "dream-route-settings",
     "dream-route-utility",
   ];
+  ROOT_CLASSES.push(...ROUTE_CLASSES, "dream-system-toast-active", "dream-presets-active");
   const PRESET_CLASSES = [
     "dream-codex-preset",
     "dream-preset-explore",
@@ -62,6 +64,7 @@
   const PANEL_CLASSES = [
     "dream-terminal-panel",
     "dream-side-workspace",
+    "dream-side-workspace-shell",
     "dream-side-chat-panel",
     "dream-summary-panel",
   ];
@@ -140,6 +143,8 @@
     "dream-goal-mode-trigger",
   ];
   const installToken = {};
+  // Do not rescan while Codex streams tokens. Only shell-level changes and
+  // navigation requests schedule a delayed refresh.
   const DOM_REFRESH_DEBOUNCE_MS = 1500;
   const FALLBACK_REFRESH_MS = 60000;
   const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
@@ -190,12 +195,14 @@
     const taskMode = ["auto", "ambient", "banner", "off"].includes(art.taskMode)
       ? art.taskMode
       : "auto";
+    const performanceMode = config.performanceMode === "full" ? "full" : "low";
     const metadataRatio = Number(config?.artMetadata?.ratio);
     const themeId = typeof config.id === "string" ? config.id.trim().toLowerCase() : "";
     return {
       appearance,
       safeArea,
       taskMode,
+      performanceMode,
       themeId,
       chotenArt: /(?:internet-angel|choten)/i.test(themeId),
       focusX: hasNumber(art.focusX) ? clamp(art.focusX) : null,
@@ -210,7 +217,6 @@
   if (previous?.resizeObserver) previous.resizeObserver.disconnect();
   if (previous?.timer) clearInterval(previous.timer);
   if (previous?.scheduler?.timeout) clearTimeout(previous.scheduler.timeout);
-  if (previous?.scheduler?.navigationTimer) clearTimeout(previous.scheduler.navigationTimer);
   if (previous?.scheduler?.frame) window.cancelAnimationFrame?.(previous.scheduler.frame);
   if (previous?.geometryScheduler?.frame) {
     window.cancelAnimationFrame?.(previous.geometryScheduler.frame);
@@ -219,10 +225,6 @@
     clearTimeout(previous.geometryScheduler.settleTimer);
   }
   if (previous?.resizeHandler) window.removeEventListener("resize", previous.resizeHandler);
-  if (previous?.navigationHandler) {
-    window.removeEventListener("popstate", previous.navigationHandler);
-    document.removeEventListener("click", previous.navigationHandler, true);
-  }
   previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
   if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
   document.documentElement?.classList?.remove?.("dream-preview-blink", "dream-preview-blink-half");
@@ -235,6 +237,7 @@
     return URL.createObjectURL(new Blob([bytes], { type: mime }));
   })();
   const config = normalizeConfig(rawConfig);
+  const lowPerformance = config.performanceMode === "low";
   const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") || null;
   let profile = {
     ...defaultProfile,
@@ -485,6 +488,7 @@
     root.classList.toggle("dream-art-wide", profile.aspect >= 1.75);
     root.classList.toggle("dream-art-standard", profile.aspect < 1.75);
     root.classList.toggle("dream-choten-art", config.chotenArt);
+    root.classList.toggle("dream-performance-low", lowPerformance);
     root.classList.toggle("dream-reduced-motion", Boolean(motionQuery?.matches));
     for (const value of ["left", "center", "right"]) {
       root.classList.toggle(`dream-focus-${value}`, focus === value);
@@ -830,6 +834,9 @@
     const routeClass = `dream-route-${route}`;
     const utilityRoute = ["sites", "pulls", "scheduled", "plugins"].includes(route);
 
+    root.classList.remove(...ROUTE_CLASSES);
+    root.classList.add(routeClass);
+    root.classList.toggle("dream-route-utility", utilityRoute);
     shellMain.classList.remove(...ROUTE_CLASSES);
     shellMain.classList.add(routeClass);
     shellMain.classList.toggle("dream-route-utility", utilityRoute);
@@ -1085,6 +1092,7 @@
       ? resetToast
       : resetToast?.querySelector?.('aside[class~="rounded-2xl"]') || resetToast;
     resetToastSurface?.classList.add(SYSTEM_TOAST_CLASS);
+    root.classList.toggle("dream-system-toast-active", Boolean(resetToastSurface));
 
     document.querySelectorAll(`.${PANEL_CLASSES.join(", .")}`).forEach((node) => {
       node.style?.removeProperty?.("--dream-summary-safe-height");
@@ -1162,8 +1170,16 @@
       || sideLauncher?.closest?.('[class*="bg-token-main-surface-primary"]');
     const sideWorkspace = structuralSideWorkspace
       || (isRightDockedSurface(semanticSideWorkspace) ? semanticSideWorkspace : null);
+    const sideWorkspaceShell = sideWorkspace?.closest?.("aside") || null;
+    document.querySelectorAll(".dream-side-workspace").forEach((candidate) => {
+      if (candidate !== sideWorkspace) candidate.classList.remove("dream-side-workspace");
+    });
+    document.querySelectorAll(".dream-side-workspace-shell").forEach((candidate) => {
+      if (candidate !== sideWorkspaceShell) candidate.classList.remove("dream-side-workspace-shell");
+    });
     sideWorkspace?.classList.add("dream-side-workspace");
-    ensureSideWorkspaceBrand(sideWorkspace);
+    sideWorkspaceShell?.classList.add("dream-side-workspace-shell");
+    ensureSideWorkspaceBrand(sideWorkspaceShell);
 
     const isVisiblePanel = (candidate, minimumHeight) => {
       if (!candidate) return false;
@@ -1341,6 +1357,10 @@
     if (!home) {
       document.getElementById(FALLBACK_PRESETS_ID)?.remove();
     }
+    root.classList.toggle(
+      "dream-presets-active",
+      document.getElementById(FALLBACK_PRESETS_ID)?.dataset?.dreamReady === "true",
+    );
 
     const changedText = [...(shellMain.querySelectorAll?.("div, span") || [])]
       .filter((candidate) => {
@@ -1584,11 +1604,11 @@
     "chatgpt-dream-skin-operation",
   ].includes(node.id);
   const hasNativeStructuralNode = (record) =>
-    [...(record.addedNodes || []), ...(record.removedNodes || [])]
+    [...record.addedNodes, ...record.removedNodes]
       .some((node) => node?.nodeType === 1 && !isInjectedNode(node));
   const classifyRuntimeSurfaces = (records) => {
     const roots = records
-      .flatMap((record) => [...(record.addedNodes || [])])
+      .flatMap((record) => [...record.addedNodes])
       .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
     if (!roots.length) return false;
     const select = (selector) => {
@@ -1665,6 +1685,41 @@
       terminalRoot?.classList.add("dream-terminal-panel");
     }
 
+    const sideWorkspaceCandidates = new Set();
+    for (const root of roots) {
+      const candidates = new Set([
+        root.matches?.('[class*="contain:layout_paint"]') ? root : null,
+        root.closest?.('[class*="contain:layout_paint"]'),
+        ...(root.querySelectorAll?.('[class*="contain:layout_paint"]') || []),
+      ]);
+      for (const candidate of candidates) {
+        if (candidate?.closest?.("main.main-surface")
+          && candidate.closest?.("aside")
+          && !candidate.querySelector?.(".xterm, .thread-scroll-container")
+          && candidate.querySelector?.("button kbd")) {
+          sideWorkspaceCandidates.add(candidate);
+        }
+      }
+    }
+    const existingSideWorkspace = document.querySelector(".dream-side-workspace");
+    const existingSideWorkspaceValid = existingSideWorkspace?.isConnected
+      && !existingSideWorkspace.querySelector?.(".xterm, .thread-scroll-container");
+    const innermostSideWorkspaces = [...sideWorkspaceCandidates].filter((candidate) =>
+      ![...sideWorkspaceCandidates].some((other) => other !== candidate && candidate.contains(other)));
+    const workspace = innermostSideWorkspaces[0]
+      || (existingSideWorkspaceValid ? existingSideWorkspace : null)
+      || null;
+    const workspaceShell = workspace?.closest?.("aside") || null;
+    document.querySelectorAll(".dream-side-workspace").forEach((candidate) => {
+      if (candidate !== workspace) candidate.classList.remove("dream-side-workspace");
+    });
+    document.querySelectorAll(".dream-side-workspace-shell").forEach((candidate) => {
+      if (candidate !== workspaceShell) candidate.classList.remove("dream-side-workspace-shell");
+    });
+    workspace?.classList.add("dream-side-workspace");
+    workspaceShell?.classList.add("dream-side-workspace-shell");
+    ensureSideWorkspaceBrand(workspaceShell);
+
     const toastPattern = /\u901f\u7387\u9650\u5236\u91cd\u7f6e\u673a\u4f1a|rate limit reset opportunity/i;
     const toastActionPattern = /\u67e5\u770b\u91cd\u7f6e\u6b21\u6570|view (?:reset|redemption)/i;
     const toast = select("div, section, aside").find((candidate) =>
@@ -1675,6 +1730,7 @@
       ? toast
       : toast?.querySelector?.('aside[class~="rounded-2xl"]') || toast;
     toastSurface?.classList.add(SYSTEM_TOAST_CLASS);
+    if (toastSurface) document.documentElement.classList.add("dream-system-toast-active");
     return true;
   };
   const resizeHandler = (event) => {
@@ -1738,19 +1794,28 @@
       if (geometryChanged) resizeHandler();
     });
   }
-  observer = new MutationObserver((records) => {
-    if (samplingNativeShell) return;
-    classifyRuntimeSurfaces(records);
-    const hasShellChange = records.some((record) => {
-      if (record.type === "childList") return hasNativeStructuralNode(record);
-      if (record.attributeName !== "class") return true;
-      return withoutManagedClasses(record.oldValue) !==
-        withoutManagedClasses(record.target?.getAttribute?.("class"));
+  if (!lowPerformance) {
+    observer = new MutationObserver((records) => {
+      if (samplingNativeShell) return;
+      classifyRuntimeSurfaces(records);
+      const removedSystemToast = records.some((record) =>
+        [...record.removedNodes].some((node) => node?.nodeType === 1
+          && (node.matches?.(`.${SYSTEM_TOAST_CLASS}`)
+            || node.querySelector?.(`.${SYSTEM_TOAST_CLASS}`))));
+      if (removedSystemToast && !document.querySelector(`.${SYSTEM_TOAST_CLASS}`)) {
+        document.documentElement.classList.remove("dream-system-toast-active");
+      }
+      const hasShellChange = records.some((record) => {
+        if (record.type === "childList") return hasNativeStructuralNode(record);
+        if (record.attributeName !== "class") return true;
+        return withoutManagedClasses(record.oldValue) !==
+          withoutManagedClasses(record.target?.getAttribute?.("class"));
+      });
+      if (hasShellChange) scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
     });
-    if (hasShellChange) scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
-  });
-  observeRendererStructure();
-  const timer = setInterval(runEnsureSafely, FALLBACK_REFRESH_MS);
+    observeRendererStructure();
+  }
+  const timer = setInterval(runEnsureSafely, lowPerformance ? 30000 : FALLBACK_REFRESH_MS);
   const runtimeState = {
     ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler, resizeHandler, navigationHandler, motionQuery, motionHandler,
     artUrl, profile, config, installToken, version: SKIN_VERSION,

@@ -157,6 +157,16 @@ macOS 普通用户可以从 [Latest Release](https://github.com/EmiyaKatuz/Codex
 
 当前 macOS 安装包没有 Apple Developer ID 签名。首次打开遇到 Gatekeeper 提示时，请在「系统设置 → 隐私与安全性」核对并选择「仍要打开」，无需执行 `xattr` 或关闭 Gatekeeper。应用启动后可从菜单栏选择「安装 / 升级引擎」。完整步骤、更新和卸载方法见 [`docs/install-macos.md`](./docs/install-macos.md)。
 
+## Linux 安装
+
+Linux 支持目前仅在 AUR [`openai-codex-desktop`](https://aur.archlinux.org/packages/openai-codex-desktop) 包上测试。安装前请关闭 Codex，并确保系统已安装 Node.js 20 或更高版本，然后在仓库根目录运行：
+
+```bash
+./linux/scripts/install-dream-skin-linux.sh
+```
+
+安装完成后，从原 Codex 桌面图标启动即可自动加载主题。构建发行归档可运行 `./linux/scripts/build-release.sh`；安装、验证、恢复与自定义路径说明见 [`linux/README.md`](./linux/README.md)。
+
 ## 验证
 
 运行 Windows 完整回归：

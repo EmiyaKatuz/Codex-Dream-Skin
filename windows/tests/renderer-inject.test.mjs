@@ -269,13 +269,25 @@ assert.ok(template.includes('const NEW_TASK_CLASS = "dream-new-task-button"')
 assert.match(css, /\.dream-sidebar-packet\s*\{[^}]*writing-mode:\s*vertical-rl/s,
   "Sidebar affection telemetry must use the reserved edge rail instead of overlapping the new-task row.");
 assert.ok(template.includes('const withoutManagedClasses = (value)')
-  && template.includes('const MUTATION_REFRESH_INTERVAL_MS = 120')
-  && template.includes('scheduleEnsure(MUTATION_REFRESH_INTERVAL_MS)')
+  && template.includes('const DOM_REFRESH_DEBOUNCE_MS = 1500')
+  && template.includes('const FALLBACK_REFRESH_MS = 60000')
+  && template.includes('scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)')
   && template.includes('if (scheduler.dueAt <= dueAt) return;')
   && template.includes('window.requestAnimationFrame(runEnsure)')
   && template.includes('attributeOldValue: true')
-  && template.includes('window.addEventListener("resize", resizeHandler'),
-  "Route changes must use a time-bounded observer throttle and ignore skin-owned class mutations.");
+  && template.includes('window.addEventListener("resize", resizeHandler')
+  && template.includes('document.addEventListener("click", navigationHandler, true)'),
+  "Shell and route changes must use bounded scheduling without observing streamed descendants.");
+assert.ok(template.includes("const observeRendererStructure = () =>")
+  && template.includes("observer.observe(body, { ...attributeOptions, childList: true })")
+  && template.includes("observer.observe(shellMain, { childList: true })")
+  && !template.includes("subtree: true"),
+  "DOM observation must stay on root, body, and shell boundaries instead of the streaming subtree.");
+assert.ok(template.includes("const classifyRuntimeSurfaces = (records)")
+  && template.includes("dream-turn-preview-surface")
+  && template.includes("dream-composer-palette")
+  && template.includes("dream-settings-menu"),
+  "New portal surfaces must receive local first-frame classification without a full DOM scan.");
 assert.ok(template.includes('const STYLE_REVISION = "8"')
   && template.includes('existingStyle.dataset.dreamVersion = STYLE_REVISION')
   && !template.includes('existingStyle.dataset.dreamVersion = "3"'),
@@ -286,14 +298,17 @@ assert.ok(template.indexOf('.filter(({ text }) => pattern.test(text))')
     < template.indexOf('.filter(({ node }) => measureTextCandidate(node).visible)'),
   "Portal fallback labels must be matched by text before any layout/style measurement.");
 assert.ok(template.includes('const runEnsureSafely = () =>')
-  && template.includes('setInterval(runEnsureSafely, 5000)')
+  && template.includes('observer?.disconnect()')
+  && template.includes('setInterval(runEnsureSafely, FALLBACK_REFRESH_MS)')
   && template.includes('ensure: runEnsureSafely'),
   "Observer, interval, and external renderer refreshes must share an exception boundary.");
-assert.ok(template.includes('new ResizeObserver(() => scheduleEnsure())')
+assert.ok(template.includes('const resizeTargetSizes = new WeakMap()')
+  && template.includes('new ResizeObserver((entries) =>')
+  && template.includes('if (resizeTargetSizes.get(entry.target) === signature) continue;')
   && template.includes('resizeObserver.observe(target)')
   && template.includes('resizeObserver.unobserve(target)')
   && template.includes('state?.resizeObserver?.disconnect()'),
-  "Split-pane geometry changes must refresh the skin during panel animation and release observers on cleanup.");
+  "Split-pane geometry changes must be deduplicated and release observers on cleanup.");
 assert.ok(template.includes('if (previous?.resizeHandler) window.removeEventListener("resize", previous.resizeHandler)')
   && template.includes('previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler)')
   && template.includes('motionQuery?.addEventListener?.("change", motionHandler)'),
@@ -494,6 +509,11 @@ function createFixture({
   const rootAttributes = new Map();
   const revokedUrls = [];
   const observers = [];
+  const resizeObservers = [];
+  const windowListeners = new Map();
+  const documentListeners = new Map();
+  const timeouts = new Map();
+  const intervalDelays = [];
   let objectUrlCount = 0;
   let hasMain = mainPresent;
   let hasSidebar = sidebarPresent;
@@ -504,8 +524,9 @@ function createFixture({
 
   const queueRootClassMutation = () => {
     for (const observer of observers) {
-      if (observer.target !== root || !observer.options?.attributes) continue;
-      if (observer.options.attributeFilter && !observer.options.attributeFilter.includes("class")) continue;
+      const observation = observer.observations.find(({ target }) => target === root);
+      if (!observation?.options?.attributes) continue;
+      if (observation.options.attributeFilter && !observation.options.attributeFilter.includes("class")) continue;
       observer.records.push({ type: "attributes", attributeName: "class", target: root });
     }
   };
@@ -636,6 +657,14 @@ function createFixture({
     head: root,
     body,
     createElement,
+    addEventListener(type, listener) {
+      const listeners = documentListeners.get(type) ?? new Set();
+      listeners.add(listener);
+      documentListeners.set(type, listeners);
+    },
+    removeEventListener(type, listener) {
+      documentListeners.get(type)?.delete(listener);
+    },
     getElementById(id) { return nodes.get(id) ?? null; },
     querySelector(selector) {
       if (selector === "main.main-surface") return hasMain ? shellMain : null;
@@ -666,23 +695,31 @@ function createFixture({
   const context = {
     window: {
       matchMedia() { return { matches: osAppearance === "dark" }; },
-      addEventListener() {},
-      removeEventListener() {},
+      addEventListener(type, listener) {
+        const listeners = windowListeners.get(type) ?? new Set();
+        listeners.add(listener);
+        windowListeners.set(type, listeners);
+      },
+      removeEventListener(type, listener) { windowListeners.get(type)?.delete(listener); },
     },
     document,
     MutationObserver: class {
       constructor(callback) {
         this.callback = callback;
         this.records = [];
+        this.observations = [];
         this.target = null;
         this.options = null;
         observers.push(this);
       }
       observe(target, options = {}) {
+        this.observations = this.observations.filter((entry) => entry.target !== target);
+        this.observations.push({ target, options });
         this.target = target;
         this.options = options;
       }
       disconnect() {
+        this.observations = [];
         this.target = null;
         this.records = [];
       }
@@ -692,6 +729,16 @@ function createFixture({
         return records;
       }
     },
+    ResizeObserver: class {
+      constructor(callback) {
+        this.callback = callback;
+        this.targets = new Set();
+        resizeObservers.push(this);
+      }
+      observe(target) { this.targets.add(target); }
+      unobserve(target) { this.targets.delete(target); }
+      disconnect() { this.targets.clear(); }
+    },
     URL: {
       createObjectURL() { objectUrlCount += 1; return `blob:fixture-${objectUrlCount}`; },
       revokeObjectURL(value) { revokedUrls.push(value); },
@@ -699,10 +746,14 @@ function createFixture({
     Blob,
     Uint8Array,
     atob,
-    setInterval: () => 1,
+    setInterval: (_callback, delay) => { intervalDelays.push(delay); return intervalDelays.length; },
     clearInterval: () => {},
-    setTimeout: () => { timeoutCalls += 1; return timeoutCalls + 1; },
-    clearTimeout: () => {},
+    setTimeout: (callback, delay = 0) => {
+      timeoutCalls += 1;
+      timeouts.set(timeoutCalls, { callback, delay });
+      return timeoutCalls;
+    },
+    clearTimeout: (id) => { timeouts.delete(id); },
     getComputedStyle(candidate) {
       if (textCandidateSet.has(candidate)) textCandidateStyleReads += 1;
       return { colorScheme: computedColorScheme };
@@ -721,6 +772,11 @@ function createFixture({
     context,
     nodes,
     observers,
+    resizeObservers,
+    windowListeners,
+    documentListeners,
+    timeouts,
+    intervalDelays,
     rootClasses,
     rootAttributes,
     rootStyles,
@@ -728,6 +784,11 @@ function createFixture({
     routeClasses,
     utilityClasses,
     getTimeoutCalls() { return timeoutCalls; },
+    runTimeout(id) {
+      const timer = timeouts.get(id);
+      timeouts.delete(id);
+      timer?.callback();
+    },
     getTextCandidateStyleReads() { return textCandidateStyleReads; },
     setShellPresent(value) {
       hasMain = value;
@@ -751,22 +812,97 @@ assert.equal(main.rootClasses.has("dream-theme-dark"), true);
 assert.equal(main.rootClasses.has("dream-art-standard"), true);
 assert.equal(main.rootClasses.has("dream-task-ambient"), true);
 assert.equal(main.routeClasses.has("dream-task"), true);
+assert.equal(main.observers[0].observations.length, 3,
+  "The renderer must observe only root, body, and main shell boundaries.");
+assert.equal(main.observers[0].observations.some(({ options }) => options.subtree), false,
+  "The renderer must never subscribe to streamed descendant mutations.");
+assert.deepEqual(main.intervalDelays, [60000],
+  "The full DOM scan must remain a low-frequency safety fallback.");
+assert.equal(main.windowListeners.get("popstate")?.size, 1,
+  "Route navigation must have one immediate refresh listener.");
+assert.equal(main.documentListeners.get("click")?.size, 1,
+  "Interactive route controls must have one delegated refresh listener.");
+assert.ok(main.resizeObservers[0].targets.size > 0,
+  "The renderer must observe active shell geometry targets.");
 assert.equal(main.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
 assert.equal(main.rootClasses.has("codex-dream-skin"), false);
 assert.equal(main.rootClasses.has("dream-theme-dark"), false);
 assert.equal(main.nodes.has("codex-dream-skin-style"), false);
 assert.equal(main.nodes.has("codex-dream-skin-chrome"), false);
 assert.deepEqual(main.revokedUrls, ["blob:fixture-1"]);
+assert.equal(main.windowListeners.get("popstate")?.size, 0,
+  "Cleanup must release the navigation listener.");
+assert.equal(main.documentListeners.get("click")?.size, 0,
+  "Cleanup must release the delegated click listener.");
+assert.equal(main.resizeObservers[0].targets.size, 0,
+  "Cleanup must release every geometry target.");
 
 const mutationBurst = createFixture({ shellPresent: true });
 vm.runInNewContext(payload, mutationBurst.context);
 const mutationObserver = mutationBurst.observers[0];
-const applicationMutation = [{ type: "childList", target: mutationBurst.context.document.body }];
+const applicationMutation = [{
+  type: "childList",
+  target: mutationBurst.context.document.body,
+  addedNodes: [{ nodeType: 1, id: "native-surface" }],
+  removedNodes: [],
+}];
 mutationObserver.callback(applicationMutation);
 mutationObserver.callback(applicationMutation);
 mutationObserver.callback(applicationMutation);
 assert.equal(mutationBurst.getTimeoutCalls(), 1,
   "A burst of renderer mutations must queue one throttled refresh instead of one refresh per record batch.");
+
+const injectedMutation = createFixture({ shellPresent: true });
+vm.runInNewContext(payload, injectedMutation.context);
+injectedMutation.observers[0].callback([{
+  type: "childList",
+  target: injectedMutation.context.document.body,
+  addedNodes: [{ nodeType: 1, id: "codex-dream-skin-chrome" }],
+  removedNodes: [],
+}]);
+assert.equal(injectedMutation.getTimeoutCalls(), 0,
+  "Skin-owned nodes must not schedule a redundant full refresh.");
+
+const portalMutation = createFixture({ shellPresent: true });
+vm.runInNewContext(payload, portalMutation.context);
+const previewClasses = new Set();
+const tooltipClasses = new Set();
+const previewSurface = {
+  nodeType: 1,
+  id: "native-preview",
+  classList: { add(...values) { values.forEach((value) => previewClasses.add(value)); } },
+  matches(selector) {
+    return selector === '[role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]';
+  },
+  querySelectorAll() { return []; },
+  querySelector() { return null; },
+  closest(selector) {
+    return selector === '[role="tooltip"]'
+      ? { classList: { add(...values) { values.forEach((value) => tooltipClasses.add(value)); } } }
+      : null;
+  },
+};
+portalMutation.observers[0].callback([{
+  type: "childList",
+  target: portalMutation.context.document.body,
+  addedNodes: [previewSurface],
+  removedNodes: [],
+}]);
+assert.equal(previewClasses.has("dream-turn-preview-surface"), true,
+  "A new turn preview must be themed in the mutation that mounts it.");
+assert.equal(tooltipClasses.has("dream-turn-preview-tooltip"), true,
+  "A new turn preview portal must receive its themed outer scope immediately.");
+
+const navigationRefresh = createFixture({ shellPresent: true });
+vm.runInNewContext(payload, navigationRefresh.context);
+for (const listener of navigationRefresh.windowListeners.get("popstate") ?? []) {
+  listener({ type: "popstate" });
+}
+assert.equal([...navigationRefresh.timeouts.values()].some(({ delay }) => delay === 48), true,
+  "Route navigation must schedule the fast post-commit refresh used by the tested Linux runtime.");
+navigationRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup();
+assert.equal([...navigationRefresh.timeouts.values()].some(({ delay }) => delay === 48), false,
+  "Cleanup must cancel a pending navigation refresh.");
 
 const irrelevantTextCandidates = Array.from({ length: 1000 }, () => ({
   textContent: "ordinary streaming response content",
@@ -797,6 +933,12 @@ assert.notEqual(secondState.installToken, firstState.installToken);
 assert.equal(secondState.artUrl, "blob:fixture-2");
 assert.equal(reinjected.rootStyles.get("--dream-art"), 'url("blob:fixture-2")');
 assert.deepEqual(reinjected.revokedUrls, ["blob:fixture-1"]);
+assert.equal(reinjected.windowListeners.get("popstate")?.size, 1,
+  "Reinjection must replace rather than duplicate the navigation listener.");
+assert.equal(reinjected.documentListeners.get("click")?.size, 1,
+  "Reinjection must replace rather than duplicate the delegated click listener.");
+assert.equal(reinjected.resizeObservers[0].targets.size, 0,
+  "Reinjection must disconnect the previous geometry observer.");
 assert.equal(firstState.cleanup(), false);
 assert.equal(secondState.cleanup(), true);
 
