@@ -229,6 +229,18 @@ function validatedDebuggerUrl(target, port) {
   return url.href;
 }
 
+function validatedBrowserDebuggerUrl(value, port) {
+  const url = new URL(value);
+  const pathIsValid = /^\/devtools\/browser\/[A-Za-z0-9._-]{1,200}$/.test(url.pathname);
+  if (
+    url.protocol !== "ws:" || !LOOPBACK_HOSTS.has(url.hostname) || Number(url.port) !== port
+    || url.username || url.password || url.search || url.hash || !pathIsValid
+  ) {
+    throw new Error("Rejected a CDP WebSocket URL outside the allowed loopback browser endpoint shape");
+  }
+  return url.href;
+}
+
 function isValidCdpPageTarget(item, port) {
   if (
     item?.type !== "page" || !item.url?.startsWith("app://")
@@ -243,10 +255,13 @@ function isValidCdpPageTarget(item, port) {
   }
 }
 
-class CdpSession {
-  constructor(target, port) {
+export class CdpSession {
+  constructor(target, port, { browser = false } = {}) {
     this.target = target;
-    this.ws = new WebSocket(validatedDebuggerUrl(target, port));
+    this.browser = browser;
+    this.ws = new WebSocket(browser
+      ? validatedBrowserDebuggerUrl(target.webSocketDebuggerUrl, port)
+      : validatedDebuggerUrl(target, port));
     this.nextId = 1;
     this.pending = new Map();
     this.listeners = new Map();
@@ -272,8 +287,10 @@ class CdpSession {
       }
       this.pending.clear();
     });
-    await this.send("Runtime.enable");
-    await this.send("Page.enable");
+    if (!this.browser) {
+      await this.send("Runtime.enable");
+      await this.send("Page.enable");
+    }
     return this;
   }
 
@@ -350,6 +367,7 @@ class CdpSession {
       waiter.reject(new Error("CDP session closed"));
     }
     this.pending.clear();
+    this.listeners.clear();
     if (!this.closed) {
       try { this.ws.close(); } catch {}
     }
@@ -372,6 +390,41 @@ async function listAppTargets(port) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function connectBrowserDiscovery(port, onTargetChange) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  let version;
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
+      redirect: "error",
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    version = await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+  const session = await new CdpSession(version, port, { browser: true }).open();
+  const pageTargetIds = new Set();
+  const wakeForPage = (params) => {
+    if (params.targetInfo?.type !== "page") return;
+    pageTargetIds.add(params.targetInfo.targetId);
+    onTargetChange(params.targetInfo);
+  };
+  session.on("Target.targetCreated", wakeForPage);
+  session.on("Target.targetInfoChanged", wakeForPage);
+  session.on("Target.targetDestroyed", (params) => {
+    if (pageTargetIds.delete(params.targetId)) onTargetChange(null);
+  });
+  try {
+    await session.send("Target.setDiscoverTargets", { discover: true });
+  } catch (error) {
+    session.close();
+    throw error;
+  }
+  return session;
 }
 
 async function probeSession(session) {
@@ -1336,7 +1389,49 @@ async function runWatch(options) {
   let controlOnly = false;
   let mutationEpoch = 0;
   let activeTargetSetups = 0;
+  let browserDiscovery = null;
+  let nextBrowserDiscoveryAttemptAt = 0;
+  let discoveryWakePending = false;
+  let wakeDiscoveryWait = null;
   const targetSetupWaiters = new Set();
+  const wakeDiscoveryLoop = () => {
+    if (wakeDiscoveryWait) {
+      const wake = wakeDiscoveryWait;
+      wakeDiscoveryWait = null;
+      wake();
+    } else discoveryWakePending = true;
+  };
+  const waitForDiscovery = (delayMs) => {
+    if (discoveryWakePending) {
+      discoveryWakePending = false;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (wakeDiscoveryWait === finish) wakeDiscoveryWait = null;
+        resolve();
+      };
+      const timer = setTimeout(finish, delayMs);
+      wakeDiscoveryWait = finish;
+    });
+  };
+  const ensureBrowserDiscovery = async () => {
+    if (browserDiscovery && !browserDiscovery.closed) return;
+    const now = Date.now();
+    if (now < nextBrowserDiscoveryAttemptAt) return;
+    browserDiscovery?.close();
+    browserDiscovery = null;
+    nextBrowserDiscoveryAttemptAt = now + 5000;
+    try {
+      browserDiscovery = await connectBrowserDiscovery(options.port, wakeDiscoveryLoop);
+    } catch (error) {
+      console.error(`[dream-skin] CDP target events unavailable; polling fallback active: ${error.message}`);
+    }
+  };
   let wakeControlWait = null;
   const wakeControlLoop = () => {
     const wake = wakeControlWait;
@@ -1358,6 +1453,7 @@ async function runWatch(options) {
   const stop = () => {
     stopping = true;
     wakeControlLoop();
+    wakeDiscoveryLoop();
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
@@ -1655,6 +1751,7 @@ async function runWatch(options) {
         discoveryDelayMs = Math.min(500, Math.round(discoveryDelayMs * 1.6));
         continue;
       }
+      await ensureBrowserDiscovery();
 
       if (controlOnly && !activeOperation) {
         releaseControlSessions();
@@ -1831,7 +1928,7 @@ async function runWatch(options) {
         pauseRecovery = null;
       }
       const pollDelay = sessions.size ? 800 : (targets.length ? 250 : 100);
-      await new Promise((resolve) => setTimeout(resolve, pollDelay));
+      await waitForDiscovery(pollDelay);
     }
   } finally {
     if (reloadTimer) clearTimeout(reloadTimer);
@@ -1845,6 +1942,7 @@ async function runWatch(options) {
         : Promise.resolve(false)));
     await Promise.all([...sessions.values()].map((record) => removeEarly(record)));
     for (const record of sessions.values()) record.session.close();
+    browserDiscovery?.close();
   }
 }
 

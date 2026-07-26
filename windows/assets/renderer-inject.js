@@ -140,12 +140,15 @@
     "dream-goal-mode-trigger",
   ];
   const installToken = {};
-  const MUTATION_REFRESH_INTERVAL_MS = 120;
+  const DOM_REFRESH_DEBOUNCE_MS = 1500;
+  const FALLBACK_REFRESH_MS = 60000;
   const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
   let samplingNativeShell = false;
   let observer = null;
   let resizeObserver = null;
   let resizeTargets = new Set();
+  const resizeTargetSizes = new WeakMap();
+  const geometryScheduler = { frame: null, settleTimer: null };
   window.__CODEX_DREAM_SKIN_DISABLED__ = false;
 
   const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, Number(value)));
@@ -207,8 +210,19 @@
   if (previous?.resizeObserver) previous.resizeObserver.disconnect();
   if (previous?.timer) clearInterval(previous.timer);
   if (previous?.scheduler?.timeout) clearTimeout(previous.scheduler.timeout);
+  if (previous?.scheduler?.navigationTimer) clearTimeout(previous.scheduler.navigationTimer);
   if (previous?.scheduler?.frame) window.cancelAnimationFrame?.(previous.scheduler.frame);
+  if (previous?.geometryScheduler?.frame) {
+    window.cancelAnimationFrame?.(previous.geometryScheduler.frame);
+  }
+  if (previous?.geometryScheduler?.settleTimer) {
+    clearTimeout(previous.geometryScheduler.settleTimer);
+  }
   if (previous?.resizeHandler) window.removeEventListener("resize", previous.resizeHandler);
+  if (previous?.navigationHandler) {
+    window.removeEventListener("popstate", previous.navigationHandler);
+    document.removeEventListener("click", previous.navigationHandler, true);
+  }
   previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
   if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
   document.documentElement?.classList?.remove?.("dream-preview-blink", "dream-preview-blink-half");
@@ -701,6 +715,30 @@
       workspace.appendChild(brand);
     }
     return brand;
+  };
+
+  const syncChromeGeometry = (chrome, shellMain, home) => {
+    if (!chrome || !shellMain) return;
+    const mainBox = shellMain.getBoundingClientRect?.();
+    const composerBox = home?.querySelector?.(".composer-surface-chrome")?.getBoundingClientRect?.();
+    if (mainBox?.width > 0 && mainBox?.height > 0) {
+      const setGeometryProperty = (property, value) => {
+        if (chrome.style?.getPropertyValue?.(property) !== value) {
+          chrome.style?.setProperty?.(property, value);
+        }
+      };
+      setGeometryProperty("--dream-main-left", `${Math.round(mainBox.left)}px`);
+      setGeometryProperty("--dream-main-top", `${Math.round(mainBox.top)}px`);
+      setGeometryProperty("--dream-main-width", `${Math.round(mainBox.width)}px`);
+      setGeometryProperty("--dream-main-height", `${Math.round(mainBox.height)}px`);
+      updateChotenArtGeometry(chrome, mainBox);
+      if (composerBox?.width > 0 && composerBox?.height > 0) {
+        setGeometryProperty("--dream-composer-left", `${Math.round(composerBox.left - mainBox.left)}px`);
+        setGeometryProperty("--dream-composer-right", `${Math.round(mainBox.right - composerBox.right)}px`);
+        setGeometryProperty("--dream-composer-top", `${Math.round(composerBox.top - mainBox.top)}px`);
+      }
+    }
+    chrome.classList.toggle("dream-home-shell", Boolean(home));
   };
 
   const ensure = () => {
@@ -1423,21 +1461,7 @@
         </div>`;
       chrome.dataset.dreamOrnaments = "7";
     }
-    const mainBox = shellMain.getBoundingClientRect?.();
-    const composerBox = home?.querySelector?.(".composer-surface-chrome")?.getBoundingClientRect?.();
-    if (mainBox?.width > 0 && mainBox?.height > 0) {
-      chrome.style?.setProperty?.("--dream-main-left", `${Math.round(mainBox.left)}px`);
-      chrome.style?.setProperty?.("--dream-main-top", `${Math.round(mainBox.top)}px`);
-      chrome.style?.setProperty?.("--dream-main-width", `${Math.round(mainBox.width)}px`);
-      chrome.style?.setProperty?.("--dream-main-height", `${Math.round(mainBox.height)}px`);
-      updateChotenArtGeometry(chrome, mainBox);
-      if (composerBox?.width > 0 && composerBox?.height > 0) {
-        chrome.style?.setProperty?.("--dream-composer-left", `${Math.round(composerBox.left - mainBox.left)}px`);
-        chrome.style?.setProperty?.("--dream-composer-right", `${Math.round(mainBox.right - composerBox.right)}px`);
-        chrome.style?.setProperty?.("--dream-composer-top", `${Math.round(composerBox.top - mainBox.top)}px`);
-      }
-    }
-    chrome.classList.toggle("dream-home-shell", Boolean(home));
+    syncChromeGeometry(chrome, shellMain, home);
   };
 
   const scheduler = { frame: null, timeout: null, dueAt: 0, lastRunAt: -Infinity };
@@ -1450,9 +1474,25 @@
     } catch {}
     return Date.now();
   };
+  const observeRendererStructure = () => {
+    if (!observer) return;
+    observer.disconnect();
+    const root = document.documentElement;
+    const body = document.body;
+    const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
+    const attributeOptions = {
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
+    };
+    if (root) observer.observe(root, attributeOptions);
+    if (body) observer.observe(body, { ...attributeOptions, childList: true });
+    if (shellMain) observer.observe(shellMain, { childList: true });
+  };
   const runEnsureSafely = () => {
     const now = schedulerNow();
     scheduler.lastRunAt = now;
+    observer?.disconnect();
     try {
       ensure();
       return true;
@@ -1466,6 +1506,9 @@
         } catch {}
       }
       return false;
+    } finally {
+      observer?.takeRecords?.();
+      observeRendererStructure();
     }
   };
 
@@ -1478,8 +1521,19 @@
     state?.resizeObserver?.disconnect();
     if (state?.timer) clearInterval(state.timer);
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
+    if (state?.scheduler?.navigationTimer) clearTimeout(state.scheduler.navigationTimer);
     if (state?.scheduler?.frame) window.cancelAnimationFrame?.(state.scheduler.frame);
+    if (state?.geometryScheduler?.frame) {
+      window.cancelAnimationFrame?.(state.geometryScheduler.frame);
+    }
+    if (state?.geometryScheduler?.settleTimer) {
+      clearTimeout(state.geometryScheduler.settleTimer);
+    }
     if (state?.resizeHandler) window.removeEventListener("resize", state.resizeHandler);
+    if (state?.navigationHandler) {
+      window.removeEventListener("popstate", state.navigationHandler);
+      document.removeEventListener("click", state.navigationHandler, true);
+    }
     state?.motionQuery?.removeEventListener?.("change", state.motionHandler);
     if (state?.artUrl) URL.revokeObjectURL(state.artUrl);
     delete window[STATE_KEY];
@@ -1522,33 +1576,183 @@
     .filter((className) => className && className !== "codex-dream-skin" && !className.startsWith("dream-"))
     .sort()
     .join(" ");
-  const resizeHandler = () => scheduleEnsure();
-  const motionHandler = () => scheduleEnsure();
+  const isInjectedNode = (node) => node?.nodeType === 1 && [
+    CHROME_ID,
+    FALLBACK_PRESETS_ID,
+    SIDEBAR_CHROME_ID,
+    SIDE_WORKSPACE_BRAND_ID,
+    "chatgpt-dream-skin-operation",
+  ].includes(node.id);
+  const hasNativeStructuralNode = (record) =>
+    [...(record.addedNodes || []), ...(record.removedNodes || [])]
+      .some((node) => node?.nodeType === 1 && !isInjectedNode(node));
+  const classifyRuntimeSurfaces = (records) => {
+    const roots = records
+      .flatMap((record) => [...(record.addedNodes || [])])
+      .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
+    if (!roots.length) return false;
+    const select = (selector) => {
+      const matches = new Set();
+      for (const root of roots) {
+        if (root.matches?.(selector)) matches.add(root);
+        for (const node of root.querySelectorAll?.(selector) || []) matches.add(node);
+      }
+      return [...matches];
+    };
+
+    for (const previewSurface of select(
+      '[role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]',
+    )) {
+      previewSurface.closest?.('[role="tooltip"]')?.classList.add("dream-turn-preview-tooltip");
+      previewSurface.classList.add("dream-turn-preview-surface");
+      previewSurface.querySelector?.('[class~="font-medium"]')?.classList.add("dream-turn-preview-title");
+      previewSurface.querySelector?.('[class*="_preview_"]')?.classList.add("dream-turn-preview-excerpt");
+    }
+
+    for (const paletteScroll of select(
+      'div.vertical-scroll-fade-mask[class~="overflow-y-auto"]',
+    )) {
+      const palette = paletteScroll.parentElement?.matches?.(
+        'div[class~="border-token-border"][class*="bg-token-dropdown-background"]' +
+        '[class~="relative"][class~="overflow-hidden"][class~="rounded-2xl"][class~="p-1"]',
+      ) ? paletteScroll.parentElement : null;
+      if (!palette) continue;
+      palette.classList.add("dream-composer-palette");
+      paletteScroll.classList.add("dream-composer-palette-scroll");
+      for (const heading of paletteScroll.querySelectorAll?.(
+        '[class~="sticky"][class~="top-0"][class~="z-10"]',
+      ) || []) heading.classList.add("dream-composer-palette-heading");
+      for (const item of paletteScroll.querySelectorAll?.(
+        'button[class~="w-full"][class~="shrink-0"][class~="rounded-lg"][class~="text-left"]',
+      ) || []) item.classList.add("dream-composer-palette-item");
+    }
+
+    if (document.documentElement.classList.contains("dream-settings-active")) {
+      for (const menu of select(
+        '[role="menu"], [role="listbox"], [data-radix-menu-content], [data-slot="menu-content"]',
+      )) menu.classList.add("dream-settings-menu");
+    }
+
+    const selectionPattern = /^(?:\u6dfb\u52a0\u5230\u4efb\u52a1|add to task|\u66f4\u591a\u8be6\u60c5|more details|\u5728\u4fa7\u8fb9\u804a\u5929\u4e2d\u63d0\u95ee|ask in sidebar chat)$/i;
+    const selectionButtons = select('button, [role="button"]')
+      .filter((button) => selectionPattern.test((button.textContent || "").trim()));
+    if (selectionButtons.length) {
+      selectionButtons.forEach((button) => button.classList.add("dream-selection-action"));
+      let actions = selectionButtons[0].parentElement;
+      while (actions && actions !== document.body
+        && !selectionButtons.every((button) => actions.contains(button))) {
+        actions = actions.parentElement;
+      }
+      actions?.classList.add("dream-selection-actions");
+    }
+
+    for (const input of select(
+      'input[placeholder*="optional comment" i], textarea[placeholder*="optional comment" i], ' +
+      'input[placeholder*="\u53ef\u9009\u8bc4\u8bba"], textarea[placeholder*="\u53ef\u9009\u8bc4\u8bba"]',
+    )) {
+      input.classList.add("dream-optional-comment-input");
+      input.parentElement?.classList.add("dream-optional-comment");
+    }
+
+    for (const panel of select(
+      '[class*="rounded-3xl"][class*="bg-token-dropdown-background"]' +
+      ':has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])',
+    )) panel.classList.add("dream-summary-panel");
+
+    for (const terminal of select(".xterm")) {
+      const terminalRoot = terminal.closest?.('[class*="contain:layout_paint"]')
+        || terminal.closest?.('[role="tabpanel"]');
+      terminalRoot?.classList.add("dream-terminal-panel");
+    }
+
+    const toastPattern = /\u901f\u7387\u9650\u5236\u91cd\u7f6e\u673a\u4f1a|rate limit reset opportunity/i;
+    const toastActionPattern = /\u67e5\u770b\u91cd\u7f6e\u6b21\u6570|view (?:reset|redemption)/i;
+    const toast = select("div, section, aside").find((candidate) =>
+      toastPattern.test((candidate.textContent || "").trim())
+      && [...candidate.querySelectorAll?.("button") || []]
+        .some((button) => toastActionPattern.test((button.textContent || "").trim())));
+    const toastSurface = toast?.matches?.('aside[class~="rounded-2xl"]')
+      ? toast
+      : toast?.querySelector?.('aside[class~="rounded-2xl"]') || toast;
+    toastSurface?.classList.add(SYSTEM_TOAST_CLASS);
+    return true;
+  };
+  const resizeHandler = (event) => {
+    if (event?.type === "resize") {
+      if (geometryScheduler.settleTimer) clearTimeout(geometryScheduler.settleTimer);
+      geometryScheduler.settleTimer = setTimeout(() => {
+        geometryScheduler.settleTimer = null;
+        scheduleEnsure();
+      }, 300);
+    }
+    if (geometryScheduler.frame) return;
+    const sync = () => {
+      geometryScheduler.frame = null;
+      const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
+      const home = shellMain?.classList?.contains?.("dream-home-shell")
+        ? document.querySelector('[role="main"].dream-home') || shellMain
+        : null;
+      syncChromeGeometry(document.getElementById(CHROME_ID), shellMain, home);
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      geometryScheduler.frame = window.requestAnimationFrame(sync);
+    } else {
+      sync();
+    }
+  };
+  const motionHandler = () => scheduleEnsure(100);
+  const scheduleNavigationRefresh = () => {
+    if (scheduler.navigationTimer) clearTimeout(scheduler.navigationTimer);
+    scheduler.navigationTimer = setTimeout(() => {
+      scheduler.navigationTimer = null;
+      scheduleEnsure();
+    }, 48);
+  };
+  const navigationHandler = (event) => {
+    if (event?.type === "popstate") {
+      scheduleNavigationRefresh();
+      return;
+    }
+    const target = event?.target?.closest?.(
+      'a[href], [role="link"], [role="tab"], [role="menuitem"], ' +
+      '[data-settings-panel-slug], aside.app-shell-left-panel button, ' +
+      'button[aria-controls], button[aria-expanded], button[aria-haspopup]',
+    );
+    if (target) scheduleNavigationRefresh();
+  };
   window.addEventListener("resize", resizeHandler, { passive: true });
   motionQuery?.addEventListener?.("change", motionHandler);
+  window.addEventListener("popstate", navigationHandler);
+  document.addEventListener("click", navigationHandler, true);
   if (typeof ResizeObserver === "function") {
-    resizeObserver = new ResizeObserver(() => scheduleEnsure());
+    resizeObserver = new ResizeObserver((entries) => {
+      let geometryChanged = false;
+      for (const entry of entries) {
+        const width = Math.round(entry.contentRect?.width || 0);
+        const height = Math.round(entry.contentRect?.height || 0);
+        const signature = `${width}x${height}`;
+        if (resizeTargetSizes.get(entry.target) === signature) continue;
+        resizeTargetSizes.set(entry.target, signature);
+        geometryChanged = true;
+      }
+      if (geometryChanged) resizeHandler();
+    });
   }
   observer = new MutationObserver((records) => {
     if (samplingNativeShell) return;
-    const hasApplicationChange = records.some((record) => {
-      if (record.type !== "attributes" || record.attributeName !== "class") return true;
-      return withoutManagedClasses(record.oldValue)
-        !== withoutManagedClasses(record.target?.getAttribute?.("class"));
+    classifyRuntimeSurfaces(records);
+    const hasShellChange = records.some((record) => {
+      if (record.type === "childList") return hasNativeStructuralNode(record);
+      if (record.attributeName !== "class") return true;
+      return withoutManagedClasses(record.oldValue) !==
+        withoutManagedClasses(record.target?.getAttribute?.("class"));
     });
-    if (!hasApplicationChange) return;
-    scheduleEnsure(MUTATION_REFRESH_INTERVAL_MS);
+    if (hasShellChange) scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
   });
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeOldValue: true,
-    attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
-  });
-  const timer = setInterval(runEnsureSafely, 5000);
+  observeRendererStructure();
+  const timer = setInterval(runEnsureSafely, FALLBACK_REFRESH_MS);
   const runtimeState = {
-    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, motionQuery, motionHandler,
+    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler, resizeHandler, navigationHandler, motionQuery, motionHandler,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
     themeId: config.themeId,
     revision: PAYLOAD_REVISION,

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 
 class MockWebSocket {
   static instances = [];
@@ -45,10 +46,11 @@ class MockWebSocket {
 }
 
 const originalWebSocket = globalThis.WebSocket;
+const originalFetch = globalThis.fetch;
 globalThis.WebSocket = MockWebSocket;
 
 try {
-  const { CdpSession } = await import("../scripts/injector.mjs");
+  const { CdpSession, connectBrowserIdentityAnchor } = await import("../scripts/injector.mjs");
   const port = 9335;
   const target = {
     id: "page-test",
@@ -115,8 +117,108 @@ try {
     "Session cleanup must be idempotent.");
   assert.equal(listenerSession.listeners.size, 0,
     "Session cleanup must release listener closures.");
+
+  const browserId = "browser-test";
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), `http://127.0.0.1:${port}/json/version`);
+    return {
+      ok: true,
+      async json() {
+        return {
+          webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/browser/${browserId}`,
+        };
+      },
+    };
+  };
+  const targetChanges = [];
+  const connecting = connectBrowserIdentityAnchor(
+    port,
+    browserId,
+    (targetInfo) => targetChanges.push(targetInfo),
+  );
+  for (let attempt = 0; attempt < 5 && MockWebSocket.instances.length < 3; attempt += 1) {
+    await Promise.resolve();
+  }
+  const browserSocket = MockWebSocket.instances.at(-1);
+  browserSocket.onSend = (message) => {
+    queueMicrotask(() => browserSocket.emit("message", {
+      data: JSON.stringify({ id: message.id, result: {} }),
+    }));
+  };
+  browserSocket.emit("open");
+  const browserSession = await connecting;
+  assert.deepEqual(
+    browserSocket.sent.map(({ method }) => method),
+    ["Target.setDiscoverTargets"],
+    "Browser discovery must not enable renderer-only Runtime or Page domains.",
+  );
+  assert.deepEqual(browserSocket.sent[0].params, { discover: true });
+
+  const pageTarget = { targetId: "page-new", type: "page", url: "app://codex" };
+  browserSocket.emit("message", {
+    data: JSON.stringify({ method: "Target.targetCreated", params: { targetInfo: pageTarget } }),
+  });
+  const updatedPageTarget = { ...pageTarget, title: "Codex" };
+  browserSocket.emit("message", {
+    data: JSON.stringify({ method: "Target.targetInfoChanged", params: { targetInfo: updatedPageTarget } }),
+  });
+  browserSocket.emit("message", {
+    data: JSON.stringify({ method: "Target.targetDestroyed", params: { targetId: pageTarget.targetId } }),
+  });
+  assert.deepEqual(targetChanges, [pageTarget, updatedPageTarget, null],
+    "Page target lifecycle events must wake target discovery immediately.");
+  browserSession.close();
+  assert.equal(browserSession.listeners.size, 0,
+    "Browser discovery cleanup must release target event listeners.");
+
+  const socketCountBeforeFallback = MockWebSocket.instances.length;
+  const fallbackErrors = [];
+  const fallbackOriginalConsoleError = console.error;
+  console.error = (message) => { fallbackErrors.push(String(message)); };
+  try {
+    const fallbackConnecting = connectBrowserIdentityAnchor(port, browserId, () => {});
+    for (let attempt = 0;
+      attempt < 5 && MockWebSocket.instances.length === socketCountBeforeFallback;
+      attempt += 1) await Promise.resolve();
+    const rejectedDiscoverySocket = MockWebSocket.instances.at(-1);
+    rejectedDiscoverySocket.onSend = (message) => {
+      queueMicrotask(() => rejectedDiscoverySocket.emit("message", {
+        data: JSON.stringify({
+          id: message.id,
+          error: { code: -32601, message: "Method not found" },
+        }),
+      }));
+    };
+    rejectedDiscoverySocket.emit("open");
+    for (let attempt = 0;
+      attempt < 10 && MockWebSocket.instances.length < socketCountBeforeFallback + 2;
+      attempt += 1) await Promise.resolve();
+    const pollingAnchorSocket = MockWebSocket.instances.at(-1);
+    assert.notEqual(pollingAnchorSocket, rejectedDiscoverySocket,
+      "Rejected target discovery must create a plain browser identity anchor.");
+    pollingAnchorSocket.emit("open");
+    const pollingAnchor = await fallbackConnecting;
+    assert.deepEqual(
+      rejectedDiscoverySocket.sent.map(({ method }) => method),
+      ["Target.setDiscoverTargets"],
+    );
+    assert.deepEqual(pollingAnchorSocket.sent, [],
+      "The polling fallback anchor must not enable CDP domains or send commands.");
+    assert.equal(fallbackErrors.some((message) => message.includes("polling fallback active")), true,
+      "Target discovery rejection must report that polling remains active.");
+    pollingAnchor.close();
+  } finally {
+    console.error = fallbackOriginalConsoleError;
+  }
+
+  const source = await fs.readFile(new URL("../scripts/injector.mjs", import.meta.url), "utf8");
+  assert.match(source, /await waitForDiscovery\(1200\)/,
+    "Windows must retain its previous 1200 ms polling fallback.");
+  assert.match(source, /process\.off\("SIGTERM", stop\);\s*identityAnchor\.close\(\)/,
+    "Watcher shutdown must close browser discovery and release process listeners.");
 } finally {
   globalThis.WebSocket = originalWebSocket;
+  globalThis.fetch = originalFetch;
 }
 
-console.log("PASS: Windows CDP sessions close failed startups, isolate listeners, honor timeouts, and clean up idempotently.");
+console.log("PASS: Windows CDP sessions handle renderer commands and browser target discovery safely.");
