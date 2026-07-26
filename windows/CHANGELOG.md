@@ -1,5 +1,11 @@
 # Windows Changelog
 
+## Unreleased
+
+### 修复
+
+- 对齐上游 `Fei-Away/Codex-Dream-Skin#265` 的 Windows 原生窗口兼容修复：Codex 26.721.x / Chrome 150 即使窗口真实可见，也可能让 `Browser.getWindowForTarget` 返回 `-32000 Browser window not found`。现在仅把 `-32000` 与 `-32601` 分类为“原生窗口信号不可用”，转而依赖仍为硬性条件的文档可见性、合理 viewport、Codex 主界面结构及主题修订值；隐藏页面、过小视口、结构缺失、连接中止、超时和其它 CDP 错误仍会安全失败，不再因该假阴性在 90 秒后回滚并重启普通 Codex。
+
 ## 1.5.7 — 2026-07-26
 
 ### 修复
