@@ -121,6 +121,9 @@ try {
   $debugLaunchAttempted = $false
   $debugLaunch = $null
   $debugLaunchBaselineProcessIds = @()
+  # Set when the renderer proves that the skin is visible and structurally
+  # complete even though another verification signal remains inconclusive.
+  $skinLooksRendered = $false
   try {
     if ($null -eq (Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex)) {
       # Codex is closed on this path; sync the appearanceTheme pin to the
@@ -285,6 +288,27 @@ try {
         '--timeout-ms', '30000')
       Write-DreamSkinUtf8FileAtomically -Path $VerifyPath -Content (($verify.Output -join "`r`n") + "`r`n")
       if ($verify.ExitCode -eq 0) { break }
+      # Some Codex builds cannot resolve Browser.getWindowForTarget even for a
+      # real on-screen window. Preserve a visibly rendered skin rather than
+      # force-restarting Codex after the retry window. Visibility, viewport and
+      # structure remain mandatory; malformed output falls back to rollback.
+      $skinLooksRendered = $false
+      try {
+        $verifyJson = ($verify.Output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+        $readiness = $verifyJson.readiness
+        $versionMatches = -not [string]::IsNullOrWhiteSpace([string]$verifyJson.expectedVersion) -and
+          [string]$verifyJson.version -ceq [string]$verifyJson.expectedVersion
+        $themeMatches = -not [string]::IsNullOrWhiteSpace([string]$verifyJson.expectedThemeId) -and
+          [string]$verifyJson.themeId -ceq [string]$verifyJson.expectedThemeId
+        $revisionMatches = -not [string]::IsNullOrWhiteSpace([string]$verifyJson.expectedRevision) -and
+          [string]$verifyJson.revision -ceq [string]$verifyJson.expectedRevision
+        $skinLooksRendered = [bool]$verifyJson.installed -and [bool]$verifyJson.stylePresent -and
+          [bool]$readiness.documentPass -and [bool]$readiness.viewportPass -and
+          [bool]$readiness.structurePass -and $versionMatches -and $themeMatches -and
+          $revisionMatches
+      } catch {
+        $skinLooksRendered = $false
+      }
       if ($daemon.HasExited) { throw "The injector exited during startup. See $StderrPath" }
       if ((Get-Date) -ge $verifyDeadline) { throw "Dream Skin verification failed. See $VerifyPath" }
       Start-Sleep -Seconds 3
@@ -324,13 +348,18 @@ try {
       }
     }
     if ($injectorStopped) { Remove-Item -LiteralPath $StatePath -Force -ErrorAction SilentlyContinue }
-    if ($launchedWithCdp) {
+    if ($launchedWithCdp -and -not $skinLooksRendered) {
       try {
         Stop-DreamSkinCodex -Codex $codex -AllowForce
         $null = Start-DreamSkinCodex -Codex $codex
       } catch {
         Write-Warning 'Startup rollback could not fully restart Codex; close Codex to ensure its CDP port is closed.'
       }
+    } elseif ($launchedWithCdp) {
+      # The injector is stopped and state removed, so the session is not
+      # reported as verified. Leave the working Codex window alone; closing it
+      # naturally clears the loopback debug session and the rendered skin.
+      Write-Warning 'Dream Skin could not verify this session, but the theme is rendered. Codex was left running; close and reopen it to return to the stock appearance.'
     }
     if ($pauseWasSet -and $pauseCleared) {
       try {

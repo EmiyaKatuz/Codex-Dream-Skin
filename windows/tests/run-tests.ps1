@@ -1380,6 +1380,7 @@ args = [
   & (Join-Path $PSScriptRoot 'community-theme-link.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'theme-zip-import.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'start-renderer-readiness.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'start-verified-skin-preserved.tests.ps1') -Root $Root
   $projectRoot = Split-Path -Parent $Root
   $syncToolPath = Join-Path $projectRoot 'tools\sync-runtime-assets.mjs'
   $syncToolResult = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @($syncToolPath, '--check')
@@ -1450,6 +1451,9 @@ args = [
   $homeResponsiveTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'home-responsive-css.test.mjs'))
   if ($homeResponsiveTest.ExitCode -ne 0) { throw 'Fullscreen Home responsive-layout regression test failed.' }
+  $rendererPerformanceTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+    (Join-Path $PSScriptRoot 'renderer-performance-css.test.mjs'))
+  if ($rendererPerformanceTest.ExitCode -ne 0) { throw 'Renderer persistent-compositor regression test failed.' }
   $bootstrapTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'injector-bootstrap.test.mjs'))
   if ($bootstrapTest.ExitCode -ne 0) { throw 'Injector early-bootstrap regression test failed.' }
@@ -1462,6 +1466,9 @@ args = [
   $windowReadinessTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'injector-window-readiness.test.mjs'))
   if ($windowReadinessTest.ExitCode -ne 0) { throw 'Injector native-window readiness regression test failed.' }
+  $payloadIntegrityTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+    (Join-Path $PSScriptRoot 'payload-template-integrity.test.mjs'))
+  if ($payloadIntegrityTest.ExitCode -ne 0) { throw 'Injector payload-template integrity regression test failed.' }
   $imageMetadataTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'image-metadata.test.mjs'))
   if ($imageMetadataTest.ExitCode -ne 0) { throw 'Image metadata regression test failed.' }
