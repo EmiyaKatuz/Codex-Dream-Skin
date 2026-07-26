@@ -6,10 +6,20 @@
 
 ## 内置实测预设
 
-当前内置 `preset-gothic-void-crusade/`（Gothic Void Crusade）与
-`preset-arina-hashimoto/`（桥本有菜 / Arina Hashimoto）两套实机验证主题。
-前者是社区作者提供的原创哥特科幻背景；后者使用一张
-`2560 × 1440`（16:9）纯背景：左侧低信息留白承载 Codex 原生标题，人物和花卉主视觉集中在右侧。浅色与暗色截图均来自真实 Codex 注入，不是 AI 绘制的整窗 UI。
+当前发行 DMG 内置三套主题：
+
+- `preset-internet-angel-default/`：`超天酱 · INTERNET ANGEL`，使用
+  `theme.json` + `dream-reference.jpg`（`2560 × 1440` JPEG），首次安装默认启用；
+- `preset-internet-angel/`：`超天酱 · INTERNET ANGEL · Pixel Cafe`，使用
+  `1672 × 941` 无损 PNG；
+- `preset-gothic-void-crusade/`：社区作者提供的原创哥特科幻背景。
+
+两套 Internet Angel 文件与 Windows 主题包保持字节一致。它们不属于
+MIT 软件许可，分发限制见 [`../NOTICE.md`](../NOTICE.md)。源码树另保留
+`preset-arina-hashimoto/`（桥本有菜 / Arina Hashimoto）作为本地参考，
+但发行 DMG 明确排除该目录。
+
+### Arina 源码参考素材
 
 来源尺寸必须如实区分：归档的用户源图（不随 preset 播种）是 `1672 × 941` PNG；preset 内的 `background.jpg` 保持其近 16:9 构图，标准化导出为 `2560 × 1440` JPEG，并不代表补回或新增了源图细节。派生文件使用 `sips -z 1440 2560 -s format jpeg -s formatOptions 90` 生成。
 
@@ -19,11 +29,11 @@
 - 背景是用户提供的 AI 生成示例，不代表 OpenAI/Codex 官方视觉或背书；公开分发前仍需确认人物、模型输出与素材使用权。
 - 该维护者提供的精选预设是单独记录的发行例外，不纳入 MIT 软件许可；文件清单和限制见 [`../NOTICE.md`](../NOTICE.md)。这不表示以后可以提交其他可识别真人素材。
 
-安装后可直接切换：
+安装后可直接切换到 Pixel Cafe：
 
 ```bash
 ~/.codex/codex-dream-skin-studio/scripts/switch-theme-macos.sh \
-  --id preset-arina-hashimoto
+  --id preset-internet-angel
 ```
 
 ## 一套预设的结构

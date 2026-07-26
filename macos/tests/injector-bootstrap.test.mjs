@@ -109,6 +109,20 @@ assert.match(
   "Live verification must reject visible home suggestion labels that diverge from the themed card color.",
 );
 assert.match(source, /visibleSuggestionLabels\.length >= result\.visibleCardCount/);
-assert.match(source, /result\.suggestionLabelColorsMatch/);
+assert.match(source, /result\.cardLabelCoverage\.filter\(Boolean\)\.length >= result\.visibleCardCount/);
+assert.match(source, /angelCards\.length === 4/);
+assert.match(source, /angelDeckPass/);
+assert.match(source, /suggestionLabelColorsMatch/);
+assert.match(
+  source,
+  /const heroCandidates = \[/,
+  "Home verification must tolerate Codex wrapper-depth changes.",
+);
+assert.match(source, /\?\.querySelector\(.*game-source.*\)\?\.parentElement/);
+assert.match(
+  source,
+  /Math\.min\(options\.timeoutMs, 30000\)/,
+  "Initial watcher verification must tolerate a slow cold renderer first paint.",
+);
 
 console.log("PASS: early injection is L0-ready, generation-safe, and removed on shutdown.");
