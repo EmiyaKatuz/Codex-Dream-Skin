@@ -15,6 +15,12 @@ require_node
 discover_codex
 ensure_state_root
 launcher_started_ms="$(date +%s%3N)"
+codex_gpu_args=()
+# Chromium's Vulkan surface path is incompatible with native Wayland in the
+# current Electron runtime. Keep GPU compositing on the OpenGL/ANGLE fallback.
+if [ "${XDG_SESSION_TYPE:-}" = wayland ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+  codex_gpu_args+=(--disable-features=Vulkan)
+fi
 printf '[dream-skin] timing %s launcher-start {"pid":%s}\n' \
   "$(date '+%Y-%m-%dT%H:%M:%S.%3N%:z')" "$$" >>"$LOG_PATH"
 # An upgraded engine must not race a watcher that has an older renderer
@@ -25,10 +31,12 @@ printf '[dream-skin] timing %s launcher-cleanup-finished {"elapsedMs":%s}\n' \
 
 if ! cdp_ready "$PORT"; then
   codex_is_running && fail 'Codex is already running without the Dream Skin CDP port. Close it, then run start again.'
-  nohup "$CODEX_EXE" --remote-debugging-address=127.0.0.1 --remote-debugging-port="$PORT" \
+  nohup "$CODEX_EXE" "${codex_gpu_args[@]}" \
+    --remote-debugging-address=127.0.0.1 --remote-debugging-port="$PORT" \
     >>"$STATE_ROOT/codex-launch.log" 2>>"$STATE_ROOT/codex-launch-error.log" &
-  printf '[dream-skin] timing %s codex-launch-requested {"elapsedMs":%s}\n' \
-    "$(date '+%Y-%m-%dT%H:%M:%S.%3N%:z')" "$(( $(date +%s%3N) - launcher_started_ms ))" >>"$LOG_PATH"
+  printf '[dream-skin] timing %s codex-launch-requested {"elapsedMs":%s,"vulkanDisabled":%s}\n' \
+    "$(date '+%Y-%m-%dT%H:%M:%S.%3N%:z')" "$(( $(date +%s%3N) - launcher_started_ms ))" \
+    "$([ "${#codex_gpu_args[@]}" -gt 0 ] && printf true || printf false)" >>"$LOG_PATH"
 fi
 
 nohup "${INJECTOR_ENV[@]}" "$NODE" "$INJECTOR" --watch --port "$PORT" --theme-dir "$THEME_DIR" \

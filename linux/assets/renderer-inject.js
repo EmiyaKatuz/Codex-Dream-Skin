@@ -1,7 +1,7 @@
 ((cssText, artDataUrl, rawConfig) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
-  const STYLE_REVISION = "8";
+  const STYLE_REVISION = "9";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
   const CHROME_ID = "codex-dream-skin-chrome";
@@ -40,6 +40,7 @@
     "dream-route-settings",
     "dream-route-utility",
   ];
+  ROOT_CLASSES.push(...ROUTE_CLASSES, "dream-system-toast-active", "dream-presets-active");
   const PRESET_CLASSES = [
     "dream-codex-preset",
     "dream-preset-explore",
@@ -150,6 +151,7 @@
   let observer = null;
   let resizeObserver = null;
   let resizeTargets = new Set();
+  const resizeTargetSizes = new WeakMap();
   const geometryScheduler = { frame: null, settleTimer: null };
   window.__CODEX_DREAM_SKIN_DISABLED__ = false;
 
@@ -723,15 +725,20 @@
     const mainBox = shellMain.getBoundingClientRect?.();
     const composerBox = home?.querySelector?.(".composer-surface-chrome")?.getBoundingClientRect?.();
     if (mainBox?.width > 0 && mainBox?.height > 0) {
-      chrome.style?.setProperty?.("--dream-main-left", `${Math.round(mainBox.left)}px`);
-      chrome.style?.setProperty?.("--dream-main-top", `${Math.round(mainBox.top)}px`);
-      chrome.style?.setProperty?.("--dream-main-width", `${Math.round(mainBox.width)}px`);
-      chrome.style?.setProperty?.("--dream-main-height", `${Math.round(mainBox.height)}px`);
+      const setGeometryProperty = (property, value) => {
+        if (chrome.style?.getPropertyValue?.(property) !== value) {
+          chrome.style?.setProperty?.(property, value);
+        }
+      };
+      setGeometryProperty("--dream-main-left", `${Math.round(mainBox.left)}px`);
+      setGeometryProperty("--dream-main-top", `${Math.round(mainBox.top)}px`);
+      setGeometryProperty("--dream-main-width", `${Math.round(mainBox.width)}px`);
+      setGeometryProperty("--dream-main-height", `${Math.round(mainBox.height)}px`);
       updateChotenArtGeometry(chrome, mainBox);
       if (composerBox?.width > 0 && composerBox?.height > 0) {
-        chrome.style?.setProperty?.("--dream-composer-left", `${Math.round(composerBox.left - mainBox.left)}px`);
-        chrome.style?.setProperty?.("--dream-composer-right", `${Math.round(mainBox.right - composerBox.right)}px`);
-        chrome.style?.setProperty?.("--dream-composer-top", `${Math.round(composerBox.top - mainBox.top)}px`);
+        setGeometryProperty("--dream-composer-left", `${Math.round(composerBox.left - mainBox.left)}px`);
+        setGeometryProperty("--dream-composer-right", `${Math.round(mainBox.right - composerBox.right)}px`);
+        setGeometryProperty("--dream-composer-top", `${Math.round(composerBox.top - mainBox.top)}px`);
       }
     }
     chrome.classList.toggle("dream-home-shell", Boolean(home));
@@ -826,6 +833,9 @@
     const routeClass = `dream-route-${route}`;
     const utilityRoute = ["sites", "pulls", "scheduled", "plugins"].includes(route);
 
+    root.classList.remove(...ROUTE_CLASSES);
+    root.classList.add(routeClass);
+    root.classList.toggle("dream-route-utility", utilityRoute);
     shellMain.classList.remove(...ROUTE_CLASSES);
     shellMain.classList.add(routeClass);
     shellMain.classList.toggle("dream-route-utility", utilityRoute);
@@ -1081,6 +1091,7 @@
       ? resetToast
       : resetToast?.querySelector?.('aside[class~="rounded-2xl"]') || resetToast;
     resetToastSurface?.classList.add(SYSTEM_TOAST_CLASS);
+    root.classList.toggle("dream-system-toast-active", Boolean(resetToastSurface));
 
     document.querySelectorAll(`.${PANEL_CLASSES.join(", .")}`).forEach((node) => {
       node.style?.removeProperty?.("--dream-summary-safe-height");
@@ -1337,6 +1348,10 @@
     if (!home) {
       document.getElementById(FALLBACK_PRESETS_ID)?.remove();
     }
+    root.classList.toggle(
+      "dream-presets-active",
+      document.getElementById(FALLBACK_PRESETS_ID)?.dataset?.dreamReady === "true",
+    );
 
     const changedText = [...(shellMain.querySelectorAll?.("div, span") || [])]
       .filter((candidate) => {
@@ -1622,7 +1637,18 @@
   window.addEventListener("popstate", navigationHandler);
   document.addEventListener("click", navigationHandler, true);
   if (typeof ResizeObserver === "function") {
-    resizeObserver = new ResizeObserver(() => resizeHandler());
+    resizeObserver = new ResizeObserver((entries) => {
+      let geometryChanged = false;
+      for (const entry of entries) {
+        const width = Math.round(entry.contentRect?.width || 0);
+        const height = Math.round(entry.contentRect?.height || 0);
+        const signature = `${width}x${height}`;
+        if (resizeTargetSizes.get(entry.target) === signature) continue;
+        resizeTargetSizes.set(entry.target, signature);
+        geometryChanged = true;
+      }
+      if (geometryChanged) resizeHandler();
+    });
   }
   if (!lowPerformance) {
     observer = new MutationObserver((records) => {

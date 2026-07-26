@@ -408,8 +408,8 @@ html.codex-dream-skin article {
 /* A 16:9 or wider image is painted once on the native window. The sidebar,
    title bar and route surface become coordinated readability layers instead
    of repeating or cropping the image inside individual panels. */
-html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell) body,
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell)) body {
+html.codex-dream-skin.dream-art-wide.dream-route-home body,
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):not(.dream-route-home) body {
   background-color: var(--dream-canvas) !important;
   background-image: var(--dream-art) !important;
   background-position: var(--dream-art-position) !important;
@@ -418,9 +418,9 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
   background-attachment: fixed !important;
 }
 
-html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell)
+html.codex-dream-skin.dream-art-wide.dream-route-home
   aside.app-shell-left-panel,
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell))
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):not(.dream-route-home)
   aside.app-shell-left-panel {
   background: linear-gradient(90deg,
     var(--dream-immersive-sidebar),
@@ -431,16 +431,16 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
   backdrop-filter: none !important;
 }
 
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell))
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):not(.dream-route-home)
   aside.app-shell-left-panel {
   background: linear-gradient(90deg,
     var(--dream-task-immersive-sidebar),
     var(--dream-task-immersive-edge)) !important;
 }
 
-html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell)
+html.codex-dream-skin.dream-art-wide.dream-route-home
   aside.app-shell-left-panel::after,
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell))
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):not(.dream-route-home)
   aside.app-shell-left-panel::after {
   background: transparent !important;
 }
@@ -2070,8 +2070,8 @@ html.codex-dream-skin :focus-visible {
 
 /* Sidebar: a broadcast control deck with pixel selection states. */
 html.codex-dream-skin aside.app-shell-left-panel,
-html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell) aside.app-shell-left-panel,
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell)) aside.app-shell-left-panel {
+html.codex-dream-skin.dream-art-wide.dream-route-home aside.app-shell-left-panel,
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):not(.dream-route-home) aside.app-shell-left-panel {
   border-right: 2px solid var(--angel-blue) !important;
   background:
     linear-gradient(180deg,
@@ -4872,7 +4872,7 @@ html.codex-dream-skin ::-webkit-scrollbar-track {
   }
 
   html.codex-dream-skin aside.app-shell-left-panel,
-  html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell) aside.app-shell-left-panel {
+  html.codex-dream-skin.dream-art-wide.dream-route-home aside.app-shell-left-panel {
     box-shadow: inset -1px 0 var(--angel-cyan) !important;
   }
 }
@@ -6214,7 +6214,7 @@ html.codex-dream-skin.dream-choten-art:not(.dream-home-side-open):not(.dream-hom
   opacity: .9;
 }
 
-html.codex-dream-skin:has(.dream-system-toast) #codex-dream-skin-chrome :where(
+html.codex-dream-skin.dream-system-toast-active #codex-dream-skin-chrome :where(
   .dream-angel-dose-strip,
   .dream-angel-window-stack,
   .dream-angel-webcam-card,
@@ -6224,7 +6224,7 @@ html.codex-dream-skin:has(.dream-system-toast) #codex-dream-skin-chrome :where(
   display: none !important;
 }
 
-html.codex-dream-skin:has(#codex-dream-skin-presets[data-dream-ready="true"]) #codex-dream-skin-chrome :where(
+html.codex-dream-skin.dream-presets-active #codex-dream-skin-chrome :where(
   .dream-angel-window-stack,
   .dream-angel-webcam-card,
   .dream-angel-heartbeat
