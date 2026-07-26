@@ -239,6 +239,18 @@ function validatedDebuggerUrl(target, port) {
   return url.href;
 }
 
+function validatedBrowserDebuggerUrl(value, port) {
+  const url = new URL(value);
+  const pathIsValid = /^\/devtools\/browser\/[A-Za-z0-9._-]{1,200}$/.test(url.pathname);
+  if (
+    url.protocol !== "ws:" || !LOOPBACK_HOSTS.has(url.hostname) || Number(url.port) !== port
+    || url.username || url.password || url.search || url.hash || !pathIsValid
+  ) {
+    throw new Error("Rejected a CDP WebSocket URL outside the allowed loopback browser endpoint shape");
+  }
+  return url.href;
+}
+
 function isExpectedRendererUrl(value) {
   try {
     const url = new URL(value);
@@ -265,9 +277,12 @@ function isValidCdpPageTarget(item, port) {
 }
 
 class CdpSession {
-  constructor(target, port) {
+  constructor(target, port, { browser = false } = {}) {
     this.target = target;
-    this.ws = new WebSocket(validatedDebuggerUrl(target, port));
+    this.browser = browser;
+    this.ws = new WebSocket(browser
+      ? validatedBrowserDebuggerUrl(target.webSocketDebuggerUrl, port)
+      : validatedDebuggerUrl(target, port));
     this.nextId = 1;
     this.pending = new Map();
     this.listeners = new Map();
@@ -293,8 +308,10 @@ class CdpSession {
       }
       this.pending.clear();
     });
-    await this.send("Runtime.enable");
-    await this.send("Page.enable");
+    if (!this.browser) {
+      await this.send("Runtime.enable");
+      await this.send("Page.enable");
+    }
     return this;
   }
 
@@ -408,6 +425,57 @@ async function listAppTargets(port) {
   const targets = JSON.parse(body);
   if (!Array.isArray(targets)) throw new Error("CDP target list was not an array");
   return targets.filter((item) => isValidCdpPageTarget(item, port));
+}
+
+async function connectBrowserDiscovery(port, onTargetChange) {
+  const body = await new Promise((resolve, reject) => {
+    const request = http.get({
+      host: "127.0.0.1",
+      port,
+      path: "/json/version",
+      timeout: 2000,
+      agent: false,
+    }, (response) => {
+      if (response.statusCode !== 200) {
+        response.resume();
+        reject(new Error(`HTTP ${response.statusCode}`));
+        return;
+      }
+      response.setEncoding("utf8");
+      let data = "";
+      response.on("data", (chunk) => {
+        data += chunk;
+        if (data.length > 256 * 1024) {
+          request.destroy(new Error("CDP version response exceeded 256 KiB"));
+        }
+      });
+      response.on("end", () => resolve(data));
+    });
+    request.on("timeout", () => request.destroy(new Error("CDP version request timed out")));
+    request.on("error", reject);
+  });
+  const version = JSON.parse(body);
+  const session = await new CdpSession({
+    webSocketDebuggerUrl: version.webSocketDebuggerUrl,
+  }, port, { browser: true }).open();
+  const pageTargetIds = new Set();
+  const wakeForPage = (params) => {
+    if (params.targetInfo?.type !== "page") return;
+    pageTargetIds.add(params.targetInfo.targetId);
+    onTargetChange(params.targetInfo);
+  };
+  session.on("Target.targetCreated", wakeForPage);
+  session.on("Target.targetInfoChanged", wakeForPage);
+  session.on("Target.targetDestroyed", (params) => {
+    if (pageTargetIds.delete(params.targetId)) onTargetChange(null);
+  });
+  try {
+    await session.send("Target.setDiscoverTargets", { discover: true });
+  } catch (error) {
+    session.close();
+    throw error;
+  }
+  return session;
 }
 
 async function probeSession(session) {
@@ -1238,9 +1306,12 @@ export function earlyPayloadFor(payload, revision) {
     const appliedKey = "__CODEX_DREAM_SKIN_EARLY_APPLIED__";
     const generation = ${JSON.stringify(revision)};
     window[generationKey] = generation;
+    let bootstrapObserver = null;
     let bootstrapTimer = null;
     let timeout = null;
     const stop = () => {
+      bootstrapObserver?.disconnect();
+      bootstrapObserver = null;
       if (bootstrapTimer) clearInterval(bootstrapTimer);
       bootstrapTimer = null;
       if (timeout) clearTimeout(timeout);
@@ -1269,6 +1340,10 @@ export function earlyPayloadFor(payload, revision) {
     };
     if (install()) return;
     document.addEventListener?.("DOMContentLoaded", install, { once: true });
+    if (typeof MutationObserver === "function") {
+      bootstrapObserver = new MutationObserver(install);
+      bootstrapObserver.observe(document, { childList: true, subtree: true });
+    }
     bootstrapTimer = setInterval(install, 250);
     timeout = setTimeout(stop, 10000);
   })()`;
@@ -1420,7 +1495,59 @@ async function runWatch(options) {
   let mutationEpoch = 0;
   let activeTargetSetups = 0;
   let startupFeedbackClaimed = false;
+  let browserDiscovery = null;
+  let nextBrowserDiscoveryAttemptAt = 0;
+  let discoveryWakePending = false;
+  let wakeDiscoveryWait = null;
   const targetSetupWaiters = new Set();
+  const wakeDiscoveryLoop = () => {
+    if (wakeDiscoveryWait) {
+      const wake = wakeDiscoveryWait;
+      wakeDiscoveryWait = null;
+      wake();
+    } else discoveryWakePending = true;
+  };
+  const waitForDiscovery = (delayMs) => {
+    if (discoveryWakePending) {
+      discoveryWakePending = false;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (wakeDiscoveryWait === finish) wakeDiscoveryWait = null;
+        resolve();
+      };
+      const timer = setTimeout(finish, delayMs);
+      wakeDiscoveryWait = finish;
+    });
+  };
+  const ensureBrowserDiscovery = async () => {
+    if (browserDiscovery && !browserDiscovery.closed) return;
+    const now = Date.now();
+    if (now < nextBrowserDiscoveryAttemptAt) return;
+    browserDiscovery?.close();
+    browserDiscovery = null;
+    nextBrowserDiscoveryAttemptAt = now + 5000;
+    try {
+      browserDiscovery = await connectBrowserDiscovery(options.port, (targetInfo) => {
+        if (targetInfo) {
+          logTiming("target-event", {
+            targetId: targetInfo.targetId,
+            title: targetInfo.title || "",
+            url: targetInfo.url || "",
+          });
+        }
+        wakeDiscoveryLoop();
+      });
+      logTiming("target-discovery-ready", { port: options.port });
+    } catch (error) {
+      console.error(`[dream-skin] CDP target events unavailable; polling fallback active: ${error.message}`);
+    }
+  };
   let wakeControlWait = null;
   const wakeControlLoop = () => {
     const wake = wakeControlWait;
@@ -1442,6 +1569,7 @@ async function runWatch(options) {
   const stop = () => {
     stopping = true;
     wakeControlLoop();
+    wakeDiscoveryLoop();
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
@@ -1514,6 +1642,31 @@ async function runWatch(options) {
     const identifier = await registerEarly(record.session, payload, revision);
     if (identifier) record.earlyScriptIds.add(identifier);
     return identifier;
+  };
+
+  const armEarlyForRecord = async (record, targetId, connectionEpoch) => {
+    try {
+      const earlyStartedAt = performance.now();
+      record.earlyScriptId = await registerEarlyForRecord(
+        record, current.payload, current.revision,
+      );
+      logTiming("early-script-registered", {
+        stageMs: elapsedMs(earlyStartedAt),
+        targetId,
+      });
+      const earlyApplyStartedAt = performance.now();
+      await record.session.evaluate(earlyPayloadFor(current.payload, current.revision));
+      logTiming("early-payload-evaluated", {
+        stageMs: elapsedMs(earlyApplyStartedAt),
+        targetId,
+      });
+      if (controlOnly || mutationEpoch !== connectionEpoch) await invalidateEarly(record);
+      return true;
+    } catch (error) {
+      record.needsLoadFallback = true;
+      console.error(`[dream-skin] early injection unavailable: ${error.message}`);
+      return false;
+    }
   };
 
   const invalidateEarly = async (record, { strict = false } = {}) => {
@@ -1739,6 +1892,7 @@ async function runWatch(options) {
         discoveryDelayMs = Math.min(500, Math.round(discoveryDelayMs * 1.6));
         continue;
       }
+      await ensureBrowserDiscovery();
 
       if (controlOnly && !activeOperation) {
         releaseControlSessions();
@@ -1789,6 +1943,7 @@ async function runWatch(options) {
             operationExternal: false,
           };
           connectionEpoch = mutationEpoch;
+          const runtimeRenderer = sessions.size > 0;
           sessions.set(target.id, record);
           session.on("Page.loadEventFired", () => {
             if (!record.needsLoadFallback) return;
@@ -1801,6 +1956,12 @@ async function runWatch(options) {
               });
             }, 0);
           });
+          // Arm the bootstrap before React mounts the Codex shell. The early
+          // payload observes only this short startup window and applies in the
+          // same mutation turn that creates the first themeable surface.
+          if (runtimeRenderer && !controlOnly && activeOperation?.status !== "pausing") {
+            await armEarlyForRecord(record, target.id, connectionEpoch);
+          }
           // Keep one CDP session while the native splash hands off to the
           // verified React shell. Reconnecting every 1.8 seconds competes with
           // renderer startup and can repeatedly miss the ready state.
@@ -1830,27 +1991,8 @@ async function runWatch(options) {
           const initialOperation = activeOperation;
           recoveryOperation = initialOperation ? null : cycleRecovery;
           const pausing = initialOperation?.status === "pausing";
-          if (!controlOnly) {
-            try {
-              const earlyStartedAt = performance.now();
-              record.earlyScriptId = await registerEarlyForRecord(
-                record, current.payload, current.revision,
-              );
-              logTiming("early-script-registered", {
-                stageMs: elapsedMs(earlyStartedAt),
-                targetId: target.id,
-              });
-              const earlyApplyStartedAt = performance.now();
-              await session.evaluate(earlyPayloadFor(current.payload, current.revision));
-              logTiming("early-payload-evaluated", {
-                stageMs: elapsedMs(earlyApplyStartedAt),
-                targetId: target.id,
-              });
-              if (controlOnly || mutationEpoch !== connectionEpoch) await invalidateEarly(record);
-            } catch (error) {
-              record.needsLoadFallback = true;
-              console.error(`[dream-skin] early injection unavailable: ${error.message}`);
-            }
+          if (!record.earlyScriptId && !controlOnly && !pausing) {
+            await armEarlyForRecord(record, target.id, connectionEpoch);
           }
           if (controlOnly || pausing || mutationEpoch !== connectionEpoch) {
             await invalidateEarly(record);
@@ -1966,7 +2108,7 @@ async function runWatch(options) {
         pauseRecovery = null;
       }
       const pollDelay = sessions.size ? 800 : (targets.length ? 250 : 100);
-      await new Promise((resolve) => setTimeout(resolve, pollDelay));
+      await waitForDiscovery(pollDelay);
     }
   } finally {
     if (reloadTimer) clearTimeout(reloadTimer);
@@ -1980,6 +2122,7 @@ async function runWatch(options) {
         : Promise.resolve(false)));
     await Promise.all([...sessions.values()].map((record) => removeEarly(record)));
     for (const record of sessions.values()) record.session.close();
+    browserDiscovery?.close();
   }
 }
 

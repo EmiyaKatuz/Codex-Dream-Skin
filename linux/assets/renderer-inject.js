@@ -1596,6 +1596,98 @@
   const hasNativeStructuralNode = (record) =>
     [...record.addedNodes, ...record.removedNodes]
       .some((node) => node?.nodeType === 1 && !isInjectedNode(node));
+  const classifyRuntimeSurfaces = (records) => {
+    const roots = records
+      .flatMap((record) => [...record.addedNodes])
+      .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
+    if (!roots.length) return false;
+    const select = (selector) => {
+      const matches = new Set();
+      for (const root of roots) {
+        if (root.matches?.(selector)) matches.add(root);
+        for (const node of root.querySelectorAll?.(selector) || []) matches.add(node);
+      }
+      return [...matches];
+    };
+
+    for (const previewSurface of select(
+      '[role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]',
+    )) {
+      previewSurface.closest?.('[role="tooltip"]')?.classList.add("dream-turn-preview-tooltip");
+      previewSurface.classList.add("dream-turn-preview-surface");
+      previewSurface.querySelector?.('[class~="font-medium"]')?.classList.add("dream-turn-preview-title");
+      previewSurface.querySelector?.('[class*="_preview_"]')?.classList.add("dream-turn-preview-excerpt");
+    }
+
+    for (const paletteScroll of select(
+      'div.vertical-scroll-fade-mask[class~="overflow-y-auto"]',
+    )) {
+      const palette = paletteScroll.parentElement?.matches?.(
+        'div[class~="border-token-border"][class*="bg-token-dropdown-background"]' +
+        '[class~="relative"][class~="overflow-hidden"][class~="rounded-2xl"][class~="p-1"]',
+      ) ? paletteScroll.parentElement : null;
+      if (!palette) continue;
+      palette.classList.add("dream-composer-palette");
+      paletteScroll.classList.add("dream-composer-palette-scroll");
+      for (const heading of paletteScroll.querySelectorAll?.(
+        '[class~="sticky"][class~="top-0"][class~="z-10"]',
+      ) || []) heading.classList.add("dream-composer-palette-heading");
+      for (const item of paletteScroll.querySelectorAll?.(
+        'button[class~="w-full"][class~="shrink-0"][class~="rounded-lg"][class~="text-left"]',
+      ) || []) item.classList.add("dream-composer-palette-item");
+    }
+
+    if (document.documentElement.classList.contains("dream-settings-active")) {
+      for (const menu of select(
+        '[role="menu"], [role="listbox"], [data-radix-menu-content], [data-slot="menu-content"]',
+      )) menu.classList.add("dream-settings-menu");
+    }
+
+    const selectionPattern = /^(?:\u6dfb\u52a0\u5230\u4efb\u52a1|add to task|\u66f4\u591a\u8be6\u60c5|more details|\u5728\u4fa7\u8fb9\u804a\u5929\u4e2d\u63d0\u95ee|ask in sidebar chat)$/i;
+    const selectionButtons = select('button, [role="button"]')
+      .filter((button) => selectionPattern.test((button.textContent || "").trim()));
+    if (selectionButtons.length) {
+      selectionButtons.forEach((button) => button.classList.add("dream-selection-action"));
+      let actions = selectionButtons[0].parentElement;
+      while (actions && actions !== document.body
+        && !selectionButtons.every((button) => actions.contains(button))) {
+        actions = actions.parentElement;
+      }
+      actions?.classList.add("dream-selection-actions");
+    }
+
+    for (const input of select(
+      'input[placeholder*="optional comment" i], textarea[placeholder*="optional comment" i], ' +
+      'input[placeholder*="\u53ef\u9009\u8bc4\u8bba"], textarea[placeholder*="\u53ef\u9009\u8bc4\u8bba"]',
+    )) {
+      input.classList.add("dream-optional-comment-input");
+      input.parentElement?.classList.add("dream-optional-comment");
+    }
+
+    for (const panel of select(
+      '[class*="rounded-3xl"][class*="bg-token-dropdown-background"]' +
+      ':has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])',
+    )) panel.classList.add("dream-summary-panel");
+
+    for (const terminal of select(".xterm")) {
+      const terminalRoot = terminal.closest?.('[class*="contain:layout_paint"]')
+        || terminal.closest?.('[role="tabpanel"]');
+      terminalRoot?.classList.add("dream-terminal-panel");
+    }
+
+    const toastPattern = /\u901f\u7387\u9650\u5236\u91cd\u7f6e\u673a\u4f1a|rate limit reset opportunity/i;
+    const toastActionPattern = /\u67e5\u770b\u91cd\u7f6e\u6b21\u6570|view (?:reset|redemption)/i;
+    const toast = select("div, section, aside").find((candidate) =>
+      toastPattern.test((candidate.textContent || "").trim())
+      && [...candidate.querySelectorAll?.("button") || []]
+        .some((button) => toastActionPattern.test((button.textContent || "").trim())));
+    const toastSurface = toast?.matches?.('aside[class~="rounded-2xl"]')
+      ? toast
+      : toast?.querySelector?.('aside[class~="rounded-2xl"]') || toast;
+    toastSurface?.classList.add(SYSTEM_TOAST_CLASS);
+    if (toastSurface) document.documentElement.classList.add("dream-system-toast-active");
+    return true;
+  };
   const resizeHandler = (event) => {
     if (event?.type === "resize") {
       if (geometryScheduler.settleTimer) clearTimeout(geometryScheduler.settleTimer);
@@ -1653,6 +1745,14 @@
   if (!lowPerformance) {
     observer = new MutationObserver((records) => {
       if (samplingNativeShell) return;
+      classifyRuntimeSurfaces(records);
+      const removedSystemToast = records.some((record) =>
+        [...record.removedNodes].some((node) => node?.nodeType === 1
+          && (node.matches?.(`.${SYSTEM_TOAST_CLASS}`)
+            || node.querySelector?.(`.${SYSTEM_TOAST_CLASS}`))));
+      if (removedSystemToast && !document.querySelector(`.${SYSTEM_TOAST_CLASS}`)) {
+        document.documentElement.classList.remove("dream-system-toast-active");
+      }
       const hasShellChange = records.some((record) => {
         if (record.type === "childList") return hasNativeStructuralNode(record);
         if (record.attributeName !== "class") return true;
