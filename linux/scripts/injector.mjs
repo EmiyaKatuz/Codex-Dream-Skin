@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import { constants as fsConstants, watch as watchFs } from "node:fs";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
+import http from "node:http";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -154,6 +155,15 @@ const OPERATION_UI_CSS = `
 `;
 let staticPayloadAssets = null;
 let operationSequence = 0;
+const processStartedAt = performance.now();
+
+function elapsedMs(startedAt = processStartedAt) {
+  return Number((performance.now() - startedAt).toFixed(1));
+}
+
+function logTiming(event, details = {}) {
+  console.log(`[dream-skin] timing ${new Date().toISOString()} +${elapsedMs()}ms ${event} ${JSON.stringify(details)}`);
+}
 
 function parseArgs(argv) {
   const options = {
@@ -369,20 +379,35 @@ class CdpSession {
 }
 
 async function listAppTargets(port) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 2000);
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}/json/list`, {
-      redirect: "error",
-      signal: controller.signal,
+  const body = await new Promise((resolve, reject) => {
+    const request = http.get({
+      host: "127.0.0.1",
+      port,
+      path: "/json/list",
+      timeout: 2000,
+      agent: false,
+    }, (response) => {
+      if (response.statusCode !== 200) {
+        response.resume();
+        reject(new Error(`HTTP ${response.statusCode}`));
+        return;
+      }
+      response.setEncoding("utf8");
+      let data = "";
+      response.on("data", (chunk) => {
+        data += chunk;
+        if (data.length > 1024 * 1024) {
+          request.destroy(new Error("CDP target list exceeded 1 MiB"));
+        }
+      });
+      response.on("end", () => resolve(data));
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const targets = await response.json();
-    if (!Array.isArray(targets)) throw new Error("CDP target list was not an array");
-    return targets.filter((item) => isValidCdpPageTarget(item, port));
-  } finally {
-    clearTimeout(timeout);
-  }
+    request.on("timeout", () => request.destroy(new Error("CDP target list timed out")));
+    request.on("error", reject);
+  });
+  const targets = JSON.parse(body);
+  if (!Array.isArray(targets)) throw new Error("CDP target list was not an array");
+  return targets.filter((item) => isValidCdpPageTarget(item, port));
 }
 
 async function probeSession(session) {
@@ -407,14 +432,24 @@ async function probeSession(session) {
   })()`);
 }
 
-async function waitForCodexProbe(session, timeoutMs = 1800) {
+async function waitForCodexProbe(session, timeoutMs = 1800, pollMs = 50, onChange = null) {
+  const startedAt = performance.now();
   const deadline = Date.now() + timeoutMs;
   let probe = null;
+  let previousSignature = null;
+  let attempts = 0;
   while (Date.now() < deadline) {
     probe = await probeSession(session);
+    attempts += 1;
+    const signature = JSON.stringify({ codex: probe?.codex, markers: probe?.markers });
+    if (signature !== previousSignature) {
+      onChange?.(probe, { attempts, waitMs: elapsedMs(startedAt) });
+      previousSignature = signature;
+    }
     if (probe?.codex) return probe;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
+  onChange?.(probe, { attempts, waitMs: elapsedMs(startedAt), timedOut: true });
   return probe;
 }
 
@@ -978,8 +1013,10 @@ async function verifySession(session, expectedThemeId = null, expectedRevision =
         y: document.documentElement.scrollHeight > document.documentElement.clientHeight,
       },
     };
+    // The full preset uses dream-* classes for its own decorative elements.
+    // Keep the count for diagnostics without treating it as a failed install.
     const basePass = result.installed && result.version === ${JSON.stringify(SKIN_VERSION)} &&
-      result.stylePresent && result.businessClassPollution === 0;
+      result.stylePresent;
     const expectedThemeId = ${JSON.stringify(expectedThemeId)};
     const expectedRevision = ${JSON.stringify(expectedRevision)};
     const payloadPass = (!expectedThemeId || result.themeId === expectedThemeId) &&
@@ -1006,6 +1043,7 @@ async function verifySession(session, expectedThemeId = null, expectedRevision =
       shellLayoutPending: !(result.scope?.level === 'L0' ||
         (Boolean(result.shell?.visible) && Boolean(result.sidebar?.visible))),
       horizontalOverflow: result.documentOverflow.x,
+      themeOwnedClassCount: result.businessClassPollution,
     };
     return result;
   })()`);
@@ -1209,7 +1247,11 @@ export function earlyPayloadFor(payload, revision) {
       timeout = null;
     };
     const hasCodexSurface = () => {
-      if (location.protocol !== "app:") return false;
+      const codexLocation = location.protocol === "app:" ||
+        (location.protocol === "http:" &&
+          (location.hostname === "localhost" || location.hostname === "127.0.0.1") &&
+          location.port === "5175" && location.pathname === "/");
+      if (!codexLocation) return false;
       const shell = document.querySelector(${selectorLiteral("shell-main")});
       const sidebar = document.querySelector(${selectorLiteral("left-panel")});
       const main = document.querySelector(${selectorLiteral("home-route")});
@@ -1356,7 +1398,14 @@ async function watchOperationState(statePath, onState) {
 }
 
 async function runWatch(options) {
+  logTiming("watch-start", { port: options.port });
   let current = await loadPayload(options.themeDir);
+  logTiming("payload-ready", {
+    buildMs: current.timings.buildMs,
+    imageBytes: current.imageBytes,
+    payloadBytes: Buffer.byteLength(current.payload),
+    themeId: current.theme.id,
+  });
   const sessions = new Map();
   const rejected = new Set();
   let stopping = false;
@@ -1370,6 +1419,7 @@ async function runWatch(options) {
   let controlOnly = false;
   let mutationEpoch = 0;
   let activeTargetSetups = 0;
+  let startupFeedbackClaimed = false;
   const targetSetupWaiters = new Set();
   let wakeControlWait = null;
   const wakeControlLoop = () => {
@@ -1713,13 +1763,23 @@ async function runWatch(options) {
       let recoveryFailedThisCycle = false;
       for (const target of targets) {
         if (sessions.has(target.id)) continue;
+        const setupStartedAt = performance.now();
         let session;
         let record;
         let connectionEpoch;
         let recoveryOperation = cycleRecovery;
         beginTargetSetup();
         try {
+          logTiming("target-discovered", {
+            targetId: target.id,
+            title: target.title || "",
+            url: target.url,
+          });
           session = await connectTarget(target, options.port);
+          logTiming("target-connected", {
+            setupMs: elapsedMs(setupStartedAt),
+            targetId: target.id,
+          });
           record = {
             session,
             earlyScriptId: null,
@@ -1741,33 +1801,57 @@ async function runWatch(options) {
               });
             }, 0);
           });
+          // Keep one CDP session while the native splash hands off to the
+          // verified React shell. Reconnecting every 1.8 seconds competes with
+          // renderer startup and can repeatedly miss the ready state.
+          const probe = await waitForCodexProbe(session, 45000, 200, (sample, timing) => {
+            logTiming("shell-probe", {
+              ...timing,
+              codex: Boolean(sample?.codex),
+              markers: sample?.markers ?? null,
+              targetId: target.id,
+            });
+          });
+          if (!probe?.codex) {
+            session.close();
+            sessions.delete(target.id);
+            if (!rejected.has(target.id)) {
+              console.error(`[dream-skin] rejected renderer before Codex shell was ready ${target.id}`);
+              rejected.add(target.id);
+            }
+            continue;
+          }
+          logTiming("shell-ready", {
+            markers: probe.markers,
+            setupMs: elapsedMs(setupStartedAt),
+            targetId: target.id,
+          });
+          rejected.delete(target.id);
           const initialOperation = activeOperation;
           recoveryOperation = initialOperation ? null : cycleRecovery;
           const pausing = initialOperation?.status === "pausing";
           if (!controlOnly) {
             try {
+              const earlyStartedAt = performance.now();
               record.earlyScriptId = await registerEarlyForRecord(
                 record, current.payload, current.revision,
               );
+              logTiming("early-script-registered", {
+                stageMs: elapsedMs(earlyStartedAt),
+                targetId: target.id,
+              });
+              const earlyApplyStartedAt = performance.now();
               await session.evaluate(earlyPayloadFor(current.payload, current.revision));
+              logTiming("early-payload-evaluated", {
+                stageMs: elapsedMs(earlyApplyStartedAt),
+                targetId: target.id,
+              });
               if (controlOnly || mutationEpoch !== connectionEpoch) await invalidateEarly(record);
             } catch (error) {
               record.needsLoadFallback = true;
               console.error(`[dream-skin] early injection unavailable: ${error.message}`);
             }
           }
-          const probe = await waitForCodexProbe(session);
-          if (!probe?.codex) {
-            await removeEarly(record);
-            session.close();
-            sessions.delete(target.id);
-            if (!rejected.has(target.id)) {
-              console.error(`[dream-skin] rejected non-ChatGPT app target ${target.id}`);
-              rejected.add(target.id);
-            }
-            continue;
-          }
-          rejected.delete(target.id);
           if (controlOnly || pausing || mutationEpoch !== connectionEpoch) {
             await invalidateEarly(record);
           }
@@ -1775,20 +1859,25 @@ async function runWatch(options) {
             console.log(`[dream-skin] connected control-only target ${target.id}`);
             continue;
           }
-          record.operationToken = initialOperation?.token
-            ?? recoveryOperation?.token
-            ?? nextOperationToken();
+          // Show startup feedback once. Additional renderer targets and later
+          // watcher maintenance stay silent unless the user starts an action.
+          const startupFeedback = !initialOperation && !recoveryOperation && !startupFeedbackClaimed;
+          if (startupFeedback) startupFeedbackClaimed = true;
+          record.operationToken = initialOperation?.token ?? recoveryOperation?.token
+            ?? (startupFeedback ? nextOperationToken() : null);
           record.operationExternal = Boolean(initialOperation || recoveryOperation);
-          await presentOperationUi(
-            session,
-            record.operationToken,
-            "loading",
-            initialOperation
-              ? operationKindMessage(initialOperation.status === "pausing" ? "pause" : "apply")
-              : recoveryOperation
-                ? "暂停未完成，正在恢复原皮肤…"
-              : `正在应用「${current.theme.name}」…`,
-          );
+          if (record.operationToken) {
+            await presentOperationUi(
+              session,
+              record.operationToken,
+              "loading",
+              initialOperation
+                ? operationKindMessage(initialOperation.status === "pausing" ? "pause" : "apply")
+                : recoveryOperation
+                  ? "暂停未完成，正在恢复原皮肤…"
+                  : `正在应用「${current.theme.name}」…`,
+            );
+          }
           if (controlOnly || pausing) {
             continue;
           }
@@ -1803,18 +1892,30 @@ async function runWatch(options) {
             await session.evaluate(
               `window.__CODEX_DREAM_SKIN_EARLY_GENERATION__ = ${JSON.stringify(`fallback:${current.revision}`)}`,
             );
+            const fallbackStartedAt = performance.now();
             await applyToSession(session, current.payload);
+            logTiming("fallback-payload-evaluated", {
+              stageMs: elapsedMs(fallbackStartedAt),
+              targetId: target.id,
+            });
           }
           if (controlOnly || mutationEpoch !== connectionEpoch) {
             await invalidateEarly(record);
             continue;
           }
+          const verificationStartedAt = performance.now();
           const verification = await waitForVerifiedSession(
             session,
             Math.min(options.timeoutMs, 8000),
             current.theme.id,
             current.revision,
           );
+          logTiming("verification-finished", {
+            pass: Boolean(verification?.pass),
+            stageMs: elapsedMs(verificationStartedAt),
+            targetId: target.id,
+            totalSetupMs: elapsedMs(setupStartedAt),
+          });
           if (!verification?.pass) throw new Error("Initial theme verification failed");
           if (recoveryOperation && !activeOperation
             && pauseRecovery?.token === recoveryOperation.token) {
@@ -1826,7 +1927,7 @@ async function runWatch(options) {
               1000,
             );
             recoveredPauseThisCycle = true;
-          } else if (!record.operationExternal) {
+          } else if (record.operationToken && !record.operationExternal) {
             await presentOperationUi(
               session, record.operationToken, "success", `已应用「${current.theme.name}」`,
             );

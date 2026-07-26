@@ -8,7 +8,7 @@ ensure_state_root
 PORT="$(state_port || true)"
 stop_injector || fail 'Could not stop the recorded injector.'
 if [ -n "$PORT" ] && cdp_ready "$PORT"; then
-  "$NODE" "$INJECTOR" --remove --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 8000 >/dev/null
+  "${INJECTOR_ENV[@]}" "$NODE" "$INJECTOR" --remove --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 8000 >/dev/null
 fi
 rm -f "$STATE_PATH"
 desktop_file="${XDG_DATA_HOME:-$HOME/.local/share}/applications/Codex.desktop"

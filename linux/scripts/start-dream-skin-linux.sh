@@ -14,26 +14,29 @@ case "$PORT" in ''|*[!0-9]*) fail 'Port must be numeric.' ;; esac
 require_node
 discover_codex
 ensure_state_root
+launcher_started_ms="$(date +%s%3N)"
+printf '[dream-skin] timing %s launcher-start {"pid":%s}\n' \
+  "$(date '+%Y-%m-%dT%H:%M:%S.%3N%:z')" "$$" >>"$LOG_PATH"
 # An upgraded engine must not race a watcher that has an older renderer
 # template in memory. Stop it before the first payload is built.
 stop_injector || fail 'Could not stop the previous injector.'
+printf '[dream-skin] timing %s launcher-cleanup-finished {"elapsedMs":%s}\n' \
+  "$(date '+%Y-%m-%dT%H:%M:%S.%3N%:z')" "$(( $(date +%s%3N) - launcher_started_ms ))" >>"$LOG_PATH"
 
 if ! cdp_ready "$PORT"; then
   codex_is_running && fail 'Codex is already running without the Dream Skin CDP port. Close it, then run start again.'
   nohup "$CODEX_EXE" --remote-debugging-address=127.0.0.1 --remote-debugging-port="$PORT" \
     >>"$STATE_ROOT/codex-launch.log" 2>>"$STATE_ROOT/codex-launch-error.log" &
-  wait_for_cdp "$PORT" || fail "Codex did not expose CDP on 127.0.0.1:$PORT within 45 seconds."
+  printf '[dream-skin] timing %s codex-launch-requested {"elapsedMs":%s}\n' \
+    "$(date '+%Y-%m-%dT%H:%M:%S.%3N%:z')" "$(( $(date +%s%3N) - launcher_started_ms ))" >>"$LOG_PATH"
 fi
 
-apply_report="$STATE_ROOT/last-apply-report.json"
-if ! "$NODE" "$INJECTOR" --once --reload --port "$PORT" --theme-dir "$THEME_DIR" \
-  --timeout-ms 15000 >"$apply_report"; then
-  fail "Theme display verification failed; see $apply_report"
-fi
-nohup "$NODE" "$INJECTOR" --watch --port "$PORT" --theme-dir "$THEME_DIR" \
+nohup "${INJECTOR_ENV[@]}" "$NODE" "$INJECTOR" --watch --port "$PORT" --theme-dir "$THEME_DIR" \
   >>"$LOG_PATH" 2>>"$ERROR_LOG" &
 pid=$!
+printf '[dream-skin] timing %s watcher-launch-requested {"elapsedMs":%s,"pid":%s}\n' \
+  "$(date '+%Y-%m-%dT%H:%M:%S.%3N%:z')" "$(( $(date +%s%3N) - launcher_started_ms ))" "$pid" >>"$LOG_PATH"
 sleep 0.2
 kill -0 "$pid" 2>/dev/null || fail "Injector failed to start; see $ERROR_LOG"
 write_state "$PORT" "$pid"
-printf 'Codex Dream Skin applied on loopback CDP port %s.\n' "$PORT"
+printf 'Codex Dream Skin is waiting for the verified Codex shell on loopback CDP port %s.\n' "$PORT"

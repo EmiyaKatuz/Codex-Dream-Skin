@@ -144,12 +144,13 @@
   // Do not rescan while Codex streams tokens. Only shell-level changes and
   // navigation requests schedule a delayed refresh.
   const DOM_REFRESH_DEBOUNCE_MS = 1500;
-  const FALLBACK_REFRESH_MS = 15000;
+  const FALLBACK_REFRESH_MS = 60000;
   const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
   let samplingNativeShell = false;
   let observer = null;
   let resizeObserver = null;
   let resizeTargets = new Set();
+  const geometryScheduler = { frame: null, settleTimer: null };
   window.__CODEX_DREAM_SKIN_DISABLED__ = false;
 
   const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, Number(value)));
@@ -214,6 +215,12 @@
   if (previous?.timer) clearInterval(previous.timer);
   if (previous?.scheduler?.timeout) clearTimeout(previous.scheduler.timeout);
   if (previous?.scheduler?.frame) window.cancelAnimationFrame?.(previous.scheduler.frame);
+  if (previous?.geometryScheduler?.frame) {
+    window.cancelAnimationFrame?.(previous.geometryScheduler.frame);
+  }
+  if (previous?.geometryScheduler?.settleTimer) {
+    clearTimeout(previous.geometryScheduler.settleTimer);
+  }
   if (previous?.resizeHandler) window.removeEventListener("resize", previous.resizeHandler);
   previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
   if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
@@ -709,6 +716,25 @@
       workspace.appendChild(brand);
     }
     return brand;
+  };
+
+  const syncChromeGeometry = (chrome, shellMain, home) => {
+    if (!chrome || !shellMain) return;
+    const mainBox = shellMain.getBoundingClientRect?.();
+    const composerBox = home?.querySelector?.(".composer-surface-chrome")?.getBoundingClientRect?.();
+    if (mainBox?.width > 0 && mainBox?.height > 0) {
+      chrome.style?.setProperty?.("--dream-main-left", `${Math.round(mainBox.left)}px`);
+      chrome.style?.setProperty?.("--dream-main-top", `${Math.round(mainBox.top)}px`);
+      chrome.style?.setProperty?.("--dream-main-width", `${Math.round(mainBox.width)}px`);
+      chrome.style?.setProperty?.("--dream-main-height", `${Math.round(mainBox.height)}px`);
+      updateChotenArtGeometry(chrome, mainBox);
+      if (composerBox?.width > 0 && composerBox?.height > 0) {
+        chrome.style?.setProperty?.("--dream-composer-left", `${Math.round(composerBox.left - mainBox.left)}px`);
+        chrome.style?.setProperty?.("--dream-composer-right", `${Math.round(mainBox.right - composerBox.right)}px`);
+        chrome.style?.setProperty?.("--dream-composer-top", `${Math.round(composerBox.top - mainBox.top)}px`);
+      }
+    }
+    chrome.classList.toggle("dream-home-shell", Boolean(home));
   };
 
   const ensure = () => {
@@ -1431,21 +1457,7 @@
         </div>`;
       chrome.dataset.dreamOrnaments = "7";
     }
-    const mainBox = shellMain.getBoundingClientRect?.();
-    const composerBox = home?.querySelector?.(".composer-surface-chrome")?.getBoundingClientRect?.();
-    if (mainBox?.width > 0 && mainBox?.height > 0) {
-      chrome.style?.setProperty?.("--dream-main-left", `${Math.round(mainBox.left)}px`);
-      chrome.style?.setProperty?.("--dream-main-top", `${Math.round(mainBox.top)}px`);
-      chrome.style?.setProperty?.("--dream-main-width", `${Math.round(mainBox.width)}px`);
-      chrome.style?.setProperty?.("--dream-main-height", `${Math.round(mainBox.height)}px`);
-      updateChotenArtGeometry(chrome, mainBox);
-      if (composerBox?.width > 0 && composerBox?.height > 0) {
-        chrome.style?.setProperty?.("--dream-composer-left", `${Math.round(composerBox.left - mainBox.left)}px`);
-        chrome.style?.setProperty?.("--dream-composer-right", `${Math.round(mainBox.right - composerBox.right)}px`);
-        chrome.style?.setProperty?.("--dream-composer-top", `${Math.round(composerBox.top - mainBox.top)}px`);
-      }
-    }
-    chrome.classList.toggle("dream-home-shell", Boolean(home));
+    syncChromeGeometry(chrome, shellMain, home);
   };
 
   const scheduler = { frame: null, timeout: null, dueAt: 0, lastRunAt: -Infinity };
@@ -1458,9 +1470,25 @@
     } catch {}
     return Date.now();
   };
+  const observeRendererStructure = () => {
+    if (!observer) return;
+    observer.disconnect();
+    const root = document.documentElement;
+    const body = document.body;
+    const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
+    const attributeOptions = {
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
+    };
+    if (root) observer.observe(root, attributeOptions);
+    if (body) observer.observe(body, { ...attributeOptions, childList: true });
+    if (shellMain) observer.observe(shellMain, { childList: true });
+  };
   const runEnsureSafely = () => {
     const now = schedulerNow();
     scheduler.lastRunAt = now;
+    observer?.disconnect();
     try {
       ensure();
       return true;
@@ -1474,6 +1502,9 @@
         } catch {}
       }
       return false;
+    } finally {
+      observer?.takeRecords?.();
+      observeRendererStructure();
     }
   };
 
@@ -1487,6 +1518,12 @@
     if (state?.timer) clearInterval(state.timer);
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
     if (state?.scheduler?.frame) window.cancelAnimationFrame?.(state.scheduler.frame);
+    if (state?.geometryScheduler?.frame) {
+      window.cancelAnimationFrame?.(state.geometryScheduler.frame);
+    }
+    if (state?.geometryScheduler?.settleTimer) {
+      clearTimeout(state.geometryScheduler.settleTimer);
+    }
     if (state?.resizeHandler) window.removeEventListener("resize", state.resizeHandler);
     if (state?.navigationHandler) {
       window.removeEventListener("popstate", state.navigationHandler);
@@ -1534,40 +1571,75 @@
     .filter((className) => className && className !== "codex-dream-skin" && !className.startsWith("dream-"))
     .sort()
     .join(" ");
-  const resizeHandler = () => scheduleEnsure(100);
+  const isInjectedNode = (node) => node?.nodeType === 1 && [
+    CHROME_ID,
+    FALLBACK_PRESETS_ID,
+    SIDEBAR_CHROME_ID,
+    SIDE_WORKSPACE_BRAND_ID,
+    "chatgpt-dream-skin-operation",
+  ].includes(node.id);
+  const hasNativeStructuralNode = (record) =>
+    [...record.addedNodes, ...record.removedNodes]
+      .some((node) => node?.nodeType === 1 && !isInjectedNode(node));
+  const resizeHandler = (event) => {
+    if (event?.type === "resize") {
+      if (geometryScheduler.settleTimer) clearTimeout(geometryScheduler.settleTimer);
+      geometryScheduler.settleTimer = setTimeout(() => {
+        geometryScheduler.settleTimer = null;
+        scheduleEnsure();
+      }, 300);
+    }
+    if (geometryScheduler.frame) return;
+    const sync = () => {
+      geometryScheduler.frame = null;
+      const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
+      const home = shellMain?.classList?.contains?.("dream-home-shell")
+        ? document.querySelector('[role="main"].dream-home') || shellMain
+        : null;
+      syncChromeGeometry(document.getElementById(CHROME_ID), shellMain, home);
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      geometryScheduler.frame = window.requestAnimationFrame(sync);
+    } else {
+      sync();
+    }
+  };
   const motionHandler = () => scheduleEnsure(100);
-  const navigationHandler = () => scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+  const navigationHandler = (event) => {
+    if (event?.type === "popstate") {
+      scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+      return;
+    }
+    const target = event?.target?.closest?.(
+      'a[href], [role="link"], [role="tab"], [role="menuitem"], ' +
+      '[data-settings-panel-slug], aside.app-shell-left-panel button, ' +
+      'button[aria-controls], button[aria-expanded], button[aria-haspopup]',
+    );
+    if (target) scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+  };
   window.addEventListener("resize", resizeHandler, { passive: true });
   motionQuery?.addEventListener?.("change", motionHandler);
   window.addEventListener("popstate", navigationHandler);
   document.addEventListener("click", navigationHandler, true);
   if (typeof ResizeObserver === "function") {
-    resizeObserver = new ResizeObserver(() => scheduleEnsure(250));
+    resizeObserver = new ResizeObserver(() => resizeHandler());
   }
   if (!lowPerformance) {
     observer = new MutationObserver((records) => {
       if (samplingNativeShell) return;
-      // Observing descendants makes every streamed assistant token produce a
-      // record and triggers a full selector pass. Restrict this to shell-level
-      // mutations; route navigation is additionally covered by click/popstate.
       const hasShellChange = records.some((record) => {
-        if (record.type === "childList") return record.target === document.documentElement;
-        return record.target === document.documentElement &&
-          withoutManagedClasses(record.oldValue) !==
-            withoutManagedClasses(record.target?.getAttribute?.("class"));
+        if (record.type === "childList") return hasNativeStructuralNode(record);
+        if (record.attributeName !== "class") return true;
+        return withoutManagedClasses(record.oldValue) !==
+          withoutManagedClasses(record.target?.getAttribute?.("class"));
       });
       if (hasShellChange) scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
     });
-    observer.observe(document.documentElement, {
-      childList: true,
-      attributes: true,
-      attributeOldValue: true,
-      attributeFilter: ["class", "data-theme", "data-appearance", "data-color-mode"],
-    });
+    observeRendererStructure();
   }
   const timer = setInterval(runEnsureSafely, lowPerformance ? 30000 : FALLBACK_REFRESH_MS);
   const runtimeState = {
-    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, resizeHandler, navigationHandler, motionQuery, motionHandler,
+    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler, resizeHandler, navigationHandler, motionQuery, motionHandler,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
     themeId: config.themeId,
     revision: PAYLOAD_REVISION,

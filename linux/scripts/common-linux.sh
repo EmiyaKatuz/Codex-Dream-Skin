@@ -12,6 +12,10 @@ THEME_DIR="$STATE_ROOT/theme"
 STATE_PATH="$STATE_ROOT/state.json"
 LOG_PATH="$STATE_ROOT/injector.log"
 ERROR_LOG="$STATE_ROOT/injector-error.log"
+INJECTOR_ENV=(env
+  -u ALL_PROXY -u HTTPS_PROXY -u HTTP_PROXY
+  -u all_proxy -u https_proxy -u http_proxy
+  -u NODE_USE_ENV_PROXY)
 
 fail() { printf 'Codex Dream Skin: %s\n' "$*" >&2; exit 1; }
 
@@ -43,11 +47,18 @@ discover_codex() {
     [ -n "$candidate" ] && CODEX_EXE="$(command -v "$candidate" 2>/dev/null || true)"
   fi
   [ -n "$CODEX_EXE" ] && [ -x "$CODEX_EXE" ] || fail 'Official Codex Desktop was not found. Set CODEX_APP_BIN to its executable path.'
+  CODEX_RUNTIME_EXE="${CODEX_APP_PROCESS_BIN:-}"
+  if [ -z "$CODEX_RUNTIME_EXE" ] && [ -x /usr/lib/openai-codex-desktop/codex ]; then
+    CODEX_RUNTIME_EXE=/usr/lib/openai-codex-desktop/codex
+  fi
   export CODEX_EXE
+  export CODEX_RUNTIME_EXE
 }
 
 codex_is_running() {
-  pgrep -f "^${CODEX_EXE//./\\.}( |$)" >/dev/null 2>&1
+  pgrep -f "^${CODEX_EXE//./\\.}( |$)" >/dev/null 2>&1 && return 0
+  [ -n "${CODEX_RUNTIME_EXE:-}" ] || return 1
+  pgrep -f "^${CODEX_RUNTIME_EXE//./\\.}( |$)" >/dev/null 2>&1
 }
 
 cdp_ready() {

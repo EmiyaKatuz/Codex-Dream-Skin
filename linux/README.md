@@ -31,7 +31,7 @@ The installer creates a user-level `Codex.desktop` override, refreshes the deskt
 
 ## Performance
 
-Linux defaults to `"performanceMode": "full"`, preserving the complete Choten animation, particles, and filters. DOM refresh is deliberately limited: only shell-level mutations, navigation actions, resize/appearance changes, and a 15-second fallback can trigger a full scan; streamed text updates do not. Startup verification has a 15-second limit and confirms the injected runtime, stylesheet, and theme revision. Transient home-card and shell-layout signals are retained as diagnostics in `last-apply-report.json`, not treated as application failures. Set `performanceMode` to `"low"` in the active `theme.json` to disable animated ornaments and blur when battery life or GPU load matters more.
+Linux defaults to `"performanceMode": "full"`, preserving the complete Choten animation, particles, and filters. DOM refresh is deliberately limited: verified navigation controls, shell-level structural mutations, appearance changes, and a 60-second safety fallback can trigger a full scan; ordinary clicks and streamed text updates do not. Window resizing updates theme geometry once per animation frame and runs one full reconciliation after the resize settles. Startup is non-blocking: the watcher waits for verified Codex shell markers, shows one application status, then keeps ordinary renderer maintenance silent. Set `performanceMode` to `"low"` in the active `theme.json` to disable animated ornaments and blur when battery life or GPU load matters more.
 
 ## Build a distributable archive
 

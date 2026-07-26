@@ -8,4 +8,4 @@ ensure_state_root
 PORT="$(state_port || true)"
 [ -n "$PORT" ] || fail 'No active Dream Skin state was found.'
 cdp_ready "$PORT" || fail "Codex CDP is unavailable on port $PORT."
-exec "$NODE" "$INJECTOR" --verify --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 30000
+exec "${INJECTOR_ENV[@]}" "$NODE" "$INJECTOR" --verify --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 30000
