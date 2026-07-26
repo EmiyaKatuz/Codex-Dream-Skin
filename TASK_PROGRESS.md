@@ -31,8 +31,10 @@ Updated: 2026-07-27 00:18 CST (Asia/Shanghai)
 - [verified] A fresh arm64 app build completed. Strict code-signature verification,
   arm64 Mach-O inspection and byte-for-byte packaged overlay asset comparisons
   pass. The build was not installed or published.
-- [pending] Commit and push this follow-up to update ready PR #8. GitHub CI and
-  maintainer review remain separate gates; no merge, release or install is claimed.
+- [complete] Follow-up commit `2111c3b` is pushed to the account fork and ready
+  PR #8 now points at that exact implementation. GitHub reports the PR open and
+  `BLOCKED` with no check rollup; CI and maintainer review remain separate gates.
+  No merge, release or install is claimed.
 
 ## macOS Internet Angel Visual Parity (2026-07-26 21:48 CST)
 
