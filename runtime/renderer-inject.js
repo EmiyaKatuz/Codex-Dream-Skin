@@ -20,9 +20,11 @@
   const STYLE_REVISION = __DREAM_SKIN_STYLE_REVISION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
   const THEME = themeConfig && typeof themeConfig === "object" ? themeConfig : {};
-  const isInternetAngelTheme = /(?:internet-angel|choten)/i.test(
-    `${THEME.id || ""} ${THEME.name || ""}`,
-  );
+  const INTERNET_ANGEL_THEME_IDS = new Set([
+    "preset-internet-angel",
+    "preset-internet-angel-default",
+  ]);
+  const isInternetAngelTheme = INTERNET_ANGEL_THEME_IDS.has(String(THEME.id || "").trim());
   const ART = THEME.art && typeof THEME.art === "object" ? THEME.art : {};
   const ART_METADATA = THEME.artMetadata && typeof THEME.artMetadata === "object"
     ? THEME.artMetadata : null;

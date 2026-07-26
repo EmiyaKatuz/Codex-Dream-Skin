@@ -252,6 +252,16 @@ export async function runRendererRuntimeTest(assetRoot) {
   // and the measured fossil selector must be absent from the canonical CSS.
   assert.doesNotMatch(css, /(?:^|[.#\s])(?:codex-dream-skin|dream-skin-home|dream-home|dream-task)(?:[\s.#:{>]|$)|home-suggestion-list-item/);
   assert.match(css, /html\[data-dream-skin="active"\]/);
+  const angelHomeStart = css.indexOf("/* Internet Angel home deck");
+  const angelHomeEnd = css.indexOf("/* Internet Angel sidebar and broadcast HUD", angelHomeStart);
+  assert.ok(angelHomeStart >= 0 && angelHomeEnd > angelHomeStart,
+    "Internet Angel home section markers must remain available for isolation checks.");
+  const angelHomeCss = css.slice(angelHomeStart, angelHomeEnd);
+  const unscopedAngelRoots = angelHomeCss.match(
+    /html\[data-dream-skin="active"\](?!\[data-dream-theme="internet-angel"\])/g,
+  ) ?? [];
+  assert.equal(unscopedAngelRoots.length, 0,
+    "Internet Angel home rules must not affect Gothic or custom themes.");
   // Home gating must stay single-level: CSS forbids :has() inside :has(),
   // and Chromium drops any rule that nests it (the v1.3.1 regression).  The
   // canonical CSS therefore gates on the :has()-free home-route-css alias.
@@ -403,6 +413,34 @@ export async function runRendererRuntimeTest(assetRoot) {
     assert.equal(explicitLight.rootStyle.values.get(variable), expected,
       `${variable} must support official hex forms and clamp RGB channels`);
   }
+
+  const defaultAngelHome = makeFixture({ nativeAppearance: "dark", homeDeck: true });
+  vm.runInNewContext(
+    defaultAngelHome.payloadFor({ id: "preset-internet-angel-default" }),
+    defaultAngelHome.context,
+  );
+  assert.equal(defaultAngelHome.attrs.get("data-dream-theme"), "internet-angel");
+  assert.equal(defaultAngelHome.nodes.has("chatgpt-internet-angel-deck"), true);
+  assert.equal(defaultAngelHome.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+
+  const namedCustomHome = makeFixture({ nativeAppearance: "dark", homeDeck: true });
+  vm.runInNewContext(
+    namedCustomHome.payloadFor({ id: "custom-theme", name: "Choten fan theme" }),
+    namedCustomHome.context,
+  );
+  assert.equal(namedCustomHome.attrs.get("data-dream-theme"), "standard",
+    "Theme names must not opt custom themes into the Internet Angel renderer.");
+  assert.equal(namedCustomHome.nodes.has("chatgpt-internet-angel-deck"), false);
+  assert.equal(namedCustomHome.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+
+  const standardHome = makeFixture({ nativeAppearance: "dark", homeDeck: true });
+  vm.runInNewContext(standardHome.payloadFor({ id: "preset-standard" }), standardHome.context);
+  assert.equal(standardHome.attrs.get("data-dream-theme"), "standard");
+  assert.equal(standardHome.nodes.has("chatgpt-internet-angel-deck"), false);
+  assert.equal(standardHome.nodes.has("chatgpt-internet-angel-sidebar"), false);
+  assert.equal(standardHome.nodes.has("chatgpt-internet-angel-hud"), false);
+  assert.equal(standardHome.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+  assert.equal(standardHome.intervals.size, 0);
 
   rootObserver.callback([]);
   home.flushTimers(64);
