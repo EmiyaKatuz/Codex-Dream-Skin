@@ -195,17 +195,110 @@ function Get-DreamSkinTomlArrayBracketBalance {
   return $balance
 }
 
+function Get-DreamSkinTomlLineStructure {
+  param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line)
+
+  $builder = [System.Text.StringBuilder]::new()
+  $quote = $null
+  $escaped = $false
+  for ($index = 0; $index -lt $Line.Length; $index++) {
+    $character = $Line[$index]
+    if ($quote -ceq '"') {
+      if ($escaped) {
+        $escaped = $false
+      } elseif ($character -eq '\') {
+        $escaped = $true
+      } elseif ($character -eq $quote) {
+        $quote = $null
+      }
+      continue
+    }
+    if ($quote -ceq "'") {
+      if ($character -eq $quote) { $quote = $null }
+      continue
+    }
+    if ($character -eq '"' -or $character -eq "'") {
+      $quote = $character
+    } elseif ($character -eq '#') {
+      break
+    } else {
+      [void]$builder.Append($character)
+    }
+  }
+  return $builder.ToString()
+}
+
+function Test-DreamSkinTomlTableHeaderStructure {
+  param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Structure)
+
+  $value = $Structure.Trim()
+  if ($value.StartsWith('[[')) {
+    return (
+      $value.EndsWith(']]') -and
+      -not $value.Substring(2, $value.Length - 4).Contains('[') -and
+      -not $value.Substring(2, $value.Length - 4).Contains(']')
+    )
+  }
+  return (
+    $value.StartsWith('[') -and
+    -not $value.StartsWith('[[') -and
+    $value.EndsWith(']') -and
+    -not $value.Substring(1, $value.Length - 2).Contains('[') -and
+    -not $value.Substring(1, $value.Length - 2).Contains(']')
+  )
+}
+
+function Get-DreamSkinTomlTableHeaders {
+  param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Content)
+
+  $headers = @()
+  $offset = 0
+  $arrayDepth = 0
+  $desktopToken = Get-DreamSkinTomlKeyTokenPattern -Key 'desktop'
+  $desktopPattern = "^[\t ]*\[[\t ]*$desktopToken[\t ]*\][\t ]*(?:#[^\r\n]*)?(?:\r?\n)?$"
+  foreach ($lineMatch in [regex]::Matches($Content, '[^\n]*\n|[^\n]+$')) {
+    $line = $lineMatch.Value
+    $structure = Get-DreamSkinTomlLineStructure -Line $line
+    $trimmed = $structure.Trim()
+    if ($arrayDepth -eq 0 -and (Test-DreamSkinTomlTableHeaderStructure -Structure $trimmed)) {
+      $headers += [pscustomobject]@{
+        Index = $offset
+        BodyStart = $offset + $line.Length
+        Desktop = [regex]::IsMatch($line, $desktopPattern)
+      }
+    } else {
+      $assignment = $structure.IndexOf('=')
+      if ($arrayDepth -eq 0 -and $assignment -lt 0) {
+        if ($structure.Contains('[') -or $structure.Contains(']')) {
+          throw 'Refusing to rewrite malformed TOML array syntax.'
+        }
+      } else {
+        $expression = if ($arrayDepth -gt 0) {
+          $structure
+        } else {
+          $structure.Substring($assignment + 1)
+        }
+        $arrayDepth += Get-DreamSkinTomlArrayBracketBalance -Line $expression
+        if ($arrayDepth -lt 0) {
+          throw 'Refusing to rewrite TOML containing an unmatched array bracket.'
+        }
+      }
+    }
+    $offset += $line.Length
+  }
+  if ($arrayDepth -ne 0) {
+    throw 'Refusing to rewrite TOML containing an unterminated array.'
+  }
+  return $headers
+}
+
 function Assert-DreamSkinTomlLineEditingSafe {
   param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Content)
 
   if ($Content.Contains('"""') -or $Content.Contains("'''")) {
     throw 'Refusing to rewrite TOML containing multiline strings; use single-line values before installing Dream Skin.'
   }
-  foreach ($match in [regex]::Matches($Content, '(?m)^[^\r\n]*=[\t ]*\[[^\r\n]*\r?$')) {
-    if ((Get-DreamSkinTomlArrayBracketBalance -Line $match.Value) -ne 0) {
-      throw 'Refusing to rewrite TOML containing multiline arrays; use single-line arrays before installing Dream Skin.'
-    }
-  }
+  $null = @(Get-DreamSkinTomlTableHeaders -Content $Content)
 
   $probe = ConvertTo-DreamSkinTomlAsciiEscapeProbe -Value $Content
   if ($probe -cne $Content) {
@@ -217,11 +310,6 @@ function Assert-DreamSkinTomlLineEditingSafe {
       throw 'Refusing to rewrite an escaped TOML key equivalent to desktop; normalize the key spelling first.'
     }
   }
-}
-
-function Get-DreamSkinDesktopSectionPattern {
-  $desktopToken = Get-DreamSkinTomlKeyTokenPattern -Key 'desktop'
-  return "(?ms)^[\t ]*\[[\t ]*$desktopToken[\t ]*\][\t ]*(?:#[^\r\n]*)?(?:\r?\n|(?=\z))(?<body>.*?)(?=^[\t ]*\[\[?|\z)"
 }
 
 function Test-DreamSkinDesktopNestedTable {
@@ -242,8 +330,8 @@ function Assert-DreamSkinDesktopShapeSupported {
   param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Content)
 
   Assert-DreamSkinTomlLineEditingSafe -Content $Content
-  $sectionPattern = Get-DreamSkinDesktopSectionPattern
-  if ([regex]::Matches($Content, $sectionPattern).Count -gt 1) {
+  $headers = @(Get-DreamSkinTomlTableHeaders -Content $Content)
+  if (@($headers | Where-Object { $_.Desktop }).Count -gt 1) {
     throw 'Refusing to rewrite multiple equivalent [desktop] tables.'
   }
 
@@ -257,8 +345,7 @@ function Assert-DreamSkinDesktopShapeSupported {
     }
   }
 
-  $firstTable = [regex]::Match($Content, '(?m)^[\t ]*\[\[?')
-  $rootContent = if ($firstTable.Success) { $Content.Substring(0, $firstTable.Index) } else { $Content }
+  $rootContent = if ($headers.Count -gt 0) { $Content.Substring(0, $headers[0].Index) } else { $Content }
   if ([regex]::IsMatch($rootContent, "(?m)^[\t ]*$desktopToken[\t ]*(?:\.|=)")) {
     throw 'Refusing to rewrite root dotted or inline desktop keys; normalize them to a [desktop] table first.'
   }
@@ -288,14 +375,32 @@ function Assert-DreamSkinDesktopShapeSupported {
 function Get-DreamSkinDesktopSection {
   param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Content)
 
-  $match = [regex]::Match($Content, (Get-DreamSkinDesktopSectionPattern))
-  if (-not $match.Success) { return $null }
+  $headers = @(Get-DreamSkinTomlTableHeaders -Content $Content)
+  $desktopHeaders = @($headers | Where-Object { $_.Desktop })
+  if ($desktopHeaders.Count -gt 1) {
+    throw 'Refusing to rewrite multiple equivalent [desktop] tables.'
+  }
+  if ($desktopHeaders.Count -eq 0) { return $null }
+  $header = $desktopHeaders[0]
+  $headerIndex = -1
+  for ($index = 0; $index -lt $headers.Count; $index++) {
+    if ($headers[$index].Index -eq $header.Index) {
+      $headerIndex = $index
+      break
+    }
+  }
+  if ($headerIndex -lt 0) { throw 'Could not resolve the [desktop] table boundary.' }
+  $bodyEnd = if ($headerIndex + 1 -lt $headers.Count) {
+    $headers[$headerIndex + 1].Index
+  } else {
+    $Content.Length
+  }
   return [pscustomobject]@{
-    Body = $match.Groups['body'].Value
-    BodyStart = $match.Groups['body'].Index
-    BodyLength = $match.Groups['body'].Length
-    SectionStart = $match.Index
-    SectionLength = $match.Length
+    Body = $Content.Substring($header.BodyStart, $bodyEnd - $header.BodyStart)
+    BodyStart = $header.BodyStart
+    BodyLength = $bodyEnd - $header.BodyStart
+    SectionStart = $header.Index
+    SectionLength = $bodyEnd - $header.Index
   }
 }
 
@@ -324,6 +429,11 @@ function Set-DreamSkinSectionSetting {
   if ($matcher.Matches($Body).Count -gt 1) {
     throw "Refusing to rewrite duplicate '$Key' entries in the [desktop] section."
   }
+  $existing = $matcher.Match($Body)
+  if ($existing.Success -and
+    (Get-DreamSkinTomlArrayBracketBalance -Line $existing.Value) -ne 0) {
+    throw "Refusing to rewrite multiline '$Key' settings in the [desktop] section."
+  }
   if ($null -eq $Line) { return $matcher.Replace($Body, '', 1) }
   $normalizedLine = $Line.TrimEnd("`r", "`n") + $NewLine
   if ($matcher.IsMatch($Body)) {
@@ -343,6 +453,9 @@ function Get-DreamSkinSectionSettingLine {
   $matches = [regex]::Matches($Body, "(?m)^[\t ]*$keyToken[\t ]*=.*$")
   if ($matches.Count -gt 1) { throw "Refusing to inspect duplicate '$Key' entries in the [desktop] section." }
   if ($matches.Count -eq 0) { return $null }
+  if ((Get-DreamSkinTomlArrayBracketBalance -Line $matches[0].Value) -ne 0) {
+    throw "Refusing to inspect multiline '$Key' settings in the [desktop] section."
+  }
   return $matches[0].Value.Trim()
 }
 

@@ -5,13 +5,13 @@ Node.js 或执行 PowerShell 脚本。
 
 ## 首次安装
 
-先从 Microsoft Store 安装官方 ChatGPT / Codex 桌面应用，至少启动一次后退出。
+先从 Microsoft Store 安装当前用户的官方 `OpenAI.Codex` 桌面应用，至少启动一次后退出。
 
 1. 在 GitHub 的 [Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases) 下载最新的
-   `CodexDreamSkin-Setup-vX.Y.Z.exe`。`SHA256SUMS.txt` 是可选的完整性校验文件。
+   `CodexDreamSkin-Setup-vX.Y.Z.exe` 与 `SHA256SUMS.txt`，并在运行前核对 SHA-256。
 2. 双击安装器，按向导完成安装。默认安装到当前用户的 LocalAppData，不需要管理员权限；安装前
    请先退出 Codex。
-3. 安装完成后，从开始菜单启动 Codex Dream Skin，系统托盘会显示主题图标。
+3. 安装完成后，从开始菜单启动 Codex Dream Skin；开始菜单、应用列表和系统托盘会显示超天酱图标。
 
 ### 为什么有时会看到“Windows 已保护你的电脑”
 
@@ -54,7 +54,7 @@ Node.js 或执行 PowerShell 脚本。
 
 ## 手动更新
 
-更新是覆盖安装，不是重新配置：
+更新采用覆盖安装，现有配置会保留：
 
 1. 从 Releases 下载新的 `CodexDreamSkin-Setup-vX.Y.Z.exe`。
 2. 退出 Dream Skin 托盘，并关闭 Codex。
@@ -83,8 +83,19 @@ CDP；恢复失败时会停止卸载，不会直接删除运行文件。默认�
 
 ### 安装后仍提示找不到 Node.js
 
-确认使用的是 Release Setup.exe，而不是仓库脚本安装方式。Release 安装器会带上固定的 Node 运行时；
+确认使用 Release Setup.exe；仓库脚本属于源码安装方式。Release 安装器会带上固定的 Node 运行时；
 若问题持续，请保留安装日志并报告版本，不要随意从第三方网站下载 `node.exe` 覆盖安装目录。
+
+### 提示官方 Store 包缺失或身份无法验证
+
+该提示发生在文件修改前。请确认 Codex 来自 Microsoft Store、安装在当前 Windows 用户下，并已至少成功
+启动一次。Dream Skin 只接受 `OpenAI.Codex` 包名、Store 签名、非开发模式、清单中唯一
+`app\ChatGPT.exe` 与合法 AUMID 同时成立的安装；不会跳过身份校验或调整 WindowsApps 权限。
+
+### `config.toml` 使用多行数组
+
+`v1.5.7` 起支持合法的 TOML 多行数组，更新时无需改成单行。未闭合数组、孤立右括号、多行受管外观值和
+多行字符串仍会在写入前停止；请修复对应 TOML 语法并保留原文件副本。
 
 ### Codex 更新后主题失效
 

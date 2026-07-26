@@ -11,15 +11,18 @@ trap 'status=$?; /bin/rm -rf "$TMP"; exit "$status"' EXIT
 
 ICONSET="$TMP/DreamSkin.iconset"
 SOURCE="$TMP/icon-1024.png"
+ARTWORK="$ROOT/../windows/assets/internet-angel-tray.png"
 /bin/mkdir -p "$ICONSET" "$(dirname "$OUTPUT")"
+[ -s "$ARTWORK" ] \
+  || { printf 'Internet Angel application icon source is missing: %s\n' "$ARTWORK" >&2; exit 1; }
 # No array here: expanding an empty array under `set -u` is fatal on the
 # /bin/bash 3.2 this shebang resolves to.
 if [ -n "${DREAMSKIN_SDK:-}" ]; then
   /usr/bin/xcrun swift -sdk "$DREAMSKIN_SDK" \
-    "$ROOT/menubar-app/Tools/generate-icon.swift" "$SOURCE"
+    "$ROOT/menubar-app/Tools/generate-icon.swift" "$ARTWORK" "$SOURCE"
 else
   /usr/bin/xcrun swift \
-    "$ROOT/menubar-app/Tools/generate-icon.swift" "$SOURCE"
+    "$ROOT/menubar-app/Tools/generate-icon.swift" "$ARTWORK" "$SOURCE"
 fi
 
 make_icon() {

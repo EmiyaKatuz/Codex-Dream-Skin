@@ -1,9 +1,16 @@
 import AppKit
 import Foundation
 
-guard CommandLine.arguments.count == 2 else {
-  fputs("Usage: generate-icon.swift <output.png>\n", stderr)
+guard CommandLine.arguments.count == 3 else {
+  fputs("Usage: generate-icon.swift <internet-angel.png> <output.png>\n", stderr)
   exit(2)
+}
+
+let sourcePath = CommandLine.arguments[1]
+let outputPath = CommandLine.arguments[2]
+guard let source = NSImage(contentsOfFile: sourcePath), source.isValid else {
+  fputs("Could not load the Internet Angel icon source.\n", stderr)
+  exit(1)
 }
 
 let pixels = 1024
@@ -30,36 +37,15 @@ guard let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
 }
 NSGraphicsContext.current = context
 
-// DreamSkin 品牌 mark，与 dreamskin.cc 的 favicon 同源：白底圆角方 +
-// 发丝描边 + 墨色对角三角 + 青色圆点。坐标取自 32 栅格 favicon ×32
-//（AppKit 坐标系原点在左下，Y 轴与 SVG 相反，已做镜像换算）。
-let canvas = NSRect(x: 64, y: 64, width: 896, height: 896)
-let cornerRadius: CGFloat = 288
-let background = NSBezierPath(roundedRect: canvas, xRadius: cornerRadius, yRadius: cornerRadius)
-let paper = NSColor(calibratedRed: 0.992, green: 0.992, blue: 0.988, alpha: 1) // #fdfdfc
-let ink = NSColor(calibratedRed: 0.090, green: 0.094, blue: 0.110, alpha: 1) // #17181c
-let teal = NSColor(calibratedRed: 0.176, green: 0.882, blue: 0.761, alpha: 1) // #2de1c2
-
-paper.setFill()
-background.fill()
-
-NSGraphicsContext.current?.saveGraphicsState()
-background.addClip()
-ink.setFill()
-let diagonal = NSBezierPath()
-diagonal.move(to: NSPoint(x: 64, y: 64))
-diagonal.line(to: NSPoint(x: 960, y: 960))
-diagonal.line(to: NSPoint(x: 960, y: 64))
-diagonal.close()
-diagonal.fill()
-NSGraphicsContext.current?.restoreGraphicsState()
-
-ink.withAlphaComponent(0.14).setStroke()
-background.lineWidth = 32
-background.stroke()
-
-teal.setFill()
-NSBezierPath(ovalIn: NSRect(x: 656, y: 656, width: 160, height: 160)).fill()
+NSColor.clear.setFill()
+NSRect(x: 0, y: 0, width: pixels, height: pixels).fill()
+context.imageInterpolation = .none
+source.draw(
+  in: NSRect(x: 0, y: 0, width: pixels, height: pixels),
+  from: NSRect(origin: .zero, size: source.size),
+  operation: .sourceOver,
+  fraction: 1
+)
 
 context.flushGraphics()
 NSGraphicsContext.restoreGraphicsState()
@@ -69,7 +55,7 @@ guard let data = bitmap.representation(using: .png, properties: [:]) else {
   exit(1)
 }
 do {
-  try data.write(to: URL(fileURLWithPath: CommandLine.arguments[1]), options: .atomic)
+  try data.write(to: URL(fileURLWithPath: outputPath), options: .atomic)
 } catch {
   fputs("Could not write icon: \(error.localizedDescription)\n", stderr)
   exit(1)

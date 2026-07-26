@@ -14,7 +14,7 @@
   <sub>The default Windows theme asset; the runtime injection layer renders the controls, layout, and animation.</sub>
 </p>
 
-> Current fork release: `1.5.6` (2026-07-26). Windows is the primary development and verification platform. macOS and Linux support continue alongside upstream and fork contributions.
+> Current fork release: `1.5.7` (2026-07-26). Windows is the primary development and verification platform. macOS and Linux support continue alongside upstream and fork contributions.
 
 Installers are published through this fork's [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases).
 
@@ -56,12 +56,21 @@ The Windows release builder verifies the theme IDs, image mappings, and SHA-256 
 - Save and switch local themes from the Windows tray or macOS menu bar.
 - Pause, resume, reapply, inspect theme folders, check for updates, or fully restore the stock Codex appearance.
 - Open DreamSkin.cc Gallery and Studio from the client. Supported community links require local confirmation before application.
+- Windows Setup, shortcuts, uninstall metadata, protocol registration, and tray now share a multi-size INTERNET ANGEL icon redrawn to match the Pixel Cafe character. The macOS app and DMG use the same artwork.
+
+### 1.5.7 issue fixes and compatibility
+
+- Issue #2 is fixed: Windows configuration transactions preserve valid multiline TOML arrays across root, `[desktop]`, and unrelated tables. Malformed arrays, multiline managed appearance values, and multiline strings still fail before any write.
+- Issue #6 fails during Appx identity preflight. The reported installation did not expose a current-user package satisfying the `OpenAI.Codex` name, Microsoft Store signature, non-development mode, unique manifest `app\ChatGPT.exe`, and valid AUMID checks. The report does not include enough package-manifest evidence to expand that allowlist safely, so 1.5.7 keeps the complete identity boundary.
+- Confirmed owl production runtimes `26.715.10079.0` and `26.721.3404.0` cannot expose the required loopback CDP endpoint within this project's safety boundary. The launcher cleans up the attempted session and reopens ordinary Codex.
 
 ## Install
 
 ### Windows Release Setup
 
 Requirements: Windows 10/11 x64 and the Microsoft Store `OpenAI.Codex` app registered for the current user. Launch Codex once, then close Codex and any older Dream Skin tray process.
+
+If Setup reports that the official Store package is missing or cannot be validated, confirm that Codex came from Microsoft Store, is registered for the current Windows user, and has launched successfully at least once. Dream Skin does not change WindowsApps permissions or skip package identity checks.
 
 1. Download `CodexDreamSkin-Setup-vX.Y.Z.exe` and `SHA256SUMS.txt` from the [latest release](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases/latest).
 2. Verify the Setup.exe SHA-256 against the checksum file.

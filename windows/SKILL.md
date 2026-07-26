@@ -58,7 +58,7 @@ node --check assets\renderer-inject.js
 - `assets/renderer-inject.js`: idempotent DOM integration and cleanup.
 - `assets/dream-reference.jpg`: pure 2560 × 1440 Internet Angel / 超天酱 pixel wallpaper seeded as the Windows default and as a saved theme; it contains no Codex UI.
 - `assets/codex-dream-skin-pixel-cafe.png`: lossless 1672 × 941 Pixel Cafe variant, registered as a second saved Internet Angel theme.
-- `assets/internet-angel-tray.png` and `assets/internet-angel-tray.ico`: transparent pixel source and multi-size Windows tray icon derived from the Internet Angel heart-glasses/halo silhouette.
+- `assets/internet-angel-tray.png` and `assets/internet-angel-tray.ico`: transparent pixel source and validated multi-size Windows application/tray icon derived from the Internet Angel heart-glasses/halo silhouette.
 - `assets/theme.json` and `assets/theme-choten.json`: adaptive contracts for the default JPEG and lossless PNG presets.
 - `scripts/theme-windows.ps1`: persistent active/saved theme store, safe image import, pause state, and preset seeding.
 - `scripts/apply-community-theme.ps1`: fixed-origin, confirmed community download, integrity verification, strict ZIP import, apply, and rollback orchestration.

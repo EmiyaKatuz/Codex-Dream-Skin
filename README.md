@@ -10,7 +10,7 @@
   <sub>Windows 源码安装的默认主题素材；界面、动画与控件皮肤由运行时注入层生成</sub>
 </p>
 
-> 当前 fork 版本：`1.5.6`（2026-07-26）。主要开发与验证平台为 Windows；macOS 与 Linux 能力随上游及本 fork 的贡献继续维护。
+> 当前 fork 版本：`1.5.7`（2026-07-26）。主要开发与验证平台为 Windows；macOS 与 Linux 能力随上游及本 fork 的贡献继续维护。
 
 Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases)。
 
@@ -54,7 +54,7 @@ Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://githu
 
 ### 更完整的主题管理
 
-- 使用专门设计的超天酱多尺寸像素托盘图标。
+- Windows Setup、快捷方式、卸载器、协议入口与托盘统一使用超天酱多尺寸像素图标；macOS App 与 DMG 使用同一视觉源。
 - 支持导入 PNG、JPEG、WebP 背景，并保存为本地主题。
 - 支持从托盘快速切换已保存主题、暂停、继续、重新应用和完整恢复。
 - 暂停会立即卸下当前窗口皮肤；继续会清除暂停状态并立即重新应用。
@@ -85,6 +85,14 @@ Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://githu
 
 Windows 使用本 fork 的超天酱专属渲染覆盖层；macOS 使用通用运行时。各平台共享选择器契约、主题格式和注入安全边界。
 
+### v1.5.7 Issue 修复与应用图标
+
+- 修复 Issue #2：Windows 配置事务支持合法的 TOML 多行数组，根级、`[desktop]` 和其他表中的嵌套数组、注释及括号字符串会在安装与恢复期间完整保留。
+- 未闭合数组、孤立右括号、多行受管外观值和多行字符串仍会在任何写入发生前终止，配置备份与原子替换边界保持不变。
+- Issue #6 的安装失败来自 Appx 身份预检：安装器没有发现同时满足 `OpenAI.Codex` 包名、Microsoft Store 签名、非开发模式、唯一 `app\ChatGPT.exe` 清单入口与合法 AUMID 的当前用户安装。报告中缺少可验证的包清单信息，本版本继续保留完整身份校验。
+- Windows Setup、开始菜单、登录启动项、卸载器、`dreamskin://` 协议与源码快捷方式改用参照 Pixel Cafe 背景重绘的超天酱多尺寸图标；macOS App/DMG 同步更新图标。
+- 各平台版本源统一更新到 `1.5.7`，GitHub Actions 会构建 Windows Setup 与 macOS DMG，并生成对应 SHA-256。
+
 ### v1.5.6 合并与发行修复
 
 - 合并上游 `v1.5.5` 以及本 fork 的 Linux、macOS 修复，解决文档、运行时、注入器和测试冲突。
@@ -100,6 +108,8 @@ Windows 使用本 fork 的超天酱专属渲染覆盖层；macOS 使用通用运
 
 Release 安装需要 Windows 10/11 x64，以及已注册到当前用户的 Microsoft Store 官方 `OpenAI.Codex` 应用。首次安装前请至少启动一次 Codex，随后退出 Codex 与旧版 Dream Skin 托盘。
 
+若安装器提示 `The official OpenAI.Codex Store package is not installed or its identity cannot be validated`，请确认 Codex 来自 Microsoft Store、安装在当前 Windows 用户下，并已至少正常启动一次。安装器会保留 Store 签名、开发模式、包清单、可执行文件与 AUMID 校验，也不会调整 WindowsApps 权限。
+
 1. 从本 fork 的 [Latest Release](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases/latest) 下载 `CodexDreamSkin-Setup-vX.Y.Z.exe` 和 `SHA256SUMS.txt`。
 2. 对照校验文件确认 Setup.exe 的 SHA-256，再双击运行安装向导。
 3. 保持默认的当前用户安装方式。安装过程不需要管理员权限。
@@ -110,6 +120,8 @@ Release Setup 内置经过固定版本与哈希校验的 Node.js 运行时。普
 图形安装器只创建开始菜单中的 `Codex Dream Skin` 入口，并提供可选的登录时启动项。它会把受管运行时安装到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，主题和图片保存在 `%LOCALAPPDATA%\CodexDreamSkin`。详细说明见 [`docs/install-windows.md`](./docs/install-windows.md)。
 
 图形安装包首次启用超天酱 JPEG 主题；超天酱 Pixel Cafe 与 Gothic Void Crusade 会加入「已保存主题」。
+
+Codex owl production runtime 的部分版本会转换远程调试参数或拒绝创建 CDP 回环监听。已确认的 `26.715.10079.0` 与 `26.721.3404.0` 现场结果无法在本项目的安全边界内恢复注入；启动器会停止本轮新增进程并恢复普通 Codex。请保留错误信息并关注上游对受支持调试入口的更新。
 
 ### 从源码安装（开发者与高级用户）
 
@@ -146,7 +158,7 @@ Release 用户从开始菜单打开 `Codex Dream Skin`；源码安装用户也�
 2. 下载最新 Setup.exe，并核对对应的 SHA-256。
 3. 运行安装向导覆盖现有安装，再从开始菜单启动 `Codex Dream Skin`。
 
-覆盖安装会保留活动主题、已保存主题、导入图片和配置备份。`v1.5.6` 使用新的语义版本号，托盘版本检查可以识别本次更新。
+覆盖安装会保留活动主题、已保存主题、导入图片和配置备份。`v1.5.7` 使用新的语义版本号，托盘版本检查可以识别本次更新。
 
 Release 用户可以从「设置 → 应用 → 已安装的应用」卸载 Codex Dream Skin。卸载器会先恢复 Codex 官方外观，并默认保留 `%LOCALAPPDATA%\CodexDreamSkin` 中的主题与图片。
 

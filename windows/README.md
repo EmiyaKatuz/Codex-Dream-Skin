@@ -13,6 +13,10 @@ Codex Dream Skin 通过本机回环 CDP 给官方 Codex Windows 桌面应用加�
 - Release Setup.exe 已内置 Node.js；只有从源码运行时才需要 `PATH` 中有 Node.js 22 或更高版本。
 - Windows PowerShell 5.1 或更高版本（安装器会在后台调用，普通用户不需要打开它）。
 
+`v1.5.7` 支持在 `~/.codex/config.toml` 中保留合法的 TOML 多行数组。身份预检仍要求当前用户的
+`OpenAI.Codex` 具备 Store 签名、非开发模式、唯一 `app\ChatGPT.exe` 清单入口与合法 AUMID；预检失败时
+不会写入配置或安装运行时。
+
 ## Release 安装（推荐普通用户）
 
 普通用户请从 [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases) 下载
@@ -36,6 +40,8 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\install-
 - `Codex Dream Skin`：启动或重新应用皮肤。
 - `Codex Dream Skin - Tray`：打开系统托盘主题控制。
 - `Codex Dream Skin - Restore`：恢复官方外观并关闭已保存的 CDP 会话。
+
+Setup、快捷方式、卸载器、`dreamskin://` 协议与托盘统一使用超天酱多尺寸图标。
 
 源码安装命令与日常快捷方式都使用 `RemoteSigned`，不会绕过系统或企业组策略。安装器会先校验运行时副本的 SHA-256，再仅对 `%LOCALAPPDATA%\CodexDreamSkin\engine` 中受管的 PowerShell 副本清除下载区标记。
 
@@ -177,7 +183,7 @@ Get-AppxPackage -Name OpenAI.Codex
 
 Codex Store `26.715.10079.0` 起，owl runtime 可能把应用包激活参数转换为 `codex://` 路径。当前启动器会识别这一行为，并对同一个已验证 Store 包内的精确 `ChatGPT.exe` 尝试一次原始参数回退；不会修改文件或 WindowsApps 权限。
 
-Issue #235 的实机结果已经确认两种独立失败：`26.715.10079.0` 的 WindowsApps ACL 会返回 `access-denied`；`26.721.3404.0` 可保留原始 CDP 参数，但 production runtime 仍不监听端口。两种结果都意味着当前 Codex/Windows 组合无法在项目安全边界内启用皮肤；该回退目前是安全诊断与回滚机制，不是对受影响 owl 版本的兼容性保证。不要接管 WindowsApps 所有权或修改官方包；请保留完整错误并关注 Issue #235 的上游兼容状态。
+Issue #235 的实机结果已经确认两种独立失败：`26.715.10079.0` 的 WindowsApps ACL 会返回 `access-denied`；`26.721.3404.0` 可保留原始 CDP 参数，但 production runtime 仍不监听端口。两种结果都意味着当前 Codex/Windows 组合无法在项目安全边界内启用皮肤；该回退目前只提供安全诊断与回滚，不构成受影响 owl 版本的兼容性保证。不要接管 WindowsApps 所有权或修改官方包；请保留完整错误并关注 Issue #235 的上游兼容状态。
 
 ### Codex 更新后皮肤失效
 

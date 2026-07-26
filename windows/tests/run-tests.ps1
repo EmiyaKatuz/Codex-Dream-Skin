@@ -194,9 +194,13 @@ try {
     '$startScript = $engine.Start',
     '$restoreScript = $engine.Restore',
     '$trayScript = $engine.Tray',
+    "`$shortcutIcon = Join-Path `$engine.Root 'assets\internet-angel-tray.ico'",
     '$shortcut.WorkingDirectory = $engine.Root',
+    '$shortcut.IconLocation = "$shortcutIcon,0"',
     '$restore.WorkingDirectory = $engine.Root',
-    '$tray.WorkingDirectory = $engine.Root'
+    '$restore.IconLocation = "$shortcutIcon,0"',
+    '$tray.WorkingDirectory = $engine.Root',
+    '$tray.IconLocation = "$shortcutIcon,0"'
   )) {
     if (-not $installSource.Contains($requiredShortcutBinding)) {
       throw "Installer shortcut still depends on its source checkout: $requiredShortcutBinding"
@@ -509,6 +513,46 @@ try {
     throw 'A safe single-line array containing bracket text was changed or rejected.'
   }
 
+  $multilineArrayPath = Join-Path $temporaryRoot 'config-multiline-arrays.toml'
+  $multilineArrayBackup = Join-Path $temporaryRoot 'config-multiline-arrays.before.toml'
+  $multilineArrayOriginal = @'
+features = [
+  "hash # stays inside the string",
+  "[desktop]",
+  ["nested", "array"],
+]
+
+[desktop]
+rows = [
+  ["one", "two"],
+  ["three", "[mcp_servers.example]"],
+]
+appearanceTheme = "system"
+appearanceLightCodeThemeId = "github-light"
+keepMe = true
+
+[mcp_servers.example]
+args = [
+  "--flag",
+  "value#with-hash",
+]
+'@
+  [System.IO.File]::WriteAllText($multilineArrayPath, $multilineArrayOriginal, $utf8NoBom)
+  Install-DreamSkinBaseTheme -ConfigPath $multilineArrayPath -BackupPath $multilineArrayBackup
+  $multilineArrayInstalled = Read-DreamSkinUtf8File -Path $multilineArrayPath
+  $multilineArrayDesktop = Get-DreamSkinDesktopSection -Content $multilineArrayInstalled
+  if (-not $multilineArrayInstalled.Contains('"[desktop]"') -or
+    -not $multilineArrayInstalled.Contains('"value#with-hash"') -or
+    -not $multilineArrayDesktop.Body.Contains('["three", "[mcp_servers.example]"]') -or
+    -not $multilineArrayDesktop.Body.Contains('appearanceLightCodeThemeId = "codex"') -or
+    -not $multilineArrayDesktop.Body.Contains('keepMe = true')) {
+    throw 'Install did not preserve safe multiline arrays across TOML table boundaries.'
+  }
+  Restore-DreamSkinBaseTheme -ConfigPath $multilineArrayPath -BackupPath $multilineArrayBackup
+  if ((Read-DreamSkinUtf8File -Path $multilineArrayPath) -cne $multilineArrayOriginal) {
+    throw 'Restore did not preserve safe multiline arrays byte-for-byte.'
+  }
+
   foreach ($unsupported in @(
     'desktop.appearanceTheme = "system"',
     'desktop = { appearanceTheme = "system" }',
@@ -521,8 +565,8 @@ try {
     '["desk\u0074op"]',
     "note = `"`"`"fake`r`n[desktop]`r`nappearanceTheme = `"dark`"`r`n`"`"`"",
     "[desktop]`r`nappearanceTheme = [`r`n  `"light`"`r`n]",
-    "[desktop]`r`nlayout = [`r`n  [1, 2],`r`n  [3, 4],`r`n]`r`nappearanceTheme = `"dark`"",
-    "[desktop]`r`nlayout = [`"]`",`r`n  [`"[`", `"]`"],`r`n]`r`nappearanceTheme = `"dark`""
+    "features = [`r`n  `"one`"`r`n",
+    "features = ]`r`n"
   )) {
     $unsupportedPath = Join-Path $temporaryRoot ("unsupported-$([guid]::NewGuid().ToString('N')).toml")
     $unsupportedBackup = "$unsupportedPath.before"
@@ -1196,6 +1240,9 @@ try {
   if ([regex]::Matches($traySource, '-ExecutionPolicy RemoteSigned').Count -ne 2 -or
     $traySource.Contains('-ExecutionPolicy Bypass')) {
     throw 'Tray actions still bypass the PowerShell execution policy.'
+  }
+  if (-not $traySource.Contains('$shortcut.IconLocation = "$trayIconPath,0"')) {
+    throw 'Tray startup shortcut no longer uses the Internet Angel application icon.'
   }
   if (-not $traySource.Contains("Start-Process -FilePath `$powershell -ArgumentList `$argumentLine -WindowStyle Hidden") -or
     -not $traySource.Contains('ConvertTo-DreamSkinProcessArgument -Value $paths.Images')) {

@@ -157,127 +157,48 @@ function Copy-ZipEntry {
 }
 
 function Write-DreamSkinIcon {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  $sizes = @(16, 24, 32, 48, 64, 256)
-  $images = New-Object System.Collections.Generic.List[byte[]]
-
-  foreach ($size in $sizes) {
-    $pixelBytes = $size * $size * 4
-    $maskStride = [int]([Math]::Ceiling($size / 32.0) * 4)
-    $stream = [System.IO.MemoryStream]::new()
-    $writer = [System.IO.BinaryWriter]::new($stream)
-    try {
-      $writer.Write([uint32]40)
-      $writer.Write([int32]$size)
-      $writer.Write([int32]($size * 2))
-      $writer.Write([uint16]1)
-      $writer.Write([uint16]32)
-      $writer.Write([uint32]0)
-      $writer.Write([uint32]$pixelBytes)
-      $writer.Write([int32]3780)
-      $writer.Write([int32]3780)
-      $writer.Write([uint32]0)
-      $writer.Write([uint32]0)
-
-      $alphaRows = New-Object 'byte[][]' $size
-      for ($row = $size - 1; $row -ge 0; $row--) {
-        $alphaRow = New-Object byte[] $size
-        for ($column = 0; $column -lt $size; $column++) {
-          $coverage = 0
-          $darkCoverage = 0
-          $dotCoverage = 0
-          $edgeCoverage = 0
-          foreach ($sampleY in @(0.125, 0.375, 0.625, 0.875)) {
-            foreach ($sampleX in @(0.125, 0.375, 0.625, 0.875)) {
-              # DreamSkin 品牌 mark（与网站 favicon 同源）：白圆角方 +
-              # 墨色对角半区（x+y>=1）+ 青点 + 14% 发丝描边环。
-              $x = ($column + $sampleX) / $size
-              $y = ($row + $sampleY) / $size
-              $dx = [Math]::Max([Math]::Abs($x - 0.5) - 0.16, 0.0)
-              $dy = [Math]::Max([Math]::Abs($y - 0.5) - 0.16, 0.0)
-              $edgeDistance = [Math]::Sqrt($dx * $dx + $dy * $dy)
-              if ($edgeDistance -le 0.285) {
-                $coverage++
-                if (($x + $y) -ge 1.0) { $darkCoverage++ }
-                $ddx = $x - 0.719
-                $ddy = $y - 0.281
-                if (($ddx * $ddx + $ddy * $ddy) -le (0.08 * 0.08)) { $dotCoverage++ }
-                if ($edgeDistance -gt (0.285 - [Math]::Max(0.028, 1.1 / $size))) { $edgeCoverage++ }
-              }
-            }
-          }
-
-          $alpha = [int][Math]::Round(255.0 * $coverage / 16.0)
-          $alphaRow[$column] = [byte]$alpha
-          $darkBlend = $darkCoverage / 16.0
-          $dotBlend = $dotCoverage / 16.0
-          $edgeBlend = 0.14 * ($edgeCoverage / 16.0)
-          $red = 253.0 * (1.0 - $darkBlend) + 23.0 * $darkBlend
-          $green = 253.0 * (1.0 - $darkBlend) + 24.0 * $darkBlend
-          $blue = 252.0 * (1.0 - $darkBlend) + 28.0 * $darkBlend
-          $red = $red * (1.0 - $dotBlend) + 45.0 * $dotBlend
-          $green = $green * (1.0 - $dotBlend) + 225.0 * $dotBlend
-          $blue = $blue * (1.0 - $dotBlend) + 194.0 * $dotBlend
-          $red = [int][Math]::Round($red * (1.0 - $edgeBlend) + 23.0 * $edgeBlend)
-          $green = [int][Math]::Round($green * (1.0 - $edgeBlend) + 24.0 * $edgeBlend)
-          $blue = [int][Math]::Round($blue * (1.0 - $edgeBlend) + 28.0 * $edgeBlend)
-          $writer.Write([byte]$blue)
-          $writer.Write([byte]$green)
-          $writer.Write([byte]$red)
-          $writer.Write([byte]$alpha)
-        }
-        $alphaRows[$row] = $alphaRow
-      }
-
-      for ($row = $size - 1; $row -ge 0; $row--) {
-        $maskRow = New-Object byte[] $maskStride
-        for ($column = 0; $column -lt $size; $column++) {
-          if ($alphaRows[$row][$column] -eq 0) {
-            $byteIndex = [int][Math]::Floor($column / 8.0)
-            $maskRow[$byteIndex] = $maskRow[$byteIndex] -bor (0x80 -shr ($column % 8))
-          }
-        }
-        $writer.Write($maskRow)
-      }
-      $writer.Flush()
-      $images.Add($stream.ToArray())
-    } finally {
-      $writer.Dispose()
-      $stream.Dispose()
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [string]$SourcePath = (Join-Path $windowsRoot 'assets\internet-angel-tray.ico')
+  )
+  if (-not (Test-Path -LiteralPath $SourcePath -PathType Leaf)) {
+    throw "Internet Angel application icon is missing: $SourcePath"
+  }
+  $icon = [System.IO.File]::ReadAllBytes($SourcePath)
+  if ($icon.Length -lt 22 -or
+    [System.BitConverter]::ToUInt16($icon, 0) -ne 0 -or
+    [System.BitConverter]::ToUInt16($icon, 2) -ne 1) {
+    throw 'Internet Angel application icon has an invalid ICO header.'
+  }
+  $count = [System.BitConverter]::ToUInt16($icon, 4)
+  if ($count -lt 1 -or $icon.Length -lt 6 + (16 * $count)) {
+    throw 'Internet Angel application icon has an invalid ICO directory.'
+  }
+  $seenSizes = @{}
+  for ($index = 0; $index -lt $count; $index++) {
+    $entryOffset = 6 + (16 * $index)
+    $width = if ($icon[$entryOffset] -eq 0) { 256 } else { [int]$icon[$entryOffset] }
+    $height = if ($icon[$entryOffset + 1] -eq 0) { 256 } else { [int]$icon[$entryOffset + 1] }
+    $planes = [System.BitConverter]::ToUInt16($icon, $entryOffset + 4)
+    $imageLength = [System.BitConverter]::ToUInt32($icon, $entryOffset + 8)
+    $imageOffset = [System.BitConverter]::ToUInt32($icon, $entryOffset + 12)
+    if ($width -ne $height -or
+      $planes -notin @(0, 1) -or
+      [System.BitConverter]::ToUInt16($icon, $entryOffset + 6) -ne 32 -or
+      $imageLength -lt 8 -or $imageOffset -lt 6 + (16 * $count) -or
+      [uint64]$imageOffset + [uint64]$imageLength -gt [uint64]$icon.Length) {
+      throw "Internet Angel application icon contains an invalid ${width}px frame."
+    }
+    $seenSizes["$width"] = $true
+  }
+  foreach ($requiredSize in @(16, 24, 32, 48, 64, 256)) {
+    if (-not $seenSizes.ContainsKey("$requiredSize")) {
+      throw "Internet Angel application icon is missing its ${requiredSize}px frame."
     }
   }
-
   $parent = Split-Path -Parent $Path
   New-Item -ItemType Directory -Path $parent -Force | Out-Null
-  $iconStream = [System.IO.File]::Open(
-    $Path,
-    [System.IO.FileMode]::Create,
-    [System.IO.FileAccess]::Write,
-    [System.IO.FileShare]::None
-  )
-  $iconWriter = [System.IO.BinaryWriter]::new($iconStream)
-  try {
-    $iconWriter.Write([uint16]0)
-    $iconWriter.Write([uint16]1)
-    $iconWriter.Write([uint16]$sizes.Count)
-    $offset = 6 + (16 * $sizes.Count)
-    for ($index = 0; $index -lt $sizes.Count; $index++) {
-      $dimension = if ($sizes[$index] -eq 256) { 0 } else { $sizes[$index] }
-      $iconWriter.Write([byte]$dimension)
-      $iconWriter.Write([byte]$dimension)
-      $iconWriter.Write([byte]0)
-      $iconWriter.Write([byte]0)
-      $iconWriter.Write([uint16]1)
-      $iconWriter.Write([uint16]32)
-      $iconWriter.Write([uint32]$images[$index].Length)
-      $iconWriter.Write([uint32]$offset)
-      $offset += $images[$index].Length
-    }
-    foreach ($image in $images) { $iconWriter.Write($image) }
-  } finally {
-    $iconWriter.Dispose()
-    $iconStream.Dispose()
-  }
+  [System.IO.File]::WriteAllBytes($Path, $icon)
 }
 
 $version = (Read-ReleaseTextFile -Path $versionPath).Trim()
@@ -443,7 +364,8 @@ try {
   } finally {
     $zip.Dispose()
   }
-  Write-DreamSkinIcon -Path (Join-Path (Join-Path $payloadRoot 'assets') 'codex-dream-skin.ico')
+  Write-DreamSkinIcon -Path (Join-Path (Join-Path $payloadRoot 'assets') 'codex-dream-skin.ico') `
+    -SourcePath (Join-Path $windowsRoot 'assets\internet-angel-tray.ico')
 
   $expectedPayloadFiles = @(
     'VERSION',

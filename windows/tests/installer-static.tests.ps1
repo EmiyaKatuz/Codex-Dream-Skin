@@ -232,9 +232,14 @@ try {
     (Get-FileHash -LiteralPath $secondIcon -Algorithm SHA256).Hash) {
     throw 'Generated Windows icon is not deterministic.'
   }
+  $sourceIcon = Join-Path $windowsRoot 'assets\internet-angel-tray.ico'
+  if ((Get-FileHash -LiteralPath $firstIcon -Algorithm SHA256).Hash -cne
+    (Get-FileHash -LiteralPath $sourceIcon -Algorithm SHA256).Hash) {
+    throw 'Windows application icon does not match the Internet Angel icon.'
+  }
 
   $icon = [System.IO.File]::ReadAllBytes($firstIcon)
-  $sizes = @(16, 24, 32, 48, 64, 256)
+  $sizes = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
   if ($icon.Length -le 6 + (16 * $sizes.Count) -or
     [System.BitConverter]::ToUInt16($icon, 0) -ne 0 -or
     [System.BitConverter]::ToUInt16($icon, 2) -ne 1 -or
@@ -246,15 +251,26 @@ try {
     $expectedDimensionByte = if ($sizes[$index] -eq 256) { 0 } else { $sizes[$index] }
     $imageLength = [System.BitConverter]::ToUInt32($icon, $entryOffset + 8)
     $imageOffset = [System.BitConverter]::ToUInt32($icon, $entryOffset + 12)
+    $planes = [System.BitConverter]::ToUInt16($icon, $entryOffset + 4)
     if ($icon[$entryOffset] -ne $expectedDimensionByte -or
       $icon[$entryOffset + 1] -ne $expectedDimensionByte -or
-      [System.BitConverter]::ToUInt16($icon, $entryOffset + 4) -ne 1 -or
+      $planes -notin @(0, 1) -or
       [System.BitConverter]::ToUInt16($icon, $entryOffset + 6) -ne 32 -or
-      $imageLength -le 40 -or $imageOffset + $imageLength -gt $icon.Length -or
-      [System.BitConverter]::ToUInt32($icon, $imageOffset) -ne 40 -or
-      [System.BitConverter]::ToInt32($icon, $imageOffset + 4) -ne $sizes[$index] -or
-      [System.BitConverter]::ToInt32($icon, $imageOffset + 8) -ne (2 * $sizes[$index])) {
+      $imageLength -lt 8 -or $imageOffset + $imageLength -gt $icon.Length) {
       throw "Generated Windows icon contains an invalid $($sizes[$index])px image."
+    }
+    $isPng = (
+      $icon[$imageOffset] -eq 0x89 -and $icon[$imageOffset + 1] -eq 0x50 -and
+      $icon[$imageOffset + 2] -eq 0x4E -and $icon[$imageOffset + 3] -eq 0x47
+    )
+    $isBitmap = (
+      $imageLength -gt 40 -and
+      [System.BitConverter]::ToUInt32($icon, $imageOffset) -eq 40 -and
+      [System.BitConverter]::ToInt32($icon, $imageOffset + 4) -eq $sizes[$index] -and
+      [System.BitConverter]::ToInt32($icon, $imageOffset + 8) -eq (2 * $sizes[$index])
+    )
+    if (-not $isPng -and -not $isBitmap) {
+      throw "Generated Windows icon contains an unsupported $($sizes[$index])px payload."
     }
   }
 } finally {
