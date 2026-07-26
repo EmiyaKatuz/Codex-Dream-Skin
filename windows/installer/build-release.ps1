@@ -35,11 +35,11 @@ $publicPresetThemeSha256 = '8316c6ad29e3b84806358ab4a730c7e063b261e379179b9608cf
 $defaultThemeImagePath = Join-Path $windowsRoot 'assets\dream-reference.jpg'
 $defaultThemePath = Join-Path $windowsRoot 'assets\theme.json'
 $defaultThemeImageSha256 = '4858200d0c5714091d3d15cfa6a07f237b543e1c07d02c599be3fc11353b72c3'
-$defaultThemeSha256 = 'a13568832861a7f36a3825137690301a28051c26e4090640b70263759821147d'
+$defaultThemeSha256 = 'e7f18ca3e535da6e5e4a9c81c48aef3d2e2f7c58eb3d0c4fd4c4b09ed2b96384'
 $pixelThemeImagePath = Join-Path $windowsRoot 'assets\codex-dream-skin-pixel-cafe.png'
 $pixelThemePath = Join-Path $windowsRoot 'assets\theme-choten.json'
 $pixelThemeImageSha256 = 'd78177458da6c805d5ef55ea65cf4352a80aba921f4770029f15384bdcdbdea5'
-$pixelThemeSha256 = '0735ac1290d137f32954b9c205b71f9efc50fff1be9050767b6c59b1c6f00864'
+$pixelThemeSha256 = '0ba8d94c7974b01aa3b05886e65afc3323591996f2db7f2d759236019797c430'
 
 function Read-ReleaseTextFile {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -47,6 +47,18 @@ function Read-ReleaseTextFile {
     throw "Required release input does not exist: $Path"
   }
   return [System.IO.File]::ReadAllText($Path, [System.Text.UTF8Encoding]::new($false))
+}
+
+function Get-NormalizedReleaseTextSha256 {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $text = (Read-ReleaseTextFile -Path $Path).Replace("`r`n", "`n").Replace("`r", "`n")
+  $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($text)
+  $sha256 = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    return (($sha256.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join '')
+  } finally {
+    $sha256.Dispose()
+  }
 }
 
 function Resolve-ReleasePath {
@@ -306,7 +318,7 @@ $publicPresetImageHash = (Get-FileHash -LiteralPath $publicPresetImagePath -Algo
 if ($publicPresetImageHash -cne $publicPresetImageSha256) {
   throw "The reviewed public preset image changed. Expected $publicPresetImageSha256, found $publicPresetImageHash."
 }
-$publicPresetThemeHash = (Get-FileHash -LiteralPath $publicPresetThemePath -Algorithm SHA256).Hash.ToLowerInvariant()
+$publicPresetThemeHash = Get-NormalizedReleaseTextSha256 -Path $publicPresetThemePath
 if ($publicPresetThemeHash -cne $publicPresetThemeSha256) {
   throw "The reviewed public preset metadata changed. Expected $publicPresetThemeSha256, found $publicPresetThemeHash."
 }
@@ -325,25 +337,33 @@ $reviewedThemeFiles = @(
     Path = $defaultThemeImagePath
     ExpectedSha256 = $defaultThemeImageSha256
     Label = 'default Internet Angel image'
+    NormalizeText = $false
   },
   @{
     Path = $defaultThemePath
     ExpectedSha256 = $defaultThemeSha256
     Label = 'default Internet Angel metadata'
+    NormalizeText = $true
   },
   @{
     Path = $pixelThemeImagePath
     ExpectedSha256 = $pixelThemeImageSha256
     Label = 'Pixel Cafe Internet Angel image'
+    NormalizeText = $false
   },
   @{
     Path = $pixelThemePath
     ExpectedSha256 = $pixelThemeSha256
     Label = 'Pixel Cafe Internet Angel metadata'
+    NormalizeText = $true
   }
 )
 foreach ($reviewedThemeFile in $reviewedThemeFiles) {
-  $reviewedThemeHash = (Get-FileHash -LiteralPath $reviewedThemeFile.Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  $reviewedThemeHash = if ($reviewedThemeFile.NormalizeText) {
+    Get-NormalizedReleaseTextSha256 -Path $reviewedThemeFile.Path
+  } else {
+    (Get-FileHash -LiteralPath $reviewedThemeFile.Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
   if ($reviewedThemeHash -cne $reviewedThemeFile.ExpectedSha256) {
     throw "The reviewed $($reviewedThemeFile.Label) changed. Expected $($reviewedThemeFile.ExpectedSha256), found $reviewedThemeHash."
   }
@@ -466,19 +486,19 @@ try {
   $stagedDefaultImage = Join-Path (Join-Path $payloadRoot 'assets') 'dream-reference.jpg'
   $stagedDefaultImageHash = (Get-FileHash -LiteralPath $stagedDefaultImage -Algorithm SHA256).Hash.ToLowerInvariant()
   $stagedDefaultThemePath = Join-Path (Join-Path $payloadRoot 'assets') 'theme.json'
-  $stagedDefaultThemeHash = (Get-FileHash -LiteralPath $stagedDefaultThemePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $stagedDefaultThemeHash = Get-NormalizedReleaseTextSha256 -Path $stagedDefaultThemePath
   $stagedDefaultTheme = (Read-ReleaseTextFile -Path $stagedDefaultThemePath) | ConvertFrom-Json
   $stagedPixelImage = Join-Path (Join-Path $payloadRoot 'assets') 'codex-dream-skin-pixel-cafe.png'
   $stagedPixelImageHash = (Get-FileHash -LiteralPath $stagedPixelImage -Algorithm SHA256).Hash.ToLowerInvariant()
   $stagedPixelThemePath = Join-Path (Join-Path $payloadRoot 'assets') 'theme-choten.json'
-  $stagedPixelThemeHash = (Get-FileHash -LiteralPath $stagedPixelThemePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $stagedPixelThemeHash = Get-NormalizedReleaseTextSha256 -Path $stagedPixelThemePath
   $stagedPixelTheme = (Read-ReleaseTextFile -Path $stagedPixelThemePath) | ConvertFrom-Json
   $stagedPublicThemePath = Join-Path (Join-Path $payloadRoot 'presets') `
     'preset-gothic-void-crusade\theme.json'
   $stagedPublicImagePath = Join-Path (Join-Path $payloadRoot 'presets') `
     'preset-gothic-void-crusade\background.jpg'
   $stagedPublicImageHash = (Get-FileHash -LiteralPath $stagedPublicImagePath -Algorithm SHA256).Hash.ToLowerInvariant()
-  $stagedPublicThemeHash = (Get-FileHash -LiteralPath $stagedPublicThemePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $stagedPublicThemeHash = Get-NormalizedReleaseTextSha256 -Path $stagedPublicThemePath
   if ($stagedDefaultImageHash -cne $defaultThemeImageSha256 -or
     $stagedDefaultThemeHash -cne $defaultThemeSha256 -or
     "$($stagedDefaultTheme.id)" -cne 'preset-internet-angel-default' -or

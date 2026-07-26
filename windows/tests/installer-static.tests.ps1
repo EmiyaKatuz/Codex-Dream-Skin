@@ -129,6 +129,7 @@ if ($fileSources.Count -ne 6 -or
 foreach ($requiredBuilderContract in @(
   'Release versions differ:',
   'Get-FileHash -LiteralPath $archivePath -Algorithm SHA256',
+  'Get-NormalizedReleaseTextSha256',
   'Copy-ZipEntry -Archive $zip -EntryName "$($manifest.nodeEntry)"',
   'Copy-ZipEntry -Archive $zip -EntryName "$($manifest.licenseEntry)"',
   '$publicPresetImageSha256',
