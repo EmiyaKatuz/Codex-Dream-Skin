@@ -246,8 +246,9 @@ function isValidCdpPageTarget(item, port) {
 }
 
 export class CdpSession {
-  constructor(target, port) {
+  constructor(target, port, { browser = false } = {}) {
     this.target = target;
+    this.browser = browser;
     this.ws = new WebSocket(validatedDebuggerUrl(target, port));
     this.nextId = 1;
     this.pending = new Map();
@@ -294,8 +295,10 @@ export class CdpSession {
         this.pending.clear();
         this.listeners.clear();
       });
-      await this.send("Runtime.enable");
-      await this.send("Page.enable");
+      if (!this.browser) {
+        await this.send("Runtime.enable");
+        await this.send("Page.enable");
+      }
       return this;
     } catch (error) {
       this.close();
@@ -462,7 +465,7 @@ async function listAppTargets(port, expectedBrowserId = null) {
   return targets.filter((item) => isValidCdpPageTarget(item, port));
 }
 
-async function connectBrowserIdentityAnchor(port, expectedBrowserId) {
+export async function connectBrowserIdentityAnchor(port, expectedBrowserId, onTargetChange = null) {
   const version = await fetchCdpJson(port, "/json/version");
   const actualBrowserId = browserIdFromVersion(version, port);
   if (actualBrowserId !== expectedBrowserId) {
@@ -470,7 +473,28 @@ async function connectBrowserIdentityAnchor(port, expectedBrowserId) {
       `CDP browser identity changed from ${expectedBrowserId} to ${actualBrowserId}`,
     );
   }
-  return new BrowserIdentityAnchor(validatedDebuggerUrl(version, port)).open();
+  if (!onTargetChange) return new BrowserIdentityAnchor(validatedDebuggerUrl(version, port)).open();
+  let session;
+  try {
+    session = await new CdpSession(version, port, { browser: true }).open();
+    const pageTargetIds = new Set();
+    const wakeForPage = (params) => {
+      if (params.targetInfo?.type !== "page") return;
+      pageTargetIds.add(params.targetInfo.targetId);
+      onTargetChange(params.targetInfo);
+    };
+    session.on("Target.targetCreated", wakeForPage);
+    session.on("Target.targetInfoChanged", wakeForPage);
+    session.on("Target.targetDestroyed", (params) => {
+      if (pageTargetIds.delete(params.targetId)) onTargetChange(null);
+    });
+    await session.send("Target.setDiscoverTargets", { discover: true });
+    return session;
+  } catch (error) {
+    session?.close();
+    console.error(`[dream-skin] CDP target events unavailable; polling fallback active: ${error.message}`);
+    return new BrowserIdentityAnchor(validatedDebuggerUrl(version, port)).open();
+  }
 }
 
 const THEME_CHOICES = {
@@ -1256,7 +1280,6 @@ async function runOneShot(options) {
 }
 
 async function runWatch(options) {
-  const identityAnchor = await connectBrowserIdentityAnchor(options.port, options.browserId);
   const sessions = new Map();
   const earlyScripts = new Map();
   const fallbackTargets = new Map();
@@ -1270,7 +1293,42 @@ async function runWatch(options) {
   let lastStrongThemeAuditAt = 0;
   let loadedPayload = null;
   let paused = false;
-  const stop = () => { stopping = true; };
+  let discoveryWakePending = false;
+  let wakeDiscoveryWait = null;
+  const wakeDiscoveryLoop = () => {
+    if (wakeDiscoveryWait) {
+      const wake = wakeDiscoveryWait;
+      wakeDiscoveryWait = null;
+      wake();
+    } else discoveryWakePending = true;
+  };
+  const waitForDiscovery = (delayMs) => {
+    if (discoveryWakePending) {
+      discoveryWakePending = false;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (wakeDiscoveryWait === finish) wakeDiscoveryWait = null;
+        resolve();
+      };
+      const timer = setTimeout(finish, delayMs);
+      wakeDiscoveryWait = finish;
+    });
+  };
+  const identityAnchor = await connectBrowserIdentityAnchor(
+    options.port,
+    options.browserId,
+    wakeDiscoveryLoop,
+  );
+  const stop = () => {
+    stopping = true;
+    wakeDiscoveryLoop();
+  };
   const clearLoadFallbackTimer = (id) => {
     const timer = fallbackTimers.get(id);
     if (timer) clearTimeout(timer);
@@ -1491,7 +1549,7 @@ async function runWatch(options) {
           rejectTarget(target, 2500, error);
         }
       }
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await waitForDiscovery(1200);
     }
   } finally {
     process.off("SIGINT", stop);

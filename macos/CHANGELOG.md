@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### 新增
+
+- macOS DMG 与 Windows 版同步内置 `超天酱 · INTERNET ANGEL` JPEG 默认主题和
+  `超天酱 · INTERNET ANGEL · Pixel Cafe` 无损 PNG 主题；新安装默认启用 JPEG
+  版，构建与挂载验收会校验两套主题的固定 SHA-256 和完整文件对。
+
 ## 1.3.5 — 2026-07-23
 
 ### 维护

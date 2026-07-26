@@ -27,7 +27,7 @@ function classList(initial) {
   };
 }
 
-function makeFixture({ nativeAppearance = "dark", settings = false, adopted = true } = {}) {
+function makeFixture({ nativeAppearance = "dark", settings = false, adopted = true, homeDeck = false } = {}) {
   const attrs = new Map();
   const rootStyle = styleDeclaration();
   const rootClasses = classList([nativeAppearance === "dark" ? "electron-dark" : "electron-light"]);
@@ -39,6 +39,61 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
   const revoked = [];
   let nextId = 0;
   let nextBlob = 0;
+  const makeNode = (tagName = "div") => {
+    const attributes = new Map();
+    const listeners = new Map();
+    const node = {
+      tagName: String(tagName).toUpperCase(),
+      id: "",
+      className: "",
+      textContent: "",
+      innerHTML: "",
+      parentElement: null,
+      children: [],
+      attributes,
+      listeners,
+      appendChild(child) {
+        child.parentElement = node;
+        node.children.push(child);
+        if (child.id) nodes.set(child.id, child);
+        return child;
+      },
+      addEventListener(type, callback) { listeners.set(type, callback); },
+      dispatchEvent(event) { node.lastEvent = event; return true; },
+      focus() { node.focusCount = (node.focusCount || 0) + 1; },
+      getAttribute(name) { return attributes.get(name) ?? null; },
+      setAttribute(name, value) { attributes.set(name, String(value)); },
+      removeAttribute(name) { attributes.delete(name); },
+      replaceChildren(...children) {
+        for (const child of node.children) child.parentElement = null;
+        node.children = [];
+        for (const child of children) node.appendChild(child);
+        node.textContent = children.map((child) => child.textContent || "").join("");
+      },
+      remove() {
+        if (node.parentElement) {
+          node.parentElement.children = node.parentElement.children.filter((child) => child !== node);
+        }
+        if (node.id) nodes.delete(node.id);
+        node.parentElement = null;
+      },
+      querySelectorAll(selector) {
+        const results = [];
+        const visit = (candidate) => {
+          const classes = String(candidate.className || "").split(/\s+/);
+          if (selector === "button.angel-preset-card" && candidate.tagName === "BUTTON" &&
+            classes.includes("angel-preset-card")) results.push(candidate);
+          for (const child of candidate.children || []) visit(child);
+        };
+        visit(node);
+        return results;
+      },
+    };
+    return node;
+  };
+  const homeNode = homeDeck ? makeNode("main") : null;
+  const sidebarNode = homeDeck ? makeNode("aside") : null;
+  const editor = homeDeck ? makeNode("div") : null;
   const root = {
     classList: rootClasses,
     style: rootStyle,
@@ -65,11 +120,14 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     head: root,
     body,
     adoptedStyleSheets: adopted ? [] : undefined,
-    createElement(tag) { return tag === "style" ? makeStyleNode() : { tagName: tag }; },
+    createElement(tag) { return tag === "style" ? makeStyleNode() : makeNode(tag); },
     getElementById(id) { return nodes.get(id) || null; },
     querySelector(selector) {
       if (settings && (selector.includes("appearance-theme") || selector.includes("theme-preview"))) return { selector };
       if (settings) return null;
+      if (homeDeck && selector.includes(".composer-surface-chrome")) return editor;
+      if (homeDeck && selector.includes("[role=\"main\"]")) return homeNode;
+      if (homeDeck && selector === "aside.app-shell-left-panel") return sidebarNode;
       if (selector === "main.main-surface" || selector === "aside.app-shell-left-panel" ||
         selector === "header.app-header-tint" || selector.includes("[role=\"main\"]") ||
         selector.includes("[data-testid=\"home-icon\"]")) return { selector };
@@ -136,8 +194,8 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     }
   };
   return {
-    attrs, context, document, flushTimers, intervals, listeners, nodes, observers,
-    payloadFor, revoked, root, rootClasses, rootStyle, timers, window,
+    attrs, context, document, editor, flushTimers, homeNode, intervals, listeners, nodes, observers,
+    payloadFor, revoked, root, rootClasses, rootStyle, sidebarNode, timers, window,
   };
 }
 
@@ -202,6 +260,7 @@ export async function runRendererRuntimeTest(assetRoot) {
   assert.match(css, /content:\s*var\(--dream-skin-name[\s\S]{0,180}var\(--dream-skin-brand-subtitle/);
   assert.match(css, /content:\s*var\(--dream-skin-status/);
   assert.match(css, /content:\s*var\(--dream-skin-quote/);
+  assert.match(css, /#chatgpt-internet-angel-deck\[data-angel-ready="true"\][\s\S]{0,180}\.group\\\/home-suggestions/);
   // Every home/project selector must stay behind the root skin gate.  A
   // marker-class-to-:has() conversion must never leave native layout rules
   // active after pause/restore.
@@ -224,6 +283,41 @@ export async function runRendererRuntimeTest(assetRoot) {
   assert.equal(state.metrics.layoutReads, 0, "Runtime must not perform layout reads");
   assert.equal(home.rootClasses.writes.length, 0, "Runtime must not write classes");
   assert.ok(home.observers.every((observer) => !observer.options?.childList && !observer.options?.subtree));
+
+  const deckHome = makeFixture({ nativeAppearance: "dark", homeDeck: true });
+  vm.runInNewContext(deckHome.payloadFor({ id: "preset-internet-angel" }), deckHome.context);
+  const deckState = deckHome.window.__CODEX_DREAM_SKIN_STATE__;
+  const deck = deckHome.nodes.get("chatgpt-internet-angel-deck");
+  const sidebarOrnaments = deckHome.nodes.get("chatgpt-internet-angel-sidebar");
+  const homeHud = deckHome.nodes.get("chatgpt-internet-angel-hud");
+  assert.equal(deckHome.attrs.get("data-dream-theme"), "internet-angel");
+  assert.equal(deck?.parentElement, deckHome.homeNode);
+  assert.equal(sidebarOrnaments?.parentElement, deckHome.sidebarNode);
+  assert.equal(homeHud?.parentElement, deckHome.homeNode);
+  assert.equal(sidebarOrnaments?.className, "angel-sidebar-ornaments");
+  assert.equal(homeHud?.className, "angel-home-hud");
+  assert.match(sidebarOrnaments?.innerHTML || "", /angel-sidebar-new-task/);
+  const presetButtons = deck.querySelectorAll("button.angel-preset-card");
+  assert.equal(presetButtons.length, 4, "The current home must receive four functional presets");
+  presetButtons[1].listeners.get("click")();
+  assert.equal(deckHome.editor.textContent, "构建一个新功能、应用或工具：");
+  assert.equal(deck.getAttribute("data-angel-composer"), "open");
+  assert.ok(deckHome.editor.focusCount >= 1);
+  assert.equal([...deckHome.intervals.values()].some(({ delay }) => delay === 850), true);
+  assert.equal(deckState.cleanup(), true);
+  assert.equal(deckHome.nodes.has("chatgpt-internet-angel-deck"), false);
+  assert.equal(deckHome.nodes.has("chatgpt-internet-angel-sidebar"), false);
+  assert.equal(deckHome.nodes.has("chatgpt-internet-angel-hud"), false);
+  assert.equal(deckHome.intervals.size, 0, "Cleanup must clear safety and home timers");
+
+  const standardHome = makeFixture({ nativeAppearance: "dark", homeDeck: true });
+  vm.runInNewContext(standardHome.payloadFor({ id: "preset-standard" }), standardHome.context);
+  assert.equal(standardHome.attrs.get("data-dream-theme"), "standard");
+  assert.equal(standardHome.nodes.has("chatgpt-internet-angel-deck"), false);
+  assert.equal(standardHome.nodes.has("chatgpt-internet-angel-sidebar"), false);
+  assert.equal(standardHome.nodes.has("chatgpt-internet-angel-hud"), false);
+  assert.equal(standardHome.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+  assert.equal(standardHome.intervals.size, 0);
 
   const observer = home.observers[0];
   observer.callback([]);

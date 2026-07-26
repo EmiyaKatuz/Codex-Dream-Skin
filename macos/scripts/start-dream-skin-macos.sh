@@ -138,26 +138,36 @@ cleanup_verify_output() {
   [ -z "${VERIFY_OUTPUT:-}" ] || /bin/rm -f "$VERIFY_OUTPUT"
   VERIFY_OUTPUT=""
 }
-if "$NODE" "$INJECTOR" --verify --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 20000 >"$VERIFY_OUTPUT" 2>/dev/null; then
+# Cold launches can expose a verified CDP target before the renderer has
+# painted the shell. Keep the watcher alive while verification waits for the
+# first stable frame instead of treating that normal boot window as failure.
+if "$NODE" "$INJECTOR" --verify --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 60000 >"$VERIFY_OUTPUT" 2>/dev/null; then
   verify_code=0
 else
   verify_code=$?
 fi
 if [ "$verify_code" -ne 0 ]; then
-  # One more force inject before giving up
+  # One more force inject before giving up. The longer timeout also covers a
+  # renderer that replaced its document after the watcher first connected.
   if [ -n "$OPERATION_TOKEN" ]; then
-    "$NODE" "$INJECTOR" --once --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 15000 \
+    "$NODE" "$INJECTOR" --once --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 60000 \
       --operation-token "$OPERATION_TOKEN" >/dev/null 2>&1 || true
   else
-    "$NODE" "$INJECTOR" --once --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 15000 >/dev/null 2>&1 || true
+    "$NODE" "$INJECTOR" --once --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 60000 >/dev/null 2>&1 || true
   fi
-  if "$NODE" "$INJECTOR" --verify --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 12000 >"$VERIFY_OUTPUT" 2>/dev/null; then
+  if "$NODE" "$INJECTOR" --verify --port "$PORT" --theme-dir "$THEME_DIR" --timeout-ms 60000 >"$VERIFY_OUTPUT" 2>/dev/null; then
     verify_code=0
   else
     verify_code=$?
   fi
 fi
 if [ "$verify_code" -ne 0 ]; then
+  if [ -s "$VERIFY_OUTPUT" ]; then
+    {
+      printf '[dream-skin] startup verification result:\n'
+      /bin/cat "$VERIFY_OUTPUT"
+    } >> "$INJECTOR_ERROR_LOG" 2>/dev/null || true
+  fi
   # Verify the PID/path/start-time tuple before changing state. If the watcher
   # cannot be stopped safely, preserve the state as evidence and fail closed.
   if ! stop_recorded_injector; then

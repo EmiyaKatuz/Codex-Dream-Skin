@@ -35,21 +35,32 @@
 
 Windows 普通启动、失败回滚与恢复重开均从已注册的 `OpenAI.Codex` 包清单解析 AppUserModelId，并通过系统应用包激活接口完成。若新版 owl runtime 明确把 CDP 参数转换成 `codex://` 路径，调试启动会对同一个已验证 Store 包内的精确 `app\ChatGPT.exe` 做一次原始参数回退；ACL 拒绝或参数保留后仍无可信监听都会停止并回滚，不修改或接管 WindowsApps 权限。Issue #235 已在 `26.715.10079.0` 与 `26.721.3404.0` 分别实机确认这两种失败，因此该回退只作安全诊断，不代表受影响 owl 版本已恢复兼容。
 
+### Linux
+
+| 用途 | 路径 |
+|------|------|
+| 源码 | `Codex-Dream-Skin/linux/` |
+| 安装后引擎 | `~/.codex/codex-dream-skin-linux` |
+| 状态 / 日志 | `${XDG_STATE_HOME:-~/.local/state}/CodexDreamSkin` |
+| 默认 CDP 端口 | `9341` |
+
+Linux 启动器优先使用 `codex-desktop`，其次读取 `/usr/share/applications/Codex.desktop` 的 `Exec` 项；其他安装位置可通过 `CODEX_APP_BIN` 显式指定。运行时不会改写 `~/.codex/config.toml`。
+
 ## 能力矩阵
 
-| 功能 | macOS | Windows |
-|------|:-----:|:-------:|
-| 普通用户安装包 | ✅ DMG | ✅ Setup.exe |
-| 原生控制入口 | ✅ 菜单栏 App | ✅ 系统托盘 |
-| 安装脚本 | ✅ | ✅ |
-| 启动 + 注入 | ✅ | ✅ |
-| 一键恢复 | ✅ | ✅ |
-| 实机 verify / 截图 | ✅ | ✅ |
-| 用户选图定制 | ✅ | ✅（系统托盘「更换背景图」） |
-| 本地主题保存 / 切换 | ✅（菜单栏） | ✅（系统托盘） |
-| 官方签名校验 | ✅ | Store 签名类型 + 包身份 |
-| 客户部署提示词 | ✅ | ❌（可用 Mac 文案改写） |
-| 旧版离线 ZIP | ✅ `build-client-release.sh` | 不再建议手动压缩源码 |
+| 功能 | macOS | Windows | Linux |
+|------|:-----:|:-------:|:-----:|
+| 普通用户安装包 | ✅ DMG | ✅ Setup.exe | ✅ tar.gz |
+| 原生控制入口 | ✅ 菜单栏 App | ✅ 系统托盘 | shell 命令 |
+| 安装脚本 | ✅ | ✅ | ✅ |
+| 启动 + 注入 | ✅ | ✅ | ✅ |
+| 一键恢复 | ✅ | ✅ | ✅ |
+| 实机 verify / 截图 | ✅ | ✅ | verify |
+| 用户选图定制 | ✅ | ✅（系统托盘「更换背景图」） | 当前默认主题 |
+| 本地主题保存 / 切换 | ✅（菜单栏） | ✅（系统托盘） | 当前默认主题 |
+| 官方签名校验 | ✅ | Store 签名类型 + 包身份 | 依赖发行版包管理器 |
+| 客户部署提示词 | ✅ | ❌（可用 Mac 文案改写） | ❌ |
+| 旧版离线 ZIP | ✅ `build-client-release.sh` | 不再建议手动压缩源码 | tar.gz |
 
 ## 自适应图像主题契约
 

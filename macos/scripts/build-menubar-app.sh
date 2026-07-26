@@ -112,21 +112,42 @@ for name in "${RUNTIME_SCRIPTS[@]}"; do
 done
 [ -d "$ROOT/assets" ] || { printf 'Engine directory missing: assets\n' >&2; exit 1; }
 /usr/bin/rsync -a "$ROOT/assets/" "$ENGINE/assets/"
-PUBLIC_PRESET="preset-gothic-void-crusade"
-PUBLIC_PRESET_SHA256="b76a7cbe2ff9d923846e931984d243a7ba1f25de8d190b5c6412c809c41aee42"
-PUBLIC_PRESET_THEME_SHA256="8316c6ad29e3b84806358ab4a730c7e063b261e379179b9608cf751c282d66a7"
-[ -d "$ROOT/presets/$PUBLIC_PRESET" ] \
-  || { printf 'Public release preset missing: %s\n' "$PUBLIC_PRESET" >&2; exit 1; }
-actual_public_preset_sha256="$(LC_ALL=C /usr/bin/shasum -a 256 \
-  "$ROOT/presets/$PUBLIC_PRESET/background.jpg" | /usr/bin/awk '{print $1}')"
-[ "$actual_public_preset_sha256" = "$PUBLIC_PRESET_SHA256" ] \
-  || { printf 'Reviewed public preset hash changed: %s\n' "$actual_public_preset_sha256" >&2; exit 1; }
-actual_public_preset_theme_sha256="$(LC_ALL=C /usr/bin/shasum -a 256 \
-  "$ROOT/presets/$PUBLIC_PRESET/theme.json" | /usr/bin/awk '{print $1}')"
-[ "$actual_public_preset_theme_sha256" = "$PUBLIC_PRESET_THEME_SHA256" ] \
-  || { printf 'Reviewed public preset metadata hash changed: %s\n' "$actual_public_preset_theme_sha256" >&2; exit 1; }
-/bin/mkdir -p "$ENGINE/presets/$PUBLIC_PRESET"
-/usr/bin/rsync -a "$ROOT/presets/$PUBLIC_PRESET/" "$ENGINE/presets/$PUBLIC_PRESET/"
+copy_reviewed_preset() {
+  local preset_id="$1"
+  local image_name="$2"
+  local expected_image_sha256="$3"
+  local expected_theme_sha256="$4"
+  local preset_root="$ROOT/presets/$preset_id"
+  local actual_image_sha256 actual_theme_sha256
+
+  [ -d "$preset_root" ] \
+    || { printf 'Bundled release preset missing: %s\n' "$preset_id" >&2; exit 1; }
+  actual_image_sha256="$(LC_ALL=C /usr/bin/shasum -a 256 \
+    "$preset_root/$image_name" | /usr/bin/awk '{print $1}')"
+  [ "$actual_image_sha256" = "$expected_image_sha256" ] \
+    || { printf 'Reviewed preset image hash changed for %s: %s\n' \
+      "$preset_id" "$actual_image_sha256" >&2; exit 1; }
+  actual_theme_sha256="$(LC_ALL=C /usr/bin/shasum -a 256 \
+    "$preset_root/theme.json" | /usr/bin/awk '{print $1}')"
+  [ "$actual_theme_sha256" = "$expected_theme_sha256" ] \
+    || { printf 'Reviewed preset metadata hash changed for %s: %s\n' \
+      "$preset_id" "$actual_theme_sha256" >&2; exit 1; }
+  /bin/mkdir -p "$ENGINE/presets/$preset_id"
+  /usr/bin/rsync -a "$preset_root/" "$ENGINE/presets/$preset_id/"
+}
+
+copy_reviewed_preset \
+  "preset-gothic-void-crusade" "background.jpg" \
+  "b76a7cbe2ff9d923846e931984d243a7ba1f25de8d190b5c6412c809c41aee42" \
+  "8316c6ad29e3b84806358ab4a730c7e063b261e379179b9608cf751c282d66a7"
+copy_reviewed_preset \
+  "preset-internet-angel-default" "dream-reference.jpg" \
+  "4858200d0c5714091d3d15cfa6a07f237b543e1c07d02c599be3fc11353b72c3" \
+  "e7f18ca3e535da6e5e4a9c81c48aef3d2e2f7c58eb3d0c4fd4c4b09ed2b96384"
+copy_reviewed_preset \
+  "preset-internet-angel" "codex-dream-skin-pixel-cafe.png" \
+  "d78177458da6c805d5ef55ea65cf4352a80aba921f4770029f15384bdcdbdea5" \
+  "0ba8d94c7974b01aa3b05886e65afc3323591996f2db7f2d759236019797c430"
 /bin/cp "$ROOT/VERSION" "$ENGINE/VERSION"
 /bin/cp "$ROOT/LICENSE" "$RESOURCES/LICENSE.txt"
 /bin/cp "$ROOT/NOTICE.md" "$RESOURCES/NOTICE.md"

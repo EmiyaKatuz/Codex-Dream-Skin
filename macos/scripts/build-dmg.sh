@@ -60,8 +60,17 @@ MOUNTED_APP="$MOUNT/Codex Dream Skin.app"
 [ -f "$MOUNTED_APP/Contents/Resources/LICENSE.txt" ] \
   && [ -f "$MOUNTED_APP/Contents/Resources/NOTICE.md" ] \
   || { printf 'Mounted app is missing license notices.\n' >&2; exit 1; }
-[ -f "$MOUNTED_APP/Contents/Resources/engine/presets/preset-gothic-void-crusade/theme.json" ] \
-  || { printf 'Mounted app is missing the public release preset.\n' >&2; exit 1; }
+for required_preset_file in \
+  "preset-gothic-void-crusade/theme.json" \
+  "preset-gothic-void-crusade/background.jpg" \
+  "preset-internet-angel-default/theme.json" \
+  "preset-internet-angel-default/dream-reference.jpg" \
+  "preset-internet-angel/theme.json" \
+  "preset-internet-angel/codex-dream-skin-pixel-cafe.png"; do
+  [ -f "$MOUNTED_APP/Contents/Resources/engine/presets/$required_preset_file" ] \
+    || { printf 'Mounted app is missing bundled preset file: %s\n' \
+      "$required_preset_file" >&2; exit 1; }
+done
 [ ! -e "$MOUNTED_APP/Contents/Resources/engine/presets/preset-arina-hashimoto" ] \
   || { printf 'Mounted app contains a rights-restricted preset.\n' >&2; exit 1; }
 for excluded in build-client-release.sh build-dmg.sh build-menubar-app.sh build-release.sh \

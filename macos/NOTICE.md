@@ -26,12 +26,27 @@ this MIT-licensed project. It is the redistributable default artwork included in
 the public macOS and Windows installers. Its name and artwork do not imply
 OpenAI/Codex affiliation or endorsement.
 
+## Internet Angel theme artwork
+
+The following byte-identical macOS and Windows theme assets are bundled at the
+maintainer's direction but are excluded from the MIT software license:
+
+- `presets/preset-internet-angel-default/dream-reference.jpg`
+- `presets/preset-internet-angel/codex-dream-skin-pixel-cafe.png`
+- `../windows/assets/dream-reference.jpg`
+- `../windows/assets/codex-dream-skin-pixel-cafe.png`
+
+The theme names and artwork do not imply affiliation with or endorsement by
+OpenAI/Codex or any character rights holder. Repository inclusion and DMG
+packaging do not certify or grant third-party character, model-output, or
+redistribution rights. Downstream public or commercial redistribution requires
+an independent rights review.
+
 ## Arina Hashimoto reference material
 
 The following user/maintainer-supplied files are excluded from the MIT software license:
 
 - `presets/preset-arina-hashimoto/background.jpg`
-- `../windows/assets/dream-reference.jpg`
 - `../docs/images/presets/arina-hashimoto-source.png`
 - `../docs/images/presets/arina-hashimoto-light.jpg`
 - `../docs/images/presets/arina-hashimoto-dark.jpg`

@@ -40,6 +40,36 @@ assert.deepEqual(readImageMetadata(gothic, ".jpg"), {
   taskMode: "ambient",
 });
 
+const internetAngel = await fs.readFile(path.join(
+  macosRoot,
+  "presets",
+  "preset-internet-angel-default",
+  "dream-reference.jpg",
+));
+assert.deepEqual(readImageMetadata(internetAngel, ".jpg"), {
+  width: 2560,
+  height: 1440,
+  ratio: 2560 / 1440,
+  wide: true,
+  aspect: "wide",
+  taskMode: "ambient",
+});
+
+const pixelCafe = await fs.readFile(path.join(
+  macosRoot,
+  "presets",
+  "preset-internet-angel",
+  "codex-dream-skin-pixel-cafe.png",
+));
+assert.deepEqual(readImageMetadata(pixelCafe, ".png"), {
+  width: 1672,
+  height: 941,
+  ratio: 1672 / 941,
+  wide: true,
+  aspect: "wide",
+  taskMode: "ambient",
+});
+
 assert.deepEqual(classifyImageDimensions({ width: 2400, height: 1350 }), {
   width: 2400,
   height: 1350,

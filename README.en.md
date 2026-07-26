@@ -30,6 +30,16 @@ the [macOS guide](./docs/install-macos.md) or
 [Windows guide](./docs/install-windows.md) for unsigned first-run approval,
 updates, and uninstall steps.
 
+## Linux installation
+
+Linux support has only been tested with the AUR [`openai-codex-desktop`](https://aur.archlinux.org/packages/openai-codex-desktop) package. Close Codex first, ensure Node.js 20 or newer is installed, and run this command from the repository root:
+
+```bash
+./linux/scripts/install-dream-skin-linux.sh
+```
+
+After installation, launch Codex from its original desktop icon to load the theme automatically. Run `./linux/scripts/build-release.sh` to build a release archive. See [`linux/README.md`](./linux/README.md) for installation, verification, restore, and custom-path details.
+
 ## Sponsors
 
 <p align="center">
