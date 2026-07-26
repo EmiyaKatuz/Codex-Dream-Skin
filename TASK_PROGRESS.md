@@ -1,6 +1,6 @@
 # Task Progress
 
-Updated: 2026-07-26 21:57 CST (Asia/Shanghai)
+Updated: 2026-07-26 22:00 CST (Asia/Shanghai)
 
 ## macOS Internet Angel Visual Parity (2026-07-26 21:48 CST)
 
@@ -21,10 +21,13 @@ Updated: 2026-07-26 21:57 CST (Asia/Shanghai)
 - [verified] An arm64 `Codex Dream Skin.app` build completed at version 1.5.7.
   Strict code-signature verification, Mach-O architecture and packaged overlay
   asset presence all pass. The temporary build was not installed or published.
-- [in progress] Final diff review, commit and push the verified branch, then open
-  a ready PR against `main`.
-- [pending] Push the verified branch and open a ready PR against `main`; no
-  version bump, tag, Release publication or installation is in scope.
+- [complete] Commits `88afb57` and `e7bdd80` are pushed to the account fork.
+  Ready PR #8 targets upstream `main@78497ca`:
+  `https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/pull/8`.
+- [pending] GitHub checks and maintainer review have not completed. The PR is
+  open and currently reports `BLOCKED` with no check rollup yet; it is not
+  merged or released. No version bump, tag, Release publication or installation
+  is in scope.
 
 ## v1.5.1 Version Release (2026-07-25 08:28 HKT)
 
