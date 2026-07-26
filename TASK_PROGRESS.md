@@ -1,6 +1,55 @@
 # Task Progress
 
-Updated: 2026-07-27 00:18 CST (Asia/Shanghai)
+Updated: 2026-07-27 01:19 CST (Asia/Shanghai)
+
+## macOS Internet Angel Complete Surface Audit (2026-07-27 01:19 CST)
+
+- [verified] Performed a bidirectional parity audit between the Windows
+  renderer/CSS component inventory and the currently open macOS Codex DOM. The
+  scope remains exact Internet Angel preset IDs only; Gothic and imported themes
+  must remain unaffected.
+- [verified] Live CDP evidence reproduces all newly reported gaps. The open
+  Environment flyout contains two native sections, but the macOS classifier marks
+  only the first header/section; the Sources header therefore keeps its native
+  black background. The left sidebar currently has 195 `sidebar-row` marks,
+  including nested folder controls and screen-reader-only buttons, and applies a
+  visible rest-state plate to all of them. Its native inner scroll container is
+  still functional (`clientHeight=871`, `scrollHeight=2161`), so the defect is
+  visual hierarchy loss rather than a broken scrollbar.
+- [verified] Windows has dedicated `changes-pill`, `changes-shell` and
+  `changes-clip-host` classification and CSS for the compact changed-files status;
+  the macOS overlay currently has none of those components. Windows also keeps
+  ordinary sidebar buttons transparent at rest and reserves the full plate for
+  selected rows, unlike the current macOS overlay.
+- [verified] Added red-green DOM/CSS regressions and exact-theme-gated coverage for
+  both Environment/Sources sections, the compact changed-files shell/clip/pill,
+  transparent sidebar rest states, native selected rows, the composer goal-mode
+  trigger and settings app-main controls. A direct Windows-to-macOS component
+  contract now checks the remaining interaction surfaces for classifier and CSS
+  coverage.
+- [verified] A real `920x820` macOS window exposed a second Environment rendering
+  path: a visible Radix popover exists beside the exiting `absolute z-40` portal.
+  The old classifier accepted only the latter and mislabeled the visible panel as
+  `summary-panel`. The classifier now accepts both portal hosts while retaining
+  the existing dual-section, button-count and Git/semantic safety gates. The
+  theme never writes portal position or translation overrides.
+- [verified] Source hot injection and real-window evidence pass at `920x820` and
+  restored `1694x991`. The visible Radix panel is inside `x=542..842`, the restored
+  panel is inside `x=1378..1678`, both Environment/Sources headers are themed,
+  only the active sidebar task has a selection plate, expanded project folders
+  remain transparent, and the composer/changed-files pill/document have no
+  horizontal overflow. The native window was restored to its original bounds.
+- [verified] `CODEX_DREAM_SKIN_SKIP_DOCTOR=1 macos/tests/run-tests.sh`
+  completed with shell/Node syntax checks, shared runtime synchronization,
+  Safe CSS, import/ZIP/runtime coverage and 10 Swift XCTest cases passing; the
+  live Doctor was explicitly skipped. An arm64 menu-bar `.app` built into `/tmp`,
+  passed strict `codesign` verification, reported an arm64 Mach-O executable and
+  contained byte-identical Internet Angel CSS/JS assets.
+- [verified] Final focused Internet Angel regression, both touched Node syntax
+  checks and `git diff --check` pass. The worktree contains only the four intended
+  follow-up files.
+- [in progress] Commit and push this follow-up to existing ready PR #8. No merge,
+  install, version bump or Release is in scope.
 
 ## macOS Internet Angel Detail Parity Follow-up (2026-07-27 00:18 CST)
 

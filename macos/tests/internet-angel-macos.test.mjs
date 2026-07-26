@@ -18,6 +18,7 @@ const appDelegatePath = path.join(
 );
 const overlayCssPath = path.join(macosRoot, "assets", "internet-angel-macos.css");
 const overlayScriptPath = path.join(macosRoot, "assets", "internet-angel-macos.js");
+const windowsRoot = path.resolve(macosRoot, "..", "windows");
 
 async function isFile(filePath) {
   try {
@@ -41,6 +42,8 @@ const doctorSource = await fs.readFile(doctorPath, "utf8");
 const appDelegateSource = await fs.readFile(appDelegatePath, "utf8");
 const overlayCss = await fs.readFile(overlayCssPath, "utf8");
 const overlayScript = await fs.readFile(overlayScriptPath, "utf8");
+const windowsRenderer = await fs.readFile(path.join(windowsRoot, "assets", "renderer-inject.js"), "utf8");
+const windowsCss = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
 for (const assetName of ["internet-angel-macos.css", "internet-angel-macos.js"]) {
   assert.match(injectorSource, new RegExp(assetName.replaceAll(".", "\\.")));
   assert.match(appDelegateSource, new RegExp(assetName.replaceAll(".", "\\.")));
@@ -63,9 +66,14 @@ for (const component of [
   "context-strip",
   "goal-progress",
   "goal-step",
+  "goal-mode-trigger",
   "environment",
+  "environment-section",
   "environment-header",
   "environment-action",
+  "changes-shell",
+  "changes-clip-host",
+  "changes-pill",
   "side-workspace",
   "sidebar",
   "sidebar-control",
@@ -98,6 +106,7 @@ for (const component of [
   "settings-segment",
   "settings-menu",
   "settings-app-row",
+  "settings-app-main",
   "terminal-panel",
   "terminal-toolbar",
   "terminal-tab",
@@ -160,8 +169,91 @@ assert.ok(
   "Task composer styling must outrank the canonical immersive reset without widening theme scope.",
 );
 assert.match(overlayCss, /outline:\s*2px solid var\(--angel-blue\)\s*!important/);
+assert.match(
+  overlayCss,
+  /\[data-angel-component=["']sidebar-row["']\][\s\S]*?background:\s*transparent\s*!important/,
+  "Ordinary sidebar rows must stay transparent at rest like the Windows skin.",
+);
+assert.ok(
+  overlayCss.includes('[class~="bg-token-list-hover-background"]'),
+  "The native selected sidebar class must receive the Windows cyan/pink selection plate.",
+);
+assert.ok(
+  overlayCss.includes('button[data-angel-component="sidebar-row"]'),
+  "Only real sidebar buttons may receive the Windows hover plate; expanded folder rows are not selected.",
+);
+assert.ok(
+  overlayCss.includes('button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])'),
+  "The compact changed-files pill needs the same first-frame structural fallback as Windows.",
+);
+assert.doesNotMatch(
+  `${overlayScript}\n${overlayCss}`,
+  /--angel-environment-shift-x/,
+  "The theme layer must not retain a stale horizontal correction after the native portal reflows.",
+);
+assert.ok(
+  overlayCss.includes("max-width: calc(100vw - 32px)"),
+  "The Environment/Sources portal must fit narrow macOS windows.",
+);
 assert.doesNotMatch(overlayScript, /classList\.(?:add|remove|toggle)/);
 assert.doesNotMatch(overlayScript, /subtree\s*:\s*true/);
+
+const windowsToMacosParity = [
+  ["composer-palette", "composer-palette"],
+  ["composer-context-strip", "context-strip"],
+  ["active-goal-strip", "active-goal-strip"],
+  ["goal-progress-group", "goal-progress"],
+  ["goal-step", "goal-step"],
+  ["goal-mode-trigger", "goal-mode-trigger"],
+  ["changes-shell", "changes-shell"],
+  ["changes-clip-host", "changes-clip-host"],
+  ["changes-pill", "changes-pill"],
+  ["permission-banner", "permission"],
+  ["terminal-panel", "terminal-panel"],
+  ["side-workspace", "side-workspace"],
+  ["side-chat-panel", "side-chat"],
+  ["summary-panel", "summary-panel"],
+  ["selection-actions", "selection-actions"],
+  ["selection-action", "selection-action"],
+  ["selected-fragment", "selected-fragment"],
+  ["optional-comment", "optional-comment"],
+  ["optional-comment-input", "optional-comment-input"],
+  ["edited-card", "edited-card"],
+  ["edited-card-header", "edited-card-header"],
+  ["edited-card-icon", "edited-card-icon"],
+  ["edited-card-actions", "edited-card-actions"],
+  ["edited-card-undo", "edited-card-undo"],
+  ["edited-card-review", "edited-card-review"],
+  ["turn-nav-rail", "turn-nav-rail"],
+  ["turn-nav-row", "turn-nav-row"],
+  ["turn-nav-marker", "turn-nav-marker"],
+  ["turn-preview-tooltip", "turn-preview"],
+  ["turn-preview-surface", "turn-preview-surface"],
+  ["settings-sidebar", "settings-sidebar"],
+  ["settings-content", "settings-content"],
+  ["settings-app-row", "settings-app-row"],
+  ["settings-app-main", "settings-app-main"],
+  ["subagent-frame", "subagent-frame"],
+  ["subagent-toolbar", "subagent-toolbar"],
+  ["subagent-section", "subagent-section"],
+  ["subagent-row", "subagent-row"],
+  ["system-toast", "system-toast"],
+];
+for (const [windowsComponent, macosComponent] of windowsToMacosParity) {
+  assert.ok(
+    `${windowsRenderer}\n${windowsCss}`.includes(`dream-${windowsComponent}`),
+    `Windows parity source no longer exposes dream-${windowsComponent}.`,
+  );
+  assert.ok(
+    overlayScript.includes(`"${macosComponent}"`),
+    `macOS lifecycle does not classify the Windows ${windowsComponent} equivalent.`,
+  );
+  assert.match(
+    overlayCss,
+    new RegExp(`data-angel-component=["']${macosComponent}["']`),
+    `macOS CSS does not skin the Windows ${windowsComponent} equivalent.`,
+  );
+}
 
 class FixtureNode {
   constructor({ className = "", rect = {}, text = "" } = {}) {
@@ -208,9 +300,11 @@ function makeOverlayFixture() {
   const composer = makeNode({ className: "composer-surface-chrome" });
   const editor = makeNode();
   const send = makeNode();
+  const goalMode = makeNode({ text: "Goal" });
+  goalMode.setAttribute("aria-label", "Goal mode");
   composer
     .addQuery('[contenteditable="true"]', editor)
-    .addQuery("button", send);
+    .addQuery("button", [send, goalMode]);
 
   const sticky = makeNode();
   const contextStrip = makeNode();
@@ -226,19 +320,50 @@ function makeOverlayFixture() {
   const environmentHost = makeNode({ className: "absolute pointer-events-none z-40" });
   const environment = makeNode({
     className: "relative rounded-3xl bg-token-dropdown-background",
-    rect: { left: 1378, top: 58, width: 300, height: 199 },
+    rect: { left: 1800, top: 58, width: 300, height: 199 },
     text: "Environment Changes Local main branch commit",
   });
   const environmentSection = makeNode();
   const environmentHeader = makeNode({ className: "group/section-toggle" });
   const environmentAction = makeNode();
+  const sourcesSection = makeNode();
+  const sourcesHeader = makeNode({ className: "group/section-toggle", text: "Sources" });
+  const sourcesAction = makeNode({ text: "View all" });
   const gitSignal = makeNode();
   environmentHeader.parentElement = environmentSection;
+  sourcesHeader.parentElement = sourcesSection;
   environment.closestNodes.set('[class~="absolute"][class~="z-40"]', environmentHost);
   environment
-    .addQuery('button[class~="group/section-toggle"]', environmentHeader)
-    .addQuery("button", [environmentHeader, environmentAction])
+    .addQuery('button[class~="group/section-toggle"]', [environmentHeader, sourcesHeader])
+    .addQuery("button", [environmentHeader, environmentAction, sourcesHeader, sourcesAction])
     .addQuery('[data-testid*="git"], [aria-label*="git" i], [class*="git-"]', gitSignal);
+
+  const radixEnvironmentHost = makeNode();
+  radixEnvironmentHost.setAttribute("data-radix-popper-content-wrapper", "");
+  const radixEnvironment = makeNode({
+    className: "relative rounded-3xl bg-token-dropdown-background",
+    rect: { left: 1300, top: 47, width: 300, height: 317 },
+    text: "Environment Changes Local main branch commit Sources View all",
+  });
+  const radixEnvironmentSection = makeNode();
+  const radixEnvironmentHeader = makeNode({ className: "group/section-toggle", text: "Environment" });
+  const radixEnvironmentAction = makeNode({ text: "Changes" });
+  const radixSourcesSection = makeNode();
+  const radixSourcesHeader = makeNode({ className: "group/section-toggle", text: "Sources" });
+  const radixSourcesAction = makeNode({ text: "View all" });
+  const radixGitSignal = makeNode();
+  radixEnvironmentHeader.parentElement = radixEnvironmentSection;
+  radixSourcesHeader.parentElement = radixSourcesSection;
+  radixEnvironment.closestNodes.set('[data-radix-popper-content-wrapper]', radixEnvironmentHost);
+  radixEnvironment
+    .addQuery('button[class~="group/section-toggle"]', [radixEnvironmentHeader, radixSourcesHeader])
+    .addQuery("button", [
+      radixEnvironmentHeader,
+      radixEnvironmentAction,
+      radixSourcesHeader,
+      radixSourcesAction,
+    ])
+    .addQuery('[data-testid*="git"], [aria-label*="git" i], [class*="git-"]', radixGitSignal);
 
   const lookalike = makeNode({
     className: "rounded-3xl bg-token-dropdown-background",
@@ -374,20 +499,46 @@ function makeOverlayFixture() {
     .addQuery('[class~="min-w-0"][class~="flex-1"][class~="items-center"]', editedFilePath)
     .addQuery('[class~="tabular-nums"]', editedFileStats);
 
+  const changesClipHost = makeNode({ className: "relative overflow-hidden rounded-3xl" });
+  const changesShell = makeNode({ className: "rounded-3xl border-token-border" });
+  const changesWrapper = makeNode();
+  const changesPill = makeNode({ text: "4 files changed +526 -12" });
+  const changesAdded = makeNode({ className: "git-decoration-added", text: "+526" });
+  const changesDeleted = makeNode({ className: "git-decoration-deleted", text: "-12" });
+  changesPill.parentElement = changesWrapper;
+  changesPill
+    .addQuery('[class*="git-decoration-added"]', changesAdded)
+    .addQuery('[class*="git-decoration-deleted"]', changesDeleted);
+  changesWrapper.closestNodes.set(':not(button)[class*="rounded-3xl"][class*="border"]', changesShell);
+  changesWrapper.closestNodes.set(
+    ':not(button)[class~="overflow-hidden"][class~="rounded-3xl"]',
+    changesClipHost,
+  );
+
   const shell = makeNode();
   const body = makeNode();
   const documentQueries = new Map([
     [".composer-surface-chrome", [composer]],
+    [".composer-surface-chrome button", [send, goalMode]],
     ['main.main-surface [class~="sticky"][class~="bottom-0"]', [sticky]],
-    ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [environment, lookalike]],
+    ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [
+      environment,
+      radixEnvironment,
+      lookalike,
+    ]],
     ['[class*="contain:layout_paint"], [class~="bg-token-main-surface-primary"]', [workspace]],
-    ['[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])', [environment, summaryPanel]],
+    ['[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])', [
+      environment,
+      radixEnvironment,
+      summaryPanel,
+    ]],
     ['[data-user-message-bubble="true"]', [userBubble]],
     ['[data-content-search-unit-key$=":user"]', [userUnit]],
     ['[data-content-search-unit-key$=":assistant"]', [assistantUnit]],
     ['[data-local-conversation-item-target-ids]', [activity]],
     ['[class*="group/activity-header"]', [activityHeader, streamingActivityHeader]],
     ['[class*="group/turn-diff-header"]', [editedHeader]],
+    ['button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])', [changesPill]],
     ["aside.app-shell-left-panel", [sidebar]],
     ['div.vertical-scroll-fade-mask[class~="overflow-y-auto"]', [paletteScroll]],
     ['button[class*="navigation-row"]', [turnRow]],
@@ -438,6 +589,17 @@ function makeOverlayFixture() {
     environment,
     environmentAction,
     environmentHeader,
+    environmentSection,
+    radixEnvironment,
+    radixEnvironmentAction,
+    radixEnvironmentHeader,
+    radixEnvironmentSection,
+    radixSourcesAction,
+    radixSourcesHeader,
+    radixSourcesSection,
+    sourcesAction,
+    sourcesHeader,
+    sourcesSection,
     activity,
     activityCommand,
     activityDetail,
@@ -459,8 +621,12 @@ function makeOverlayFixture() {
     editedStats,
     editedTitle,
     editedUndo,
+    changesClipHost,
+    changesPill,
+    changesShell,
     goalProgress,
     goalStep,
+    goalMode,
     listeners,
     lookalike,
     nodes,
@@ -505,9 +671,24 @@ assert.equal(component(fixture.send), "composer-action");
 assert.equal(component(fixture.contextStrip), "context-strip");
 assert.equal(component(fixture.goalStep), "goal-step");
 assert.equal(component(fixture.goalProgress), "goal-progress");
+assert.equal(component(fixture.goalMode), "goal-mode-trigger");
 assert.equal(component(fixture.environment), "environment");
+assert.equal(component(fixture.environmentSection), "environment-section");
 assert.equal(component(fixture.environmentHeader), "environment-header");
 assert.equal(component(fixture.environmentAction), "environment-action");
+assert.equal(component(fixture.sourcesSection), "environment-section");
+assert.equal(component(fixture.sourcesHeader), "environment-header");
+assert.equal(component(fixture.sourcesAction), "environment-action");
+assert.equal(component(fixture.radixEnvironment), "environment");
+assert.equal(component(fixture.radixEnvironmentSection), "environment-section");
+assert.equal(component(fixture.radixEnvironmentHeader), "environment-header");
+assert.equal(component(fixture.radixEnvironmentAction), "environment-action");
+assert.equal(component(fixture.radixSourcesSection), "environment-section");
+assert.equal(component(fixture.radixSourcesHeader), "environment-header");
+assert.equal(component(fixture.radixSourcesAction), "environment-action");
+assert.equal(component(fixture.changesShell), "changes-shell");
+assert.equal(component(fixture.changesClipHost), "changes-clip-host");
+assert.equal(component(fixture.changesPill), "changes-pill");
 assert.equal(component(fixture.workspace), "side-workspace");
 assert.equal(component(fixture.sidebar), "sidebar");
 assert.equal(component(fixture.sidebarMode), "sidebar-control");
@@ -555,6 +736,12 @@ assert.ok(fixture.observers.length >= 2, "Shell and portal mount points must be 
 assert.ok(fixture.observers.every((observer) => observer.options?.childList === true));
 assert.ok(fixture.observers.every((observer) => observer.options?.subtree !== true));
 assert.equal(typeof fixture.listeners.get("click"), "function");
+assert.equal(typeof fixture.listeners.get("resize"), "function");
+assert.notEqual(
+  fixture.listeners.get("resize"),
+  fixture.listeners.get("click"),
+  "Window resize must not share the mutation debounce that can retain stale portal coordinates.",
+);
 assert.equal(typeof fixture.listeners.get("transitionend"), "function");
 
 vm.runInNewContext(
@@ -565,6 +752,7 @@ assert.equal(fixture.nodes.some((node) => component(node)), false, "Theme switch
 assert.ok(fixture.observers.every((observer) => observer.disconnected === true));
 assert.equal(fixture.timers.size, 0);
 assert.equal(fixture.listeners.has("click"), false);
+assert.equal(fixture.listeners.has("resize"), false);
 assert.equal(fixture.listeners.has("transitionend"), false);
 
 console.log("PASS: Internet Angel macOS overlay activation is exact and isolated.");

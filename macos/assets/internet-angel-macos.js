@@ -35,6 +35,7 @@
   const observedTargets = new Set();
   const listeners = [];
   let refreshTimer = null;
+  let resizeFrame = null;
   let state = null;
 
   const mark = (node, component) => {
@@ -147,6 +148,7 @@
     const search = nav.querySelector?.('[role="searchbox"]');
     mark(search?.closest?.('div[class~="rounded-lg"]') || search, "settings-search");
     mark(content, "settings-content");
+    const appMains = new Set();
     const surfaces = [...(content?.querySelectorAll?.(
       'div[class~="flex"][class~="flex-col"][class~="overflow-hidden"][class~="rounded-2xl"]',
     ) || [])].filter((surface) => {
@@ -164,14 +166,18 @@
       const appSelector = 'button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]';
       if (surface.querySelector?.(appSelector)) {
         for (const row of surface.children || []) {
-          if (row.querySelector?.(appSelector)) mark(row, "settings-app-row");
+          const appMain = row.querySelector?.(appSelector);
+          if (!appMain) continue;
+          appMains.add(appMain);
+          mark(row, "settings-app-row");
         }
       }
     }
     for (const control of content?.querySelectorAll?.(
       'button, input, textarea, [contenteditable="true"], [role="radiogroup"], [role="slider"]',
     ) || []) {
-      if (control.matches?.('input, textarea, [contenteditable="true"]')) mark(control, "settings-input");
+      if (appMains.has(control)) mark(control, "settings-app-main");
+      else if (control.matches?.('input, textarea, [contenteditable="true"]')) mark(control, "settings-input");
       else if (control.matches?.('[role="radiogroup"]')) {
         mark(control, "settings-segment-group");
         for (const segment of control.querySelectorAll?.('button, [role="radio"]') || []) {
@@ -223,17 +229,24 @@
       mark(step, "goal-step");
       mark(progress, "goal-progress");
     }
+    const goalModePattern = /^(?:\u76ee\u6807|goal)$/i;
+    const goalMode = [...document.querySelectorAll(".composer-surface-chrome button")]
+      .find((button) => /\u76ee\u6807|goal/i.test(button.getAttribute?.("aria-label") || "")
+        || goalModePattern.test(textOf(button)));
+    mark(goalMode, "goal-mode-trigger");
   };
 
   const classifyEnvironment = () => {
     for (const panel of document.querySelectorAll(selectors.environmentPanel)) {
-      const toggle = panel.querySelector?.(selectors.environmentToggle);
+      const toggles = [...(panel.querySelectorAll?.(selectors.environmentToggle) || [])];
       const buttons = [...(panel.querySelectorAll?.("button") || [])];
-      const host = panel.closest?.('[class~="absolute"][class~="z-40"]');
+      const floatingHost = panel.closest?.('[class~="absolute"][class~="z-40"]');
+      const popoverHost = panel.closest?.('[data-radix-popper-content-wrapper]');
       const box = panel.getBoundingClientRect?.() || { left: 0, width: 0, height: 0, right: 0 };
       const right = Number.isFinite(box.right) ? box.right : box.left + box.width;
+      const edgeTolerance = popoverHost ? 160 : 64;
       const rightFloating = box.width >= 240 && box.width <= 520 && box.height >= 96
-        && box.height <= 760 && right >= innerWidth - 64 && right <= innerWidth + 16;
+        && box.height <= 760 && right >= innerWidth - edgeTolerance;
       const structuralGitSignal = Boolean(panel.querySelector?.(selectors.environmentGit));
       const text = (panel.textContent || "").trim().slice(0, 1200);
       const semanticSignals = [
@@ -241,16 +254,35 @@
         /changes?|\u66f4\u6539/i,
         /local|branch|commit|compare|\u5206\u652f|\u63d0\u4ea4|\u6bd4\u8f83/i,
       ].filter((pattern) => pattern.test(text)).length;
-      if (!host || !toggle || buttons.length < 2 || !rightFloating
+      if ((!floatingHost && !popoverHost) || !toggles.length || buttons.length < 2 || !rightFloating
         || (!structuralGitSignal && semanticSignals < 2)) continue;
       mark(panel, "environment");
-      mark(toggle, "environment-header");
-      if (toggle.parentElement && toggle.parentElement !== panel) {
-        mark(toggle.parentElement, "environment-section");
+      for (const toggle of toggles) {
+        mark(toggle, "environment-header");
+        if (toggle.parentElement && toggle.parentElement !== panel) {
+          mark(toggle.parentElement, "environment-section");
+        }
       }
       for (const button of buttons) {
-        if (button !== toggle) mark(button, "environment-action");
+        if (!toggles.includes(button)) mark(button, "environment-action");
       }
+    }
+  };
+
+  const classifyChanges = () => {
+    const changedPattern = /(?:\d+\s+files?\s+changed|files?\s+changed|\u4e2a\u6587\u4ef6\u5df2\u66f4\u6539|\u5df2\u66f4\u6539\s*\d+\s*\u4e2a\u6587\u4ef6)/i;
+    const candidates = [...document.querySelectorAll(
+      'button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])',
+    )].filter((button) => changedPattern.test(textOf(button)));
+    for (const pill of candidates) {
+      const wrapper = pill.parentElement;
+      const shell = wrapper?.closest?.(':not(button)[class*="rounded-3xl"][class*="border"]') || null;
+      const clipHost = wrapper?.closest?.(
+        ':not(button)[class~="overflow-hidden"][class~="rounded-3xl"]',
+      ) || null;
+      mark(shell, "changes-shell");
+      mark(clipHost, "changes-clip-host");
+      mark(pill, "changes-pill");
     }
   };
 
@@ -489,6 +521,7 @@
     classifyComposerPalette();
     classifyComposerContext();
     classifyEnvironment();
+    classifyChanges();
     classifyWorkspaces();
     classifyPermissions();
     classifyConversation();
@@ -509,6 +542,20 @@
     }, 60);
   };
 
+  const refreshAfterResize = () => {
+    if (resizeFrame !== null) return;
+    if (typeof window.requestAnimationFrame !== "function") {
+      classify();
+      installObservers();
+      return;
+    }
+    resizeFrame = window.requestAnimationFrame(() => {
+      resizeFrame = null;
+      classify();
+      installObservers();
+    });
+  };
+
   const observeTarget = (target) => {
     if (!target || observedTargets.has(target)) return;
     const observer = new MutationObserver(scheduleRefresh);
@@ -523,19 +570,21 @@
     for (const sticky of document.querySelectorAll(selectors.stickyComposer)) observeTarget(sticky);
   }
 
-  const addListener = (target, type) => {
+  const addListener = (target, type, callback = scheduleRefresh) => {
     if (!target?.addEventListener) return;
-    target.addEventListener(type, scheduleRefresh);
-    listeners.push([target, type]);
+    target.addEventListener(type, callback);
+    listeners.push([target, type, callback]);
   };
 
   const cleanup = () => {
     if (refreshTimer !== null) clearTimeout(refreshTimer);
     refreshTimer = null;
+    if (resizeFrame !== null) window.cancelAnimationFrame?.(resizeFrame);
+    resizeFrame = null;
     for (const observer of observers) observer.disconnect();
     observers.length = 0;
     observedTargets.clear();
-    for (const [target, type] of listeners) target.removeEventListener?.(type, scheduleRefresh);
+    for (const [target, type, callback] of listeners) target.removeEventListener?.(type, callback);
     listeners.length = 0;
     clearMarks();
     if (window[registryKey] === state) delete window[registryKey];
@@ -549,5 +598,6 @@
   addListener(window, "popstate");
   addListener(window, "hashchange");
   addListener(window, "click");
+  addListener(window, "resize", refreshAfterResize);
   addListener(window, "transitionend");
 })();
