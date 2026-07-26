@@ -1,6 +1,30 @@
 # Task Progress
 
-Updated: 2026-07-25 08:31 HKT (Asia/Hong_Kong)
+Updated: 2026-07-26 21:57 CST (Asia/Shanghai)
+
+## macOS Internet Angel Visual Parity (2026-07-26 21:48 CST)
+
+- [complete] Branch `codex/macos-internet-angel-parity` adds a macOS-only,
+  exact-theme-ID overlay for both bundled Internet Angel presets. It covers the
+  composer, Environment/Changes, left navigation and footer, Add palette, turn
+  navigation, settings, terminal/summary, selection, edited-file, overlay and
+  subagent surfaces without activating for Gothic or custom themes.
+- [complete] Rebased the implementation onto current `origin/main@78497ca`
+  (v1.5.7). Conflict resolution preserves the current native-window readiness
+  gate, validated Safe CSS composition and current version while adding the
+  Internet Angel surface gate to the final renderer assessment.
+- [verified] Shared runtime synchronization, the complete macOS suite, 10 Swift
+  XCTest cases, signed-runtime checks and live Doctor all pass on the rebased tree.
+  The current Codex 26.721.41059 renderer reports `pass: true` with the composer,
+  Environment, sidebar footer, turn rail and scroll-to-bottom coverage active and
+  no horizontal overflow.
+- [verified] An arm64 `Codex Dream Skin.app` build completed at version 1.5.7.
+  Strict code-signature verification, Mach-O architecture and packaged overlay
+  asset presence all pass. The temporary build was not installed or published.
+- [in progress] Final diff review, commit and push the verified branch, then open
+  a ready PR against `main`.
+- [pending] Push the verified branch and open a ready PR against `main`; no
+  version bump, tag, Release publication or installation is in scope.
 
 ## v1.5.1 Version Release (2026-07-25 08:28 HKT)
 

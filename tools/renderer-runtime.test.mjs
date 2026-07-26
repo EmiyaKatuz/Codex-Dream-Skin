@@ -43,14 +43,54 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
   let nextBlob = 0;
   const attributesFor = (values) => [...values].map(([name, value]) => ({ name, value }));
   const makeDomNode = (name, parentElement = null, values = new Map()) => {
+    const nodeListeners = new Map();
     const node = {
       name,
+      tagName: String(name).toUpperCase(),
+      id: "",
+      className: "",
+      textContent: "",
+      innerHTML: "",
       parentElement,
+      children: [],
+      listeners: nodeListeners,
       get attributes() { return attributesFor(values); },
       getAttribute(attribute) { return values.get(attribute) ?? null; },
       setAttribute(attribute, value) { values.set(attribute, String(value)); },
       removeAttribute(attribute) { values.delete(attribute); },
-      appendChild(child) { child.parentElement = node; return child; },
+      appendChild(child) {
+        child.parentElement = node;
+        node.children.push(child);
+        if (child.id) nodes.set(child.id, child);
+        return child;
+      },
+      addEventListener(type, callback) { nodeListeners.set(type, callback); },
+      dispatchEvent(event) { node.lastEvent = event; return true; },
+      focus() { node.focusCount = (node.focusCount || 0) + 1; },
+      replaceChildren(...children) {
+        for (const child of node.children) child.parentElement = null;
+        node.children = [];
+        for (const child of children) node.appendChild(child);
+        node.textContent = children.map((child) => child.textContent || "").join("");
+      },
+      remove() {
+        if (node.parentElement?.children) {
+          node.parentElement.children = node.parentElement.children.filter((child) => child !== node);
+        }
+        if (node.id) nodes.delete(node.id);
+        node.parentElement = null;
+      },
+      querySelectorAll(selector) {
+        const results = [];
+        const visit = (candidate) => {
+          const classes = String(candidate.className || "").split(/\s+/);
+          if (selector === "button.angel-preset-card" && candidate.tagName === "BUTTON" &&
+              classes.includes("angel-preset-card")) results.push(candidate);
+          for (const child of candidate.children || []) visit(child);
+        };
+        visit(node);
+        return results;
+      },
     };
     domNodes.add(node);
     return node;
@@ -58,17 +98,7 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
   const root = makeDomNode("root", null, attrs);
   root.classList = rootClasses;
   root.style = rootStyle;
-  root.appendChild = (node) => {
-    node.parentElement = root;
-    if (node.id) nodes.set(node.id, node);
-    return node;
-  };
   const body = makeDomNode("body", root);
-  body.appendChild = (node) => {
-    node.parentElement = body;
-    if (node.id) nodes.set(node.id, node);
-    return node;
-  };
   const register = (selector, node) => {
     const current = selectorNodes.get(selector) || [];
     current.push(node);
@@ -114,7 +144,7 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     head: root,
     body,
     adoptedStyleSheets: adopted ? [] : undefined,
-    createElement(tag) { return tag === "style" ? makeStyleNode() : { tagName: tag }; },
+    createElement(tag) { return tag === "style" ? makeStyleNode() : makeDomNode(tag); },
     getElementById(id) { return nodes.get(id) || null; },
     querySelector(selector) {
       if (settings && (selector.includes("appearance-theme") || selector.includes("theme-preview"))) {
