@@ -1,8 +1,8 @@
 # Task Progress
 
-Updated: 2026-07-27 01:19 CST (Asia/Shanghai)
+Updated: 2026-07-27 01:22 CST (Asia/Shanghai)
 
-## macOS Internet Angel Complete Surface Audit (2026-07-27 01:19 CST)
+## macOS Internet Angel Complete Surface Audit (2026-07-27 01:22 CST)
 
 - [verified] Performed a bidirectional parity audit between the Windows
   renderer/CSS component inventory and the currently open macOS Codex DOM. The
@@ -48,8 +48,10 @@ Updated: 2026-07-27 01:19 CST (Asia/Shanghai)
 - [verified] Final focused Internet Angel regression, both touched Node syntax
   checks and `git diff --check` pass. The worktree contains only the four intended
   follow-up files.
-- [in progress] Commit and push this follow-up to existing ready PR #8. No merge,
-  install, version bump or Release is in scope.
+- [verified] Implementation and regressions were committed as `7447acc` and
+  pushed to the existing ready PR #8 branch. This progress-only update records
+  the completed verification and push. No merge, install, version bump or Release
+  was performed.
 
 ## macOS Internet Angel Detail Parity Follow-up (2026-07-27 00:18 CST)
 
