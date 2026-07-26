@@ -295,14 +295,17 @@ try {
       $skinLooksRendered = $false
       try {
         $verifyJson = ($verify.Output -join "`n") | ConvertFrom-Json -ErrorAction Stop
-        $readiness = $verifyJson.readiness
-        $versionMatches = -not [string]::IsNullOrWhiteSpace([string]$verifyJson.expectedVersion) -and
-          [string]$verifyJson.version -ceq [string]$verifyJson.expectedVersion
-        $themeMatches = -not [string]::IsNullOrWhiteSpace([string]$verifyJson.expectedThemeId) -and
-          [string]$verifyJson.themeId -ceq [string]$verifyJson.expectedThemeId
-        $revisionMatches = -not [string]::IsNullOrWhiteSpace([string]$verifyJson.expectedRevision) -and
-          [string]$verifyJson.revision -ceq [string]$verifyJson.expectedRevision
-        $skinLooksRendered = [bool]$verifyJson.installed -and [bool]$verifyJson.stylePresent -and
+        $result = $null
+        if ($verifyJson.targets -and $verifyJson.targets.Count -gt 0) { $result = $verifyJson.targets[0].result } elseif ($verifyJson.result) { $result = $verifyJson.result }
+        if ($null -eq $result) { $skinLooksRendered = $false; break }
+        $readiness = $result.readiness
+        $versionMatches = -not [string]::IsNullOrWhiteSpace([string]$result.expectedVersion) -and
+          [string]$result.version -ceq [string]$result.expectedVersion
+        $themeMatches = -not [string]::IsNullOrWhiteSpace([string]$result.expectedThemeId) -and
+          [string]$result.themeId -ceq [string]$result.expectedThemeId
+        $revisionMatches = -not [string]::IsNullOrWhiteSpace([string]$result.expectedRevision) -and
+          [string]$result.revision -ceq [string]$result.expectedRevision
+        $skinLooksRendered = [bool]$result.installed -and [bool]$result.stylePresent -and
           [bool]$readiness.documentPass -and [bool]$readiness.viewportPass -and
           [bool]$readiness.structurePass -and $versionMatches -and $themeMatches -and
           $revisionMatches
