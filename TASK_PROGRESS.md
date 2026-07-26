@@ -22,8 +22,15 @@ Updated: 2026-07-26 23:10 HKT (Asia/Hong_Kong)
   `26.721.4979.0`: it classified the real `-32000` reply as
   `browser-window-not-found`, reported `fallbackWindowPass=true`, and exited 0
   with `result.pass=true`.
-- [pending] Commit and open a child-fork PR crediting upstream #265 and linking
-  upstream issue #267.
+- [complete] Commit `8f9fa54` is pushed to
+  `Rhongomiant1227:fix/windows-cdp-window-not-found`; child-fork PR #9 is open
+  against `EmiyaKatuz:main` with explicit attribution to upstream #265 and
+  environment/test evidence.
+- [complete] Added independent Codex `26.721.4979.0` / raw `-32000` evidence
+  to upstream issue #267 in comment `#issuecomment-5084191931`; no duplicate
+  upstream PR was opened because the fix is already merged there.
+- [in progress] Monitor PR #9 CI and maintainer feedback. The child-fork fix is
+  submitted but not merged or released yet.
 
 Updated: 2026-07-25 08:31 HKT (Asia/Hong_Kong)
 
