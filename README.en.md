@@ -1,174 +1,138 @@
-# Codex Dream Skin
+# Codex Dream Skin · INTERNET ANGEL
 
 <p align="center">
   <a href="./README.md">中文</a> · <strong>English</strong>
 </p>
 
 <p align="center">
-  <strong>Give Codex a face that breathes.</strong><br>
-  External themes for the Codex desktop app · Local CDP inject · No official package mutation
+  <strong>An immersive INTERNET ANGEL theme for Codex Desktop.</strong><br>
+  Native-control styling · Animated pixel decorations · Local theme management · Reversible CDP injection
 </p>
 
 <p align="center">
-  One image, one mood · Code with atmosphere
+  <img src="windows/assets/dream-reference.jpg" alt="INTERNET ANGEL default theme background" width="900"><br>
+  <sub>The default Windows theme asset; the runtime injection layer renders the controls, layout, and animation.</sub>
 </p>
 
-<p align="center">
-  Unofficial. Does not modify <code>.app</code> / <code>app.asar</code> / WindowsApps.
-</p>
+> Current fork release: `1.5.6` (2026-07-26). Windows is the primary development and verification platform. macOS and Linux support continue alongside upstream and fork contributions.
 
-## Install directly
+Installers are published through this fork's [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases).
 
-Ordinary users first install and quit the official Codex / ChatGPT app once,
-then download from [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases):
+## About this fork
 
-- macOS: open `CodexDreamSkin-vX.Y.Z.dmg` and drag the app to Applications.
-- Windows: run `CodexDreamSkin-Setup-vX.Y.Z.exe` and follow the wizard.
+This independent fork is based on [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin). It redesigns Codex Desktop around the INTERNET ANGEL theme and adds a Windows-specific renderer overlay, responsive layout behavior, animated state presentation, local theme storage, and a themed tray experience.
 
-No source checkout, Node.js install, `.sh`, or `.ps1` command is required. See
-the [macOS guide](./docs/install-macos.md) or
-[Windows guide](./docs/install-windows.md) for unsigned first-run approval,
-updates, and uninstall steps.
+The theme uses CDP on the local loopback interface. The official Codex package, `WindowsApps`, `app.asar`, and application signatures remain unchanged.
 
-## Linux installation
+The current branch includes upstream `3aaaf7d` (`v1.5.5`). Future upstream changes will be reviewed and integrated around this fork's theme and compatibility requirements.
 
-Linux support has only been tested with the AUR [`openai-codex-desktop`](https://aur.archlinux.org/packages/openai-codex-desktop) package. Close Codex first, ensure Node.js 20 or newer is installed, and run this command from the repository root:
+## Fork highlights
+
+### Bundled themes
+
+Fresh Windows installations enable the JPEG INTERNET ANGEL theme and seed two additional saved themes:
+
+| Theme | Source | Role |
+|------|------|------|
+| INTERNET ANGEL | `theme.json` + `dream-reference.jpg` | Default `2560 × 1440` JPEG theme |
+| INTERNET ANGEL · Pixel Cafe | `theme-choten.json` + `codex-dream-skin-pixel-cafe.png` | Lossless PNG edition |
+| Gothic Void Crusade | `windows/presets/preset-gothic-void-crusade/` | Additional upstream preset |
+
+The Windows release builder verifies the theme IDs, image mappings, and SHA-256 hashes before producing Setup.exe.
+
+### Interface and runtime work
+
+- A cyan, pink, purple, and pixel-neon visual system covers the home screen, tasks, header, sidebar, composer, settings, terminal, dialogs, pull requests, and secondary panels.
+- ANGEL COMMAND DECK cards augment the home screen while preserving native Codex inputs and task creation.
+- Responsive rules cover narrow and short windows, collapsed sidebars, bottom panels, split views, and full task pages.
+- Background-synchronized blinking, heartbeat, signal, particle, and live-status effects respond to resizing and reduced-motion preferences.
+- Renderer scans are throttled, window identity is verified, observers and listeners are cleaned up, and injection failures release their sessions.
+- Codex Desktop 26.721+ home structures, native-window readiness, Safe CSS parts, and renderer cleanup have dedicated regression coverage.
+
+### Theme management
+
+- Import PNG, JPEG, or WebP backgrounds up to `10 MB`.
+- Import theme ZIP archives with manifest, path, size, platform, client-version, SHA-256, and Safe CSS validation.
+- Save and switch local themes from the Windows tray or macOS menu bar.
+- Pause, resume, reapply, inspect theme folders, check for updates, or fully restore the stock Codex appearance.
+- Open DreamSkin.cc Gallery and Studio from the client. Supported community links require local confirmation before application.
+
+## Install
+
+### Windows Release Setup
+
+Requirements: Windows 10/11 x64 and the Microsoft Store `OpenAI.Codex` app registered for the current user. Launch Codex once, then close Codex and any older Dream Skin tray process.
+
+1. Download `CodexDreamSkin-Setup-vX.Y.Z.exe` and `SHA256SUMS.txt` from the [latest release](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases/latest).
+2. Verify the Setup.exe SHA-256 against the checksum file.
+3. Run the per-user installer and launch `Codex Dream Skin` from the Start menu.
+
+Setup includes a pinned Node.js runtime. Source checkout and a separate Node.js installation are unnecessary for Release users. Current packages are unsigned; verify the source and checksum before approving a Windows security prompt. See the [Windows installation guide](./docs/install-windows.md) for updates, ZIP import, recovery, and uninstall steps.
+
+### Windows from source
+
+Source installation requires Node.js 22 or newer plus Windows PowerShell 5.1 or PowerShell 7:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\install-dream-skin.ps1
+```
+
+The installer deploys a managed runtime under `%LOCALAPPDATA%\CodexDreamSkin`, starts the tray, and creates the `Codex Dream Skin`, `Codex Dream Skin - Tray`, and `Codex Dream Skin - Restore` desktop shortcuts.
+
+### macOS
+
+Download `CodexDreamSkin-vX.Y.Z.dmg`, move `Codex Dream Skin.app` to Applications, and launch it. The DMG includes its runtime. Current builds use ad-hoc signing; follow the GUI approval steps in the [macOS installation guide](./docs/install-macos.md).
+
+### Linux
+
+Linux support is tested with the AUR [`openai-codex-desktop`](https://aur.archlinux.org/packages/openai-codex-desktop) package and requires Node.js 20 or newer:
 
 ```bash
 ./linux/scripts/install-dream-skin-linux.sh
 ```
 
-After installation, launch Codex from its original desktop icon to load the theme automatically. Run `./linux/scripts/build-release.sh` to build a release archive. See [`linux/README.md`](./linux/README.md) for installation, verification, restore, and custom-path details.
+See [`linux/README.md`](./linux/README.md) for verification, restore, release archive, and custom-path details.
 
-## Sponsors
+## Update and restore
 
-<p align="center">
-  <a href="https://passion8.cc/register?aff=TuPe">
-    <img src="docs/images/sponsor-passion8.png" alt="Passion8" height="72">
-  </a>
-</p>
+Release users can close Codex and the tray, verify the new package checksum, and install the newer package over the existing installation. Active themes, saved themes, imported images, and configuration backups are preserved.
 
-<p align="center">
-  <strong>Smarter Connections · Passionate Creation</strong><br>
-  <sub>Connect AI · Power Creation</sub>
-</p>
+Source users can pull this fork and run the source installer again. The Restore shortcut removes the injected appearance and returns Codex to its stock presentation.
 
-<p align="center">
-  Thanks to <a href="https://passion8.cc/register?aff=TuPe"><strong>passion8.cc</strong></a> for sponsoring this project.<br>
-  Full-power AI gateway: official models, no silent downgrades, no wrapper shells.<br>
-  One-line setup for Codex / Claude Code / Grok.
-</p>
+## Verification
 
-<p align="center">
-  <sub>
-    Theme install and API config stay separate — this project never rewrites your provider settings.
-  </sub>
-</p>
+Run the Windows regression suite:
 
-## Tested featured presets
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\tests\run-tests.ps1
+```
 
-### Gothic Void Crusade / 哥特虚空远征
+Check the final Windows injection payload:
 
-**Special thanks to [@seansong-ideogram](https://github.com/seansong-ideogram) for designing and contributing this striking, atmospheric original gothic science-fiction work to the community.** It leads the tested featured presets and is the default theme for fresh macOS installs.
+```powershell
+node .\windows\scripts\injector.mjs --check-payload
+```
 
-<p align="center">
-  <img src="docs/images/presets/gothic-void-crusade-preview.jpg" alt="Gothic Void Crusade theme running in Codex" width="900"><br>
-  <sub>Real injected Codex home screen (preview only)</sub>
-</p>
+Tests cover theme seeding and switching, image and ZIP validation, Safe CSS, community recovery, runtime replacement, installer rules, selector contracts, pause and resume, responsive layouts, native-window readiness, renderer cleanup, payload revision, and loopback CDP validation.
 
-After installing on macOS, switch directly from **Saved Themes** in the menu bar.
+## Roadmap
 
-### Arina Hashimoto / 桥本有菜
+- Add more animation variants for states such as thinking and output.
+- Maintain compatibility with major Codex Desktop releases and reviewed upstream updates.
+- Continue miscellaneous reliability and presentation fixes.
 
-“Arina Hashimoto / 桥本有菜” has been verified on the real Codex home screen in
-both light and dark appearances. The user-provided source PNG is `1672 × 941`;
-the preset's `2560 × 1440` JPEG is a standardized derived export that preserves
-the source's near-16:9 composition and does not add source detail. The sidebar,
-cards, project picker, and composer
-shown below are native Codex controls.
+## License and notice
 
-<p align="center">
-  <img src="docs/images/presets/arina-hashimoto-light.jpg" alt="Arina Hashimoto theme tested in light appearance" width="900"><br>
-  <sub>Light · real injected screenshot; unsent input hidden during capture (preview only)</sub>
-</p>
+- This project follows the upstream license; see [`macos/LICENSE`](./macos/LICENSE) and [`macos/NOTICE.md`](./macos/NOTICE.md).
+- This is an unofficial product. Codex and related rights belong to their respective owners.
+- IP materials and trademarks used by this theme belong to their respective owners.
+- Confirm the required rights before public display or redistribution of people, IP materials, and trademarks.
 
-<p align="center">
-  <img src="docs/images/presets/arina-hashimoto-dark.jpg" alt="Arina Hashimoto theme tested in dark appearance" width="900"><br>
-  <sub>Dark · real injected screenshot; unsent input hidden during capture (preview only)</sub>
-</p>
+## Credits
 
-This portrait material remains in the source repository for reference and
-rights review; it is excluded from public DMG and Setup.exe assets. Public
-installers seed only the redistributable Gothic Void Crusade preset. Users can
-still choose **Change Background** to import UI-free artwork they are entitled
-to use and save it for one-click switching.
-
-> The downloadable user source is [`docs/images/presets/arina-hashimoto-source.png`](./docs/images/presets/arina-hashimoto-source.png) (`1672 × 941`); the source-only reference preset uses the normalized derived [`background.jpg`](./macos/presets/preset-arina-hashimoto/background.jpg) (`2560 × 1440`). Do not import either screenshot above: they contain real UI and are previews only. The background is a user-provided AI-generated example, not an official OpenAI/Codex visual or endorsement; do not put it in a public installer without confirmed likeness and asset rights.
-
-## What it does
-
-- **Real UI** — Sidebar, cards, project picker, and input stay native. Not a fake full-window screenshot.
-- **Continuous wallpaper** — One 16:9 image spans the full window; adaptive focus, safe-area, and route treatment keep native content readable.
-- **Swappable art** — Drop in a UI-free image you like and it becomes your theme.
-- **Saved themes** — Switch local themes from the macOS menu bar or Windows system tray.
-- **Restorable** — One-click restore to the stock look.
-- **Safer path** — Local-loopback CDP inject only. No official binary or signature changes.
-
-## Quick start
-
-### For users: download an installer
-
-You do not need to clone the repository, install Node.js, or run `.sh` / `.ps1`
-files. Download the latest package for your platform from
-[GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases), then
-follow the graphical first-run guide:
-
-| Platform | Download | Install guide |
-|------|------|----------|
-| macOS | `CodexDreamSkin-vX.Y.Z.dmg` | [`docs/install-macos.md`](./docs/install-macos.md) |
-| Windows | `CodexDreamSkin-Setup-vX.Y.Z.exe` | [`docs/install-windows.md`](./docs/install-windows.md) |
-
-After installation, use the menu bar (macOS) or system tray (Windows). Updates
-are manual: download the new package and install over the existing one; themes
-and images are preserved. Because the public packages are unsigned, a new
-download may show a one-time OS security warning; the guides explain the safe
-GUI approval path.
-
-### For developers: run from source
-
-Platform scripts are ready — different plumbing, same goal: theme Codex.
-
-| Platform | Dir | Entry |
-|------|------|------|
-| Apple Silicon / Intel Mac | [`macos/`](./macos/) | Double-click `Install Codex Dream Skin.command` |
-| Windows | [`windows/`](./windows/) | `scripts/install-dream-skin.ps1` → `start-dream-skin.ps1` |
-
-More detail:
-
-- Mac: [`macos/README.md`](./macos/README.md)
-- Windows: [`windows/README.md`](./windows/README.en.md)
-- Paths: [`docs/platforms.md`](./docs/platforms.md)
-- Copy-ready reference prompt guide: [`docs/reference-background-prompt-guide.en.md`](./docs/reference-background-prompt-guide.en.md)
-- Eight concept prompt breakdowns: [`docs/background-generation-prompts.md`](./docs/background-generation-prompts.md)
-- Project notes: [`docs/PROJECT.md`](./docs/PROJECT.md)
-
-## Feedback & contributions
-
-- **Issues:** Use the [issue templates](./.github/ISSUE_TEMPLATE/) (bug / feature). Blank issues are disabled. Please try Verify / Restore self-checks before filing bugs.
-- **PRs:** Follow the [PR template](./.github/pull_request_template.md) — describe the change and tick the self-checks you actually ran (e.g. `macos/tests/run-tests.sh`, verify / restore).
-
-## Safety
-
-- CDP binds `127.0.0.1` only — avoid untrusted local processes while the theme runs.
-- Does not touch the official install directory or code signature.
-- **Never** rewrites API Key / Base URL; relay and theme stay separate.
-
-## License
-
-- See [`macos/LICENSE`](./macos/LICENSE) (MIT) and [`macos/NOTICE.md`](./macos/NOTICE.md)
-- Unofficial; Codex and related rights belong to their owners.
-- People / IP material in bundled presets and previews is illustrative only — clear likeness, asset, and trademark rights before commercial redistribution.
+- Original project: [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin)
+- Gothic Void Crusade contributor: [@seansong-ideogram](https://github.com/seansong-ideogram)
 
 ---
 
-Star it, pick a look, and make Codex yours for today.
+Turn the Codex workspace into the INTERNET ANGEL stream room.

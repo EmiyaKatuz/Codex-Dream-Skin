@@ -51,6 +51,8 @@ try {
       -Recurse -File -Force
   )
   if ($runtimeSourceFiles.Count -ne $runtimeEngineFiles.Count -or
+    -not (Test-DreamSkinPathWithin -Path $engine.CommunityApply -Root $runtimeStateRoot) -or
+    -not (Test-Path -LiteralPath $engine.CommunityApply -PathType Leaf) -or
     -not (Test-DreamSkinPathWithin -Path $engine.Start -Root $runtimeStateRoot) -or
     -not (Test-DreamSkinPathWithin -Path $engine.Restore -Root $runtimeStateRoot) -or
     -not (Test-DreamSkinPathWithin -Path $engine.Tray -Root $runtimeStateRoot) -or
@@ -216,7 +218,8 @@ try {
       throw "Installed runtime script failed to parse after its source checkout was removed: $($installedScript.Name)"
     }
   }
-  if (-not (Test-Path -LiteralPath $engine.Start -PathType Leaf) -or
+  if (-not (Test-Path -LiteralPath $engine.CommunityApply -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $engine.Start -PathType Leaf) -or
     -not (Test-Path -LiteralPath $engine.Restore -PathType Leaf) -or
     -not (Test-Path -LiteralPath $engine.Tray -PathType Leaf)) {
     throw 'Installed launch, restore, or tray entry point disappeared with the source checkout.'
@@ -1000,11 +1003,15 @@ try {
   $publicPresetRoot = Join-Path $repositoryRoot 'macos\presets\preset-gothic-void-crusade'
   New-Item -ItemType Directory -Path $releaseFixtureAssets, $releaseFixtureScripts, $releaseFixturePresetDirectory -Force | Out-Null
   Copy-Item -LiteralPath (Join-Path $Root 'VERSION') -Destination $releaseFixtureRoot -Force
-  foreach ($releaseAsset in @('dream-skin.css', 'renderer-inject.js', 'selectors.json')) {
+  foreach ($releaseAsset in @(
+    'dream-skin.css', 'renderer-inject.js', 'safe-css-policy.json', 'safe-css-validator.mjs', 'selectors.json',
+    'theme-package-validator.mjs'
+  )) {
     Copy-Item -LiteralPath (Join-Path $Root "assets\$releaseAsset") `
       -Destination $releaseFixtureAssets -Force
   }
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\common-windows.ps1') -Destination $releaseFixtureScripts -Force
+  Copy-Item -LiteralPath (Join-Path $Root 'scripts\apply-community-theme.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\check-update.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\config-utf8.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\image-metadata.mjs') -Destination $releaseFixtureScripts -Force
@@ -1014,6 +1021,7 @@ try {
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\start-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\theme-windows.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\tray-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
+  Copy-Item -LiteralPath (Join-Path $Root 'scripts\validate-safe-css-file.mjs') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\verify-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $publicPresetRoot 'background.jpg') `
     -Destination $releaseFixturePresetDirectory -Force
@@ -1071,7 +1079,7 @@ try {
   New-Item -ItemType Directory -Path $oversizedTheme | Out-Null
   $oversizedImage = Join-Path $oversizedTheme 'oversized.jpg'
   $oversizedStream = [System.IO.File]::Open($oversizedImage, [System.IO.FileMode]::CreateNew)
-  try { $oversizedStream.SetLength((16 * 1024 * 1024) + 1) } finally { $oversizedStream.Dispose() }
+  try { $oversizedStream.SetLength((10 * 1024 * 1024) + 1) } finally { $oversizedStream.Dispose() }
   Write-DreamSkinUtf8FileAtomically -Path (Join-Path $oversizedTheme 'theme.json') `
     -Content "{`"image`":`"oversized.jpg`"}`r`n"
   $oversizedReadRejected = $false
@@ -1081,7 +1089,7 @@ try {
     $null = Set-DreamSkinActiveTheme -ImagePath $oversizedImage -Theme $null -StateRoot $themeStateRoot
   } catch { $oversizedSetRejected = $true }
   if (-not $oversizedReadRejected -or -not $oversizedSetRejected) {
-    throw 'The 16 MB image limit was not enforced before theme copy or payload construction.'
+    throw 'The 10 MB image limit was not enforced before theme copy or payload construction.'
   }
 
   $oversizedDimensionImage = Join-Path $temporaryRoot 'oversized-dimension.png'
@@ -1306,7 +1314,8 @@ try {
   foreach ($requiredRendererBehavior in @(
     'STYLE_REVISION', 'PAYLOAD_REVISION', 'artMetadata', 'detectShellAppearance',
     'data-dream-skin', 'ResizeObserver', 'MutationObserver',
-    'MUTATION_REFRESH_INTERVAL_MS', 'runEnsureSafely', 'styleMode: "style"'
+    'DOM_REFRESH_DEBOUNCE_MS', 'runEnsureSafely', 'styleMode: "style"',
+    'data-ds-part', 'refreshSafeCssParts'
   )) {
     if (-not $rendererSource.Contains($requiredRendererBehavior)) {
       throw "Renderer adaptive behavior is missing: $requiredRendererBehavior"
@@ -1321,6 +1330,9 @@ try {
     }
   }
   $node = Get-DreamSkinNodeRuntime
+  & (Join-Path $PSScriptRoot 'community-theme-link.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'theme-zip-import.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'start-renderer-readiness.tests.ps1') -Root $Root
   $projectRoot = Split-Path -Parent $Root
   $syncToolPath = Join-Path $projectRoot 'tools\sync-runtime-assets.mjs'
   $syncToolResult = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @($syncToolPath, '--check')
@@ -1342,6 +1354,10 @@ try {
     '[System.IO.FileAttributes]::ReparsePoint',
     'Ensure-DreamSkinManagedDirectory',
     'Get-DreamSkinValidatedImageMetadata',
+    '[System.IO.Compression.ZipArchive]',
+    'Only ordinary .zip theme packages are supported',
+    'Theme ZIP exceeds the 64 MB expanded-size limit',
+    'theme-package-validator.mjs',
     '16384px / 50MP safety limit',
     'Assert-DreamSkinImageFile -Path $temporary',
     'Assert-DreamSkinImageFile -Path $imageArchive'
@@ -1377,7 +1393,10 @@ try {
   if ($managedPayloadTest.ExitCode -ne 0) { throw 'Managed theme payload validation failed.' }
   $oversizedPayloadTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $Root 'scripts\injector.mjs'), '--check-payload', '--theme-dir', $oversizedTheme)
-  if ($oversizedPayloadTest.ExitCode -eq 0) { throw 'Node injector accepted an image over the 16 MB limit.' }
+  if ($oversizedPayloadTest.ExitCode -eq 0) { throw 'Node injector accepted an image over the 10 MB limit.' }
+  $safeCssTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+    (Join-Path $projectRoot 'macos\tests\safe-css-validator.test.mjs'))
+  if ($safeCssTest.ExitCode -ne 0) { throw 'Safe CSS validator regression test failed.' }
   $rendererTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'renderer-inject.test.mjs'))
   if ($rendererTest.ExitCode -ne 0) { throw 'Renderer auxiliary-window regression test failed.' }
@@ -1393,6 +1412,9 @@ try {
   $oneShotTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'injector-one-shot.test.mjs'))
   if ($oneShotTest.ExitCode -ne 0) { throw 'Injector one-shot Browser ID regression test failed.' }
+  $windowReadinessTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+    (Join-Path $PSScriptRoot 'injector-window-readiness.test.mjs'))
+  if ($windowReadinessTest.ExitCode -ne 0) { throw 'Injector native-window readiness regression test failed.' }
   $imageMetadataTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'image-metadata.test.mjs'))
   if ($imageMetadataTest.ExitCode -ne 0) { throw 'Image metadata regression test failed.' }

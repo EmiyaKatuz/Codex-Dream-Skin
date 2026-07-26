@@ -1,6 +1,7 @@
 ((cssText, artDataUrl, rawConfig) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
+  const PART_ATTR = "data-ds-part";
   const STYLE_REVISION = "8";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
@@ -24,6 +25,7 @@
     "dream-safe-none",
     "dream-task-ambient",
     "dream-task-banner",
+    "dream-task-full",
     "dream-task-off",
     "dream-choten-art",
     "dream-reduced-motion",
@@ -187,7 +189,7 @@
     const safeArea = ["auto", "left", "right", "center", "none"].includes(art.safeArea)
       ? art.safeArea
       : "auto";
-    const taskMode = ["auto", "ambient", "banner", "off"].includes(art.taskMode)
+    const taskMode = ["auto", "ambient", "banner", "full", "off"].includes(art.taskMode)
       ? art.taskMode
       : "auto";
     const metadataRatio = Number(config?.artMetadata?.ratio);
@@ -461,6 +463,7 @@
       node.classList.remove(...HOME_PANEL_STATE_CLASSES);
     });
     document.querySelectorAll(`#${SIDE_WORKSPACE_BRAND_ID}, .dream-side-workspace-brand`).forEach((node) => node.remove());
+    document.querySelectorAll(`[${PART_ATTR}]`).forEach((node) => node.removeAttribute(PART_ATTR));
     document.getElementById(STYLE_ID)?.remove();
     document.getElementById(CHROME_ID)?.remove();
     document.getElementById(FALLBACK_PRESETS_ID)?.remove();
@@ -492,7 +495,7 @@
     for (const value of ["left", "center", "right", "none"]) {
       root.classList.toggle(`dream-safe-${value}`, safeArea === value);
     }
-    for (const value of ["ambient", "banner", "off"]) {
+    for (const value of ["ambient", "banner", "full", "off"]) {
       root.classList.toggle(`dream-task-${value}`, taskMode === value);
     }
     root.style.setProperty("--dream-art", `url("${artUrl}")`);
@@ -741,6 +744,43 @@
     chrome.classList.toggle("dream-home-shell", Boolean(home));
   };
 
+  const safeCssPartNodes = new Set();
+  const refreshSafeCssParts = () => {
+    const desired = new Map();
+    const add = (part, nodes) => {
+      for (const node of nodes || []) {
+        if (node && typeof node.setAttribute === "function" && !desired.has(node)) {
+          desired.set(node, part);
+        }
+      }
+    };
+    const all = (selector) => {
+      try { return [...document.querySelectorAll(selector)]; } catch { return []; }
+    };
+    add("root", [document.documentElement]);
+    add("sidebar", all("aside.app-shell-left-panel"));
+    add("main", all("main.main-surface"));
+    add("header", all("header.app-header-tint"));
+    add("home", all('[role="main"]:has([data-testid="home-icon"])'));
+    add("project-list", all(".group\\/project-selector"));
+    add("thread", all(".thread-scroll-container"));
+    add("message", all("[data-message-author-role]"));
+    add("composer", all(".composer-surface-chrome"));
+    add("composer-toolbar", all('.composer-surface-chrome [class*="_footer_"]'));
+    add("dialog", all('[role="dialog"]'));
+    const homeHero = document.querySelector?.('[data-testid="home-icon"]')?.parentElement;
+    add("home-hero", homeHero ? [homeHero] : []);
+
+    for (const node of safeCssPartNodes) {
+      if (!desired.has(node)) node.removeAttribute?.(PART_ATTR);
+    }
+    safeCssPartNodes.clear();
+    for (const [node, part] of desired) {
+      if (node.getAttribute?.(PART_ATTR) !== part) node.setAttribute(PART_ATTR, part);
+      safeCssPartNodes.add(node);
+    }
+  };
+
   const ensure = () => {
     if (window.__CODEX_DREAM_SKIN_DISABLED__) return;
     const root = document.documentElement;
@@ -763,6 +803,7 @@
     root.setAttribute("data-dream-skin", "active");
     root.classList.add("codex-dream-skin");
     applyProfile(root);
+    refreshSafeCssParts();
 
     let style = document.getElementById(STYLE_ID);
     if (!style) {

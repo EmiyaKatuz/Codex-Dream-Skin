@@ -26,7 +26,7 @@
 - Restart consent: an existing normal Codex window is never force-closed without explicit CLI authorization or shortcut confirmation.
 - Shortcut policy: installed launch, restore, tray, and tray-child commands use `RemoteSigned` without `Bypass`; Internet-zone markers are removed only from hash-verified managed PowerShell copies.
 - Config safety: Chinese project names, LF/CRLF choice, quoted target keys, table-header comments, and unrelated TOML sections survive install/selective restore; ambiguous target shapes fail unchanged, exact recovery keeps a copy of the replaced current file, and install refuses both registered and state-recorded old Codex processes.
-- Theme safety: empty/over-16 MB images, over-16384px/50MP dimensions, path escapes, symlinks/junctions, malformed JSON, and unsupported formats are rejected before payload construction.
+- Theme safety: empty/over-10 MB images, over-16384px/50MP dimensions, path escapes, symlinks/junctions, malformed JSON, unsafe CSS, and unsupported formats are rejected before payload construction.
 - Tray lifecycle: pause/resume reflects the clicked state, both bundled Internet Angel / 超天酱 saved variants are present on first install, and complete restore terminates any separately launched tray before it can reapply the skin.
 
 - Tray icon: the installed tray loads `assets/internet-angel-tray.ico`; its 16px and 32px frames remain recognizable, transparent, and distinct from the generic Windows application icon.
@@ -56,6 +56,6 @@
 
 ## Automated checks
 
-- `tests/run-tests.ps1`: strict UTF-8/no-BOM writes, UTF-16 rejection, LF/CRLF preservation, concurrent-write detection, exact backup/recovery, `[desktop]`-scoped restore, ambiguous TOML rejection, non-ASCII paths, Appx/state identity, argument quoting, theme seeding/import/save/switch/pause, byte/dimension limits, junction rejection, payload construction, Browser ID, loopback URL rejection, and renderer isolation for transparent auxiliary windows.
+- `tests/run-tests.ps1`: strict UTF-8/no-BOM writes, UTF-16 rejection, LF/CRLF preservation, concurrent-write detection, exact backup/recovery, `[desktop]`-scoped restore, ambiguous TOML rejection, non-ASCII paths, Appx/state identity, argument quoting, theme seeding/import/save/switch/pause, canonical community-link and compatible-metadata rejection, fixed-origin download/apply boundaries, byte/dimension limits, junction rejection, payload construction, Browser ID, loopback URL rejection, and renderer isolation for transparent auxiliary windows.
 - `node --check` for the injector and renderer payload.
 - Live Windows signoff remains required for Store process ownership, restart consent, screenshot, and CDP closure.

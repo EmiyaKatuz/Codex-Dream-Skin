@@ -133,9 +133,9 @@ assert.match(source, /Page\.removeScriptToEvaluateOnNewDocument/,
   "Watcher shutdown and theme refresh must unregister persistent Page scripts.");
 assert.match(source, /markers\.shell && \(markers\.sidebar \|\| \(markers\.header && markers\.composer\)\)/,
   "Collapsed-sidebar renderers must require the native header and composer identity anchors.");
-assert.match(source, /Boolean\(result\.sidebar\) \|\| Boolean\(result\.header\)/,
+assert.match(source, /result\.shell\?\.visible &&\s*\(result\.sidebar\?\.visible \|\| result\.header\?\.visible\)/,
   "Post-install verification must accept a collapsed sidebar when the native header remains present.");
-assert.match(source, /result\.stylePresent && structurePass && payloadPass/,
-  "Post-install verification must retain upstream staged theme and payload revision checks.");
+assert.match(source, /result\.stylePresent && windowPass &&[\s\S]{0,180}structurePass &&\s*payloadPass/,
+  "Post-install verification must retain native-window, structure, and payload revision checks.");
 
 console.log("PASS: Windows early injection is selector-guarded, generation-safe, revision-verified, and reload-resilient.");

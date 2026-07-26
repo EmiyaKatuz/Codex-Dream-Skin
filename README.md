@@ -10,7 +10,7 @@
   <sub>Windows 源码安装的默认主题素材；界面、动画与控件皮肤由运行时注入层生成</sub>
 </p>
 
-> 当前 fork 版本：`1.3.5`（2026-07-23 修订版）。主要开发与验证平台为 Windows；macOS 能力继承自上游项目并继续保留。
+> 当前 fork 版本：`1.5.6`（2026-07-26）。主要开发与验证平台为 Windows；macOS 与 Linux 能力随上游及本 fork 的贡献继续维护。
 
 Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases)。
 
@@ -73,21 +73,26 @@ Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://githu
 
 ### 已整合的上游更新
 
-当前分支已合并上游 `upstream/main` 的 `7c4c19f`（上游版本 `1.3.3`），并纳入以下能力：
+当前分支已合并上游 `upstream/main` 的 `3aaaf7d`（上游版本 `1.5.5`），并纳入以下能力：
 
-- Windows Inno Setup 安装器、Release 构建流程、版本检查与手动覆盖更新支持。
-- `tools/selectors.json` 选择器契约，用于窗口身份验证、早期注入和主题 payload 校验。
-- 冷启动首帧等待、Store 自动更新后的路径识别、watcher 退出和引擎原子回滚改进。
-- 注入验证会核对当前活动主题 ID 与内容 revision，降低暂存资源和活动主题不一致的风险。
-- macOS 菜单栏应用、DMG 构建、应用图标、更新检查和统一通用运行时继续保留。
+- Windows Inno Setup 安装器、版本检查、自动 Release 构建与覆盖更新支持。
+- 主题 ZIP 导入、清单与 SHA-256 校验、Safe CSS 策略以及导入事务回滚。
+- DreamSkin.cc Gallery、Studio 与社区主题一键应用链接。
+- Codex Desktop 26.721+ 首页结构适配、原生窗口就绪检查和注入诊断。
+- `tools/selectors.json` 选择器契约、统一运行时同步检查与 GitHub 自动测试。
+- macOS 菜单栏应用、DMG 构建、主题 ZIP 工作流和社区主题恢复机制。
+- Linux 安装、验证、恢复与发行归档脚本。
 
-Windows 使用本 fork 的超天酱专属渲染覆盖层；macOS 使用上游通用运行时。两端共享选择器契约、主题格式和注入安全边界。
+Windows 使用本 fork 的超天酱专属渲染覆盖层；macOS 使用通用运行时。各平台共享选择器契约、主题格式和注入安全边界。
 
-### v1.3.5 重发修复
+### v1.5.6 合并与发行修复
 
-- 纳入本 fork [PR #1](https://github.com/EmiyaKatuz/Codex-Dream-Skin/pull/1) 的 Windows CSS 修复。
-- 将变更卡片与侧边工作区规则中的嵌套 `:has()` 改写为等价的后代选择器组合，满足 CSS Selectors 规范及静态检查要求。
-- 更新响应式首页回归测试，持续校验侧边工作区首帧 fallback、终端排除条件和超天酱装饰标记。
+- 合并上游 `v1.5.5` 以及本 fork 的 Linux、macOS 修复，解决文档、运行时、注入器和测试冲突。
+- 保留超天酱 JPEG 主题作为 Windows 安装包与源码安装的默认主题，同时内置 Pixel Cafe 与 Gothic Void Crusade。
+- 适配 Codex Desktop 26.721+ 的 `.home-banners` 首页结构，并为折叠侧栏和完整任务页补充稳定标记。
+- 强化窗口、document 与 viewport 就绪验证，补充 renderer 清理、Safe CSS 部件标记和回归测试。
+- Windows 打包过程会校验三套内置主题的 ID、图片映射与 SHA-256，防止发行阶段替换默认素材。
+- 各平台版本源统一更新到 `1.5.6`，版本变更会触发 GitHub 自动构建、校验与 Release 发布。
 
 ## 快速安装（Windows）
 
@@ -104,7 +109,7 @@ Release Setup 内置经过固定版本与哈希校验的 Node.js 运行时。普
 
 图形安装器只创建开始菜单中的 `Codex Dream Skin` 入口，并提供可选的登录时启动项。它会把受管运行时安装到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，主题和图片保存在 `%LOCALAPPDATA%\CodexDreamSkin`。详细说明见 [`docs/install-windows.md`](./docs/install-windows.md)。
 
-图形安装包沿用上游发布安全策略，以 Gothic Void Crusade 作为首次活动主题；超天酱 Pixel Cafe 会加入「已保存主题」。
+图形安装包首次启用超天酱 JPEG 主题；超天酱 Pixel Cafe 与 Gothic Void Crusade 会加入「已保存主题」。
 
 ### 从源码安装（开发者与高级用户）
 
@@ -124,12 +129,14 @@ Release 用户从开始菜单打开 `Codex Dream Skin`；源码安装用户也�
 
 - 切换安装包内置主题和用户保存的主题。
 - 使用「更换背景图」导入自己的纯背景，再选择「保存当前主题」。
+- 使用「导入主题 ZIP…」导入经过清单、大小、路径和 SHA-256 校验的主题包；导入完成后可从「已保存主题」启用。
+- 打开 DreamSkin.cc Gallery 或 Studio 浏览、制作主题；受支持的社区主题链接可交给本机客户端确认并应用。
 - 使用「暂停皮肤」立即恢复当前窗口的原生外观。
 - 使用「继续显示皮肤」或「应用或重新应用」恢复主题。
 - 使用「完全恢复 Codex」清理 Dream Skin 状态并回到官方外观。
 - 手动检查本 fork 的最新 Release；该操作不会后台轮询、自动下载或静默安装。
 
-导入图片必须是纯背景，不要使用包含窗口、侧栏、输入框、文字或按钮的效果截图。图片最大 `16 MB`，单边不超过 `16384` 像素，总像素不超过 `5000 万`。
+导入图片必须是纯背景，不要使用包含窗口、侧栏、输入框、文字或按钮的效果截图。图片最大 `10 MB`，单边不超过 `16384` 像素，总像素不超过 `5000 万`。主题 ZIP 最大 `32 MiB`、最多 `32` 个条目，解压后最多 `64 MiB`；完整格式与安全规则见 [`docs/install-windows.md`](./docs/install-windows.md)。
 
 ## 更新与卸载
 
@@ -139,7 +146,7 @@ Release 用户从开始菜单打开 `Codex Dream Skin`；源码安装用户也�
 2. 下载最新 Setup.exe，并核对对应的 SHA-256。
 3. 运行安装向导覆盖现有安装，再从开始菜单启动 `Codex Dream Skin`。
 
-覆盖安装会保留活动主题、已保存主题、导入图片和配置备份。本次 `v1.3.5` 修订版沿用相同版本号；已安装早期 `v1.3.5` 的用户需要手动重新下载安装包，托盘的版本比较无法识别同版本号内的重发修订。
+覆盖安装会保留活动主题、已保存主题、导入图片和配置备份。`v1.5.6` 使用新的语义版本号，托盘版本检查可以识别本次更新。
 
 Release 用户可以从「设置 → 应用 → 已安装的应用」卸载 Codex Dream Skin。卸载器会先恢复 Codex 官方外观，并默认保留 `%LOCALAPPDATA%\CodexDreamSkin` 中的主题与图片。
 
@@ -181,7 +188,7 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\tests\ru
 node .\windows\scripts\injector.mjs --check-payload
 ```
 
-测试覆盖主题播种与切换、图片校验、运行时替换、安装器静态检查、选择器契约、状态安全、暂停/恢复、侧栏折叠、响应式首页、renderer 清理、payload revision 和 CDP 回环验证。
+测试覆盖主题播种与切换、图片及 ZIP 校验、Safe CSS、社区主题恢复、运行时替换、安装器静态检查、选择器契约、状态安全、暂停/恢复、侧栏折叠、响应式首页、原生窗口就绪、renderer 清理、payload revision 和 CDP 回环验证。
 
 ## 目录说明
 

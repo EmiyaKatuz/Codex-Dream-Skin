@@ -115,7 +115,7 @@ assert.match(source, /angelDeckPass/);
 assert.match(source, /suggestionLabelColorsMatch/);
 assert.match(
   source,
-  /const heroCandidates = \[/,
+  /const siblingCandidates = [\s\S]{0,260}const heroChain = \[\]/,
   "Home verification must tolerate Codex wrapper-depth changes.",
 );
 assert.match(source, /\?\.querySelector\(.*game-source.*\)\?\.parentElement/);
