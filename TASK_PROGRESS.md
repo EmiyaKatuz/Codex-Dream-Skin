@@ -1,6 +1,38 @@
 # Task Progress
 
-Updated: 2026-07-26 22:00 CST (Asia/Shanghai)
+Updated: 2026-07-27 00:18 CST (Asia/Shanghai)
+
+## macOS Internet Angel Detail Parity Follow-up (2026-07-27 00:18 CST)
+
+- [complete] Re-audited the current macOS renderer against the Windows Internet
+  Angel implementation for Output, expanded Edited files details and the full
+  conversation surface. Scope remains exact-theme-ID gated and must not affect
+  Gothic or imported themes.
+- [verified] Live Codex 26.721.41059 DOM inspection shows the Edited files card
+  shell is classified, but its icon, action group, distinct Undo/Review states,
+  file-list rows and Show-more footer have no component markers. The existing
+  macOS summary fixture is an Environment lookalike, so it does not exercise a
+  real Output panel.
+- [verified] The current renderer no longer exposes `[data-message-author-role]`;
+  user bubbles, assistant responses, message actions, historical activities and
+  streaming activities now use current structural markers. Inline command/output
+  bodies and the right-side Outputs summary receive dedicated theme surfaces.
+- [complete] Expanded Edited files cards now classify and style the icon, action
+  group, distinct Undo/Review buttons, file-list surface, clickable rows, paths,
+  per-file statistics and Show-more footer. The later generic resource-card rule
+  explicitly excludes classified edited cards so it cannot overwrite the
+  dedicated cyan/pink treatment.
+- [verified] Focused red/green regressions, JavaScript syntax, all macOS shell
+  syntax, the complete macOS repository suite and 10 Swift XCTest cases pass.
+  Live Codex checks at 1694x991 and an emulated 900x900 viewport show no horizontal
+  overflow; the card controls and paths remain contained. The current Outputs
+  panel, Edited files details, conversation bubble and computed styles were
+  checked from source-injected screenshots.
+- [verified] A fresh arm64 app build completed. Strict code-signature verification,
+  arm64 Mach-O inspection and byte-for-byte packaged overlay asset comparisons
+  pass. The build was not installed or published.
+- [pending] Commit and push this follow-up to update ready PR #8. GitHub CI and
+  maintainer review remain separate gates; no merge, release or install is claimed.
 
 ## macOS Internet Angel Visual Parity (2026-07-26 21:48 CST)
 

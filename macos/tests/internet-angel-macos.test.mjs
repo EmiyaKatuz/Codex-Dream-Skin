@@ -102,6 +102,14 @@ for (const component of [
   "terminal-toolbar",
   "terminal-tab",
   "summary-panel",
+  "message-user",
+  "message-assistant",
+  "message-action",
+  "activity",
+  "activity-header",
+  "activity-detail",
+  "activity-command",
+  "activity-output",
   "side-chat",
   "selection-actions",
   "selection-action",
@@ -110,7 +118,15 @@ for (const component of [
   "optional-comment-input",
   "edited-card",
   "edited-card-header",
-  "edited-card-action",
+  "edited-card-icon",
+  "edited-card-actions",
+  "edited-card-undo",
+  "edited-card-review",
+  "edited-card-files",
+  "edited-card-file-row",
+  "edited-card-file-path",
+  "edited-card-file-stats",
+  "edited-card-more",
   "system-toast",
   "subagent-frame",
   "subagent-toolbar",
@@ -278,6 +294,86 @@ function makeOverlayFixture() {
   turnRow.parentElement = turnRail;
   turnRow.addQuery('[class*="_marker_"]', turnMarker);
 
+  const summaryPanel = makeNode({ className: "rounded-3xl bg-token-dropdown-background" });
+  const userUnit = makeNode();
+  userUnit.setAttribute("data-content-search-unit-key", "turn:0:user");
+  const userBubble = makeNode({ className: "rounded-2xl", text: "User message" });
+  const userMessageAction = makeNode();
+  userMessageAction.setAttribute("aria-label", "Copy message");
+  userUnit
+    .addQuery('[data-user-message-bubble="true"]', userBubble)
+    .addQuery('[class*="flex-row-reverse"][class*="items-center"] button[aria-label]', userMessageAction);
+  const assistantUnit = makeNode();
+  assistantUnit.setAttribute("data-content-search-unit-key", "turn:3:assistant");
+  const assistantMessage = makeNode({ className: "group flex min-w-0 flex-col" });
+  assistantMessage.setAttribute("data-response-annotation-target", "message-3");
+  const assistantMessageAction = makeNode();
+  assistantMessageAction.setAttribute("aria-label", "Copy response");
+  assistantMessage.addQuery(
+    ':scope > [class*="items-center"][class*="h-5"] button[aria-label]',
+    assistantMessageAction,
+  );
+  assistantUnit.addQuery('[data-response-annotation-target]', assistantMessage);
+
+  const activity = makeNode();
+  activity.setAttribute("data-local-conversation-item-target-ids", "exec-1");
+  const activityHeader = makeNode({ className: "group/activity-header" });
+  const activityDetail = makeNode({ className: "flex flex-col overflow-clip" });
+  const activityCommand = makeNode({ className: "group/command" });
+  const activityOutput = makeNode({ className: "group/output" });
+  activityHeader.parentElement = activity;
+  activityCommand.parentElement = activityDetail;
+  activityOutput.parentElement = activityDetail;
+  activityDetail.parentElement = activity;
+  activity
+    .addQuery('[class*="group/activity-header"]', activityHeader)
+    .addQuery('[class*="group/command"]', activityCommand)
+    .addQuery('[class*="group/output"]', activityOutput);
+  const streamingActivity = makeNode({ className: "min-w-0 text-size-chat relative overflow-visible" });
+  const streamingActivityHeader = makeNode({ className: "group/activity-header", text: "Ran command" });
+  streamingActivityHeader.parentElement = streamingActivity;
+  streamingActivityHeader.closestNodes.set(
+    'div[class~="text-size-chat"][class~="relative"][class~="overflow-visible"]',
+    streamingActivity,
+  );
+  streamingActivity.addQuery('[class*="group/activity-header"]', streamingActivityHeader);
+
+  const editedCard = makeNode({
+    className: "rounded-lg bg-token-dropdown-background [--thread-resource-card-row-padding-x:0.75rem]",
+  });
+  const editedHeader = makeNode({ className: "group/turn-diff-header" });
+  const editedIcon = makeNode({ className: "size-10 rounded-lg" });
+  const editedTitle = makeNode({ className: "font-medium text-token-foreground", text: "Edited 8 files" });
+  const editedStats = makeNode({ className: "turn-diff-default-subtitle", text: "+1,319 -18" });
+  const editedActions = makeNode({ className: "pointer-events-auto flex items-center gap-2" });
+  const editedUndo = makeNode({ text: "Undo" });
+  const editedReview = makeNode({ text: "Review" });
+  const editedFiles = makeNode({ className: "flex flex-col border-t" });
+  const editedFileRow = makeNode({ className: "thread-diff-virtualized" });
+  const editedFileButton = makeNode();
+  const editedFilePath = makeNode({ className: "flex min-w-0 flex-1 items-center", text: "macos/assets/internet-angel-macos.css" });
+  const editedFileStats = makeNode({ className: "inline-flex tabular-nums", text: "+66 -0" });
+  const editedMore = makeNode({ text: "Show 5 more files" });
+  editedHeader.parentElement = editedCard;
+  editedHeader.closestNodes.set('[class*="rounded-lg"][class*="bg-token-dropdown-background"]', editedCard);
+  editedHeader
+    .addQuery('span[class~="font-medium"][class*="text-token-foreground"]', editedTitle)
+    .addQuery('[class~="size-10"][class~="rounded-lg"]:has(> svg)', editedIcon);
+  editedUndo.parentElement = editedActions;
+  editedReview.parentElement = editedActions;
+  editedActions.parentElement = editedHeader;
+  editedCard
+    .addQuery(".turn-diff-default-subtitle", editedStats)
+    .addQuery("button, [role=button]", [editedUndo, editedReview])
+    .addQuery(':scope > [class~="flex"][class~="flex-col"][class~="border-t"]', editedFiles);
+  editedFiles
+    .addQuery(".thread-diff-virtualized", editedFileRow)
+    .addQuery(":scope > button", editedMore);
+  editedFileRow.addQuery("button", editedFileButton);
+  editedFileButton
+    .addQuery('[class~="min-w-0"][class~="flex-1"][class~="items-center"]', editedFilePath)
+    .addQuery('[class~="tabular-nums"]', editedFileStats);
+
   const shell = makeNode();
   const body = makeNode();
   const documentQueries = new Map([
@@ -285,7 +381,13 @@ function makeOverlayFixture() {
     ['main.main-surface [class~="sticky"][class~="bottom-0"]', [sticky]],
     ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [environment, lookalike]],
     ['[class*="contain:layout_paint"], [class~="bg-token-main-surface-primary"]', [workspace]],
-    ['[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])', [environment]],
+    ['[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])', [environment, summaryPanel]],
+    ['[data-user-message-bubble="true"]', [userBubble]],
+    ['[data-content-search-unit-key$=":user"]', [userUnit]],
+    ['[data-content-search-unit-key$=":assistant"]', [assistantUnit]],
+    ['[data-local-conversation-item-target-ids]', [activity]],
+    ['[class*="group/activity-header"]', [activityHeader, streamingActivityHeader]],
+    ['[class*="group/turn-diff-header"]', [editedHeader]],
     ["aside.app-shell-left-panel", [sidebar]],
     ['div.vertical-scroll-fade-mask[class~="overflow-y-auto"]', [paletteScroll]],
     ['button[class*="navigation-row"]', [turnRow]],
@@ -336,6 +438,27 @@ function makeOverlayFixture() {
     environment,
     environmentAction,
     environmentHeader,
+    activity,
+    activityCommand,
+    activityDetail,
+    activityHeader,
+    activityOutput,
+    assistantMessage,
+    assistantMessageAction,
+    editedActions,
+    editedCard,
+    editedFileButton,
+    editedFilePath,
+    editedFileRow,
+    editedFileStats,
+    editedFiles,
+    editedHeader,
+    editedIcon,
+    editedMore,
+    editedReview,
+    editedStats,
+    editedTitle,
+    editedUndo,
     goalProgress,
     goalStep,
     listeners,
@@ -352,6 +475,9 @@ function makeOverlayFixture() {
     sidebarRow,
     sidebarSearch,
     sidebarSection,
+    summaryPanel,
+    streamingActivity,
+    streamingActivityHeader,
     palette,
     paletteHeading,
     paletteItem,
@@ -359,6 +485,8 @@ function makeOverlayFixture() {
     turnMarker,
     turnRail,
     turnRow,
+    userBubble,
+    userMessageAction,
     timers,
     window,
     workspace,
@@ -397,6 +525,31 @@ assert.equal(component(fixture.paletteItem), "composer-palette-item");
 assert.equal(component(fixture.turnRail), "turn-nav-rail");
 assert.equal(component(fixture.turnRow), "turn-nav-row");
 assert.equal(component(fixture.turnMarker), "turn-nav-marker-active");
+assert.equal(component(fixture.summaryPanel), "summary-panel");
+assert.equal(component(fixture.userBubble), "message-user");
+assert.equal(component(fixture.assistantMessage), "message-assistant");
+assert.equal(component(fixture.userMessageAction), "message-action");
+assert.equal(component(fixture.assistantMessageAction), "message-action");
+assert.equal(component(fixture.activity), "activity");
+assert.equal(component(fixture.activityHeader), "activity-header");
+assert.equal(component(fixture.activityDetail), "activity-detail");
+assert.equal(component(fixture.activityCommand), "activity-command");
+assert.equal(component(fixture.activityOutput), "activity-output");
+assert.equal(component(fixture.streamingActivity), "activity");
+assert.equal(component(fixture.streamingActivityHeader), "activity-header");
+assert.equal(component(fixture.editedCard), "edited-card");
+assert.equal(component(fixture.editedHeader), "edited-card-header");
+assert.equal(component(fixture.editedIcon), "edited-card-icon");
+assert.equal(component(fixture.editedTitle), "edited-card-title");
+assert.equal(component(fixture.editedStats), "edited-card-stats");
+assert.equal(component(fixture.editedActions), "edited-card-actions");
+assert.equal(component(fixture.editedUndo), "edited-card-undo");
+assert.equal(component(fixture.editedReview), "edited-card-review");
+assert.equal(component(fixture.editedFiles), "edited-card-files");
+assert.equal(component(fixture.editedFileButton), "edited-card-file-row");
+assert.equal(component(fixture.editedFilePath), "edited-card-file-path");
+assert.equal(component(fixture.editedFileStats), "edited-card-file-stats");
+assert.equal(component(fixture.editedMore), "edited-card-more");
 assert.equal(component(fixture.lookalike), null, "An incomplete Environment lookalike must stay native.");
 assert.ok(fixture.observers.length >= 2, "Shell and portal mount points must be observed.");
 assert.ok(fixture.observers.every((observer) => observer.options?.childList === true));

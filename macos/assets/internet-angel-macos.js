@@ -278,6 +278,59 @@
     }
   };
 
+  const classifyConversation = () => {
+    for (const bubble of document.querySelectorAll('[data-user-message-bubble="true"]')) {
+      mark(bubble, "message-user");
+    }
+    for (const unit of document.querySelectorAll('[data-content-search-unit-key$=":user"]')) {
+      for (const action of unit.querySelectorAll?.(
+        '[class*="flex-row-reverse"][class*="items-center"] button[aria-label]',
+      ) || []) {
+        mark(action, "message-action");
+      }
+    }
+    for (const unit of document.querySelectorAll('[data-content-search-unit-key$=":assistant"]')) {
+      const message = unit.querySelector?.('[data-response-annotation-target]') || unit.firstElementChild;
+      mark(message, "message-assistant");
+      for (const action of message?.querySelectorAll?.(
+        ':scope > [class*="items-center"][class*="h-5"] button[aria-label]',
+      ) || []) {
+        mark(action, "message-action");
+      }
+    }
+    const activities = new Set();
+    for (const header of document.querySelectorAll('[class*="group/activity-header"]')) {
+      let activity = header.parentElement;
+      while (activity && activity !== document.body
+        && activity.getAttribute?.("data-local-conversation-item-target-ids") === null) {
+        activity = activity.parentElement;
+      }
+      if (!activity || activity === document.body) {
+        activity = header.closest?.(
+          'div[class~="text-size-chat"][class~="relative"][class~="overflow-visible"]',
+        ) || header.parentElement;
+      }
+      if (activity) activities.add(activity);
+    }
+    for (const activity of activities) {
+      const headers = [...(activity.querySelectorAll?.('[class*="group/activity-header"]') || [])];
+      const commands = [...(activity.querySelectorAll?.('[class*="group/command"]') || [])];
+      const outputs = [...(activity.querySelectorAll?.('[class*="group/output"]') || [])];
+      if (!headers.length && !commands.length && !outputs.length) continue;
+      mark(activity, "activity");
+      headers.forEach((header) => mark(header, "activity-header"));
+      commands.forEach((command) => mark(command, "activity-command"));
+      outputs.forEach((output) => mark(output, "activity-output"));
+      for (const output of outputs) {
+        let detail = output.parentElement;
+        while (detail && detail !== activity
+          && !detail.querySelector?.('[class*="group/command"]')) detail = detail.parentElement;
+        if (!detail || detail === activity) detail = commonAncestor(commands[0], output, activity);
+        if (detail && detail !== activity) mark(detail, "activity-detail");
+      }
+    }
+  };
+
   const classifyAuxiliarySurfaces = () => {
     const terminal = document.querySelector(".xterm");
     const terminalPanel = terminal?.closest?.('[class*="contain:layout_paint"]')
@@ -355,12 +408,30 @@
       const undo = buttons.find((button) => undoPattern.test(textOf(button)));
       const review = buttons.find((button) => reviewPattern.test(textOf(button)));
       if (!title || !card || !stats || !undo || !review) continue;
+      const icon = header.querySelector?.('[class~="size-10"][class~="rounded-lg"]:has(> svg)');
+      const actions = commonAncestor(undo, review, card);
+      const files = card.querySelector?.(
+        ':scope > [class~="flex"][class~="flex-col"][class~="border-t"]',
+      ) || card.querySelector?.(".thread-diff-virtualized")?.parentElement;
       mark(card, "edited-card");
       mark(header, "edited-card-header");
+      mark(icon, "edited-card-icon");
       mark(title, "edited-card-title");
       mark(stats, "edited-card-stats");
-      mark(undo, "edited-card-action");
-      mark(review, "edited-card-action");
+      if (actions && actions !== card) mark(actions, "edited-card-actions");
+      mark(undo, "edited-card-undo");
+      mark(review, "edited-card-review");
+      mark(files, "edited-card-files");
+      for (const row of files?.querySelectorAll?.(".thread-diff-virtualized") || []) {
+        const button = row.querySelector?.("button");
+        mark(button || row, "edited-card-file-row");
+        mark(button?.querySelector?.('[class~="min-w-0"][class~="flex-1"][class~="items-center"]'),
+          "edited-card-file-path");
+        mark(button?.querySelector?.('[class~="tabular-nums"]'), "edited-card-file-stats");
+      }
+      for (const more of files?.querySelectorAll?.(":scope > button") || []) {
+        mark(more, "edited-card-more");
+      }
     }
   };
 
@@ -420,6 +491,7 @@
     classifyEnvironment();
     classifyWorkspaces();
     classifyPermissions();
+    classifyConversation();
     classifyTurnNavigation();
     classifySettings();
     classifyAuxiliarySurfaces();
