@@ -374,23 +374,37 @@ function Read-DreamSkinAppearanceMarker {
   } catch {
     throw "Dream Skin appearance marker is unreadable; config was preserved: $markerPath"
   }
-  if ($null -eq $marker -or $marker -is [string] -or $marker -is [array] -or
-    [int]$marker.schemaVersion -ne 1 -or $marker.appearanceThemeManaged -isnot [bool] -or
-    [bool]$marker.appearanceThemeManaged) {
+  if ($null -eq $marker -or $marker -is [string] -or $marker -is [array]) {
+    throw "Dream Skin appearance marker is invalid; config was preserved: $markerPath"
+  }
+  $schemaVersion = 0
+  try { $schemaVersion = [int]$marker.schemaVersion } catch { $schemaVersion = 0 }
+  # v1 markers are always unmanaged; v2 markers may pin appearanceTheme.
+  $validUnmanagedV1 = $schemaVersion -eq 1 -and $marker.appearanceThemeManaged -is [bool] -and
+    -not [bool]$marker.appearanceThemeManaged
+  $validV2 = $schemaVersion -eq 2 -and $marker.appearanceThemeManaged -is [bool]
+  if (-not ($validUnmanagedV1 -or $validV2)) {
     throw "Dream Skin appearance marker is invalid; config was preserved: $markerPath"
   }
   return $marker
 }
 
 function Write-DreamSkinAppearanceMarker {
-  param([Parameter(Mandatory = $true)][string]$BackupPath)
+  param(
+    [Parameter(Mandatory = $true)][string]$BackupPath,
+    [bool]$Managed = $false
+  )
   $markerPath = Get-DreamSkinAppearanceMarkerPath -BackupPath $BackupPath
   if (Get-Command Assert-DreamSkinNoReparseComponents -ErrorAction SilentlyContinue) {
     Assert-DreamSkinNoReparseComponents -Path $markerPath
   }
+  # Unmanaged markers keep the v1 shape older engines accept; managed pins use
+  # schemaVersion 2, which older engines conservatively refuse to act on.
+  $schemaVersion = 1
+  if ($Managed) { $schemaVersion = 2 }
   $marker = [ordered]@{
-    schemaVersion = 1
-    appearanceThemeManaged = $false
+    schemaVersion = $schemaVersion
+    appearanceThemeManaged = $Managed
   } | ConvertTo-Json
   Write-DreamSkinUtf8FileAtomically -Path $markerPath -Content ($marker + "`r`n")
 }
@@ -402,7 +416,10 @@ function Install-DreamSkinBaseTheme {
     [string]$ConfigPath,
 
     [Parameter(Mandatory = $true)]
-    [string]$BackupPath
+    [string]$BackupPath,
+
+    [ValidateSet('auto', 'light', 'dark')]
+    [string]$AppearanceTheme = 'auto'
   )
 
   if (-not (Test-Path -LiteralPath $ConfigPath)) { throw "Codex config not found: $ConfigPath" }
@@ -433,9 +450,14 @@ function Install-DreamSkinBaseTheme {
 
     $body = $desktop.Body
     $backupContent = $null
+    $pinnedAppearance = $AppearanceTheme -ne 'auto'
+    $managedByMarker = $null -ne $appearanceMarker -and [bool]$appearanceMarker.appearanceThemeManaged
     $legacyMigration = $null -eq $appearanceMarker -and (Test-Path -LiteralPath $BackupPath) -and
       (Test-DreamSkinLegacyManagedLightTrio -Content $content)
-    if ($legacyMigration) {
+    # Put the pre-install appearanceTheme back whenever we stop managing it:
+    # either migrating away from the legacy forced-light trio, or un-pinning
+    # after a fixed-appearance theme is replaced by an auto one.
+    if (-not $pinnedAppearance -and ($legacyMigration -or $managedByMarker)) {
       $backupContent = ConvertFrom-DreamSkinUtf8Bytes -Bytes ([System.IO.File]::ReadAllBytes($BackupPath)) -Path $BackupPath
       Assert-DreamSkinDesktopShapeSupported -Content $backupContent
       $backupDesktop = Get-DreamSkinDesktopSection -Content $backupContent
@@ -443,6 +465,12 @@ function Install-DreamSkinBaseTheme {
         Get-DreamSkinSectionSettingLine -Body $backupDesktop.Body -Key 'appearanceTheme'
       } else { $null }
       $body = Set-DreamSkinSectionSetting -Body $body -Key 'appearanceTheme' -Line $savedAppearance -NewLine $newLine
+    }
+    if ($pinnedAppearance) {
+      # Native token surfaces (dropdowns/popovers) follow appearanceTheme, so a
+      # fixed-appearance theme pins it to match; Restore puts the original back.
+      $body = Set-DreamSkinSectionSetting -Body $body -Key 'appearanceTheme' `
+        -Line ('appearanceTheme = "{0}"' -f $AppearanceTheme) -NewLine $newLine
     }
     $settings = [ordered]@{
       appearanceLightCodeThemeId = $script:DreamSkinManagedLightCodeTheme
@@ -459,7 +487,7 @@ function Install-DreamSkinBaseTheme {
       $content.Substring($desktop.BodyStart + $desktop.BodyLength)
     # Commit the metadata first. A config commit must never exist without the
     # marker that tells restore exactly which appearance keys we own.
-    Write-DreamSkinAppearanceMarker -BackupPath $BackupPath
+    Write-DreamSkinAppearanceMarker -BackupPath $BackupPath -Managed $pinnedAppearance
     Write-DreamSkinUtf8FileAtomically -Path $ConfigPath -Content $content -ExpectedBytes $originalBytes
     $writeCompleted = $true
   } catch {
@@ -522,8 +550,12 @@ function Restore-DreamSkinBaseTheme {
   $appearanceMarker = Read-DreamSkinAppearanceMarker -BackupPath $BackupPath
   $restoreLegacyAppearance = $null -eq $appearanceMarker -and
     (Test-DreamSkinLegacyManagedLightTrio -Content $currentContent)
+  $restoreManagedAppearance = $null -ne $appearanceMarker -and
+    [bool]$appearanceMarker.appearanceThemeManaged
   $restoreKeys = @('appearanceLightCodeThemeId', 'appearanceLightChromeTheme')
-  if ($restoreLegacyAppearance) { $restoreKeys = @('appearanceTheme') + $restoreKeys }
+  if ($restoreLegacyAppearance -or $restoreManagedAppearance) {
+    $restoreKeys = @('appearanceTheme') + $restoreKeys
+  }
   $hasNestedLightChromeTheme = Test-DreamSkinDesktopNestedTable `
     -Content $currentContent -Key 'appearanceLightChromeTheme'
   foreach ($key in $restoreKeys) {

@@ -61,6 +61,23 @@ html.codex-dream-skin body {
   font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif !important;
 }
 
+/* Keep native dropdown/popover tokens in the active skin palette. The Codex
+   appearanceTheme can otherwise leave these surfaces on the opposite palette. */
+html.codex-dream-skin {
+  --color-token-dropdown-background: var(--dream-surface);
+}
+
+html.codex-dream-skin [class~="bg-token-dropdown-background"] {
+  color: var(--dream-text);
+  --color-token-foreground: var(--dream-text);
+  --color-token-text-secondary: var(--dream-text-muted);
+  --color-token-muted-foreground: var(--dream-text-muted);
+  --color-token-description-foreground: var(--dream-text-muted);
+  --color-token-list-hover-background: var(--dream-accent-hover);
+  --color-token-border: var(--dream-line);
+  --color-token-border-default: var(--dream-line);
+}
+
 html.codex-dream-skin aside.app-shell-left-panel {
   color: var(--dream-text) !important;
   background: var(--dream-sidebar) !important;

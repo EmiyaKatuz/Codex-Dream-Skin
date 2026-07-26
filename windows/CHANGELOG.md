@@ -14,6 +14,12 @@
 - 主壳移除时释放旧 `ResizeObserver` target；托盘菜单重建和退出时主动释放 ToolStrip/WinForms 资源，并为 Opening 事件补充异常边界。
 - 新增 CDP session 生命周期、mutation 合并、无关文本节点布局读取和异常隔离回归测试。
 
+### 上游合并修复
+
+- 处理 Codex Store `26.715.10079.0` 的 owl runtime 兼容性断点（#235）：继续优先使用清单派生 AUMID 的系统包激活；仅在进程命令行明确证实 `--remote-debugging-port` 被转换成 `codex://...path=` 时启用受约束的参数回退，并保留错误回滚与监听校验。
+- 新策略不接管 `WindowsApps` 权限，不复制或修改官方二进制、`app.asar` 或签名；新增参数转发、协议重定向识别、Store 目标约束、旧版本兼容与 Access Denied 回归测试。
+- 主题初始化会刷新官方预设元数据，并同步活动预设副本，确保旧安装也能应用固定的 `appearanceTheme`。
+
 ## 1.3.4 — 2026-07-22
 
 ### 新增
