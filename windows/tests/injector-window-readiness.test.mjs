@@ -148,6 +148,8 @@ test("normal L1 renderer requires and records the exact target window binding", 
     documentPass: true,
     viewportPass: true,
     structurePass: true,
+    nativeWindowPass: true,
+    fallbackWindowPass: false,
   });
   assert.deepEqual(session.calls, [
     { method: "Browser.getWindowForTarget", params: { targetId: "page-main" } },
@@ -187,18 +189,72 @@ test("visible settings and home anchors are the only L0 structure exceptions", a
   assert.equal(noAnchor.result.readiness.structurePass, false);
 });
 
-test("missing or unsupported Browser window APIs fail closed", async () => {
-  const missing = await verify({
+test("uninformative Browser window replies defer to a visible structured renderer", async () => {
+  for (const [label, bindingError] of [
+    ["window-not-found", new Error("No window with given target found (-32000)")],
+    ["window-not-found-by-code", Object.assign(new Error("Browser window not found"), {
+      cdpCode: -32000,
+    })],
+    ["domain-unsupported", new Error("'Browser.getWindowForTarget' wasn't found (-32601)")],
+    ["domain-unsupported-by-code", Object.assign(new Error("Protocol method unavailable"), {
+      cdpCode: -32601,
+    })],
+    ["domain-unsupported-prose", new Error("Method not found (-32601)")],
+  ]) {
+    const visible = await verify({ bindingError });
+    assert.equal(visible.result.pass, true, label);
+    assert.equal(visible.result.nativeWindow.unsupported, true, label);
+    assert.equal(visible.result.readiness.windowPass, true, label);
+    assert.equal(visible.result.readiness.nativeWindowPass, false, label);
+    assert.equal(visible.result.readiness.fallbackWindowPass, true, label);
+
+    const hidden = await verify({
+      bindingError,
+      dom: makeDomFixture({ visibilityState: "hidden", hidden: true }),
+    });
+    assert.equal(hidden.result.pass, false, `${label}: hidden documents must still fail`);
+    assert.equal(hidden.result.readiness.documentPass, false, label);
+
+    const tiny = await verify({
+      bindingError,
+      dom: makeDomFixture({ viewportWidth: 319, viewportHeight: 239 }),
+    });
+    assert.equal(tiny.result.pass, false, `${label}: tiny viewports must still fail`);
+    assert.equal(tiny.result.readiness.viewportPass, false, label);
+
+    const noStructure = await verify({
+      bindingError,
+      dom: makeDomFixture({ shell: null, sidebar: null }),
+    });
+    assert.equal(noStructure.result.pass, false, `${label}: missing L1 structure must still fail`);
+    assert.equal(noStructure.result.readiness.structurePass, false, label);
+  }
+});
+
+test("native-window errors retain useful classifications", async () => {
+  const notFound = await verify({
     bindingError: new Error("No window with given target found (-32000)"),
   });
-  assert.equal(missing.result.pass, false);
-  assert.equal(missing.result.nativeWindow.reason, "target-window-unavailable");
+  assert.equal(notFound.result.nativeWindow.reason, "browser-window-not-found");
 
   const unsupported = await verify({
     bindingError: new Error("'Browser.getWindowForTarget' wasn't found (-32601)"),
   });
-  assert.equal(unsupported.result.pass, false);
   assert.equal(unsupported.result.nativeWindow.reason, "browser-window-api-unavailable");
+});
+
+test("unclassified window failures and invalid bindings still fail closed", async () => {
+  for (const bindingError of [
+    new Error("CDP socket closed"),
+    new Error("CDP command timed out: Browser.getWindowForTarget"),
+    Object.assign(new Error("Internal error (-32603)"), { cdpCode: -32603 }),
+  ]) {
+    const result = await verify({ bindingError });
+    assert.equal(result.result.pass, false, bindingError.message);
+    assert.equal(result.result.nativeWindow.reason, "target-window-unavailable", bindingError.message);
+    assert.notEqual(result.result.nativeWindow.unsupported, true, bindingError.message);
+    assert.equal(result.result.readiness.windowPass, false, bindingError.message);
+  }
 
   const zeroWindowId = await verify({ windowId: 0 });
   assert.equal(zeroWindowId.result.pass, false);
