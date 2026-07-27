@@ -126,6 +126,6 @@
 
   Update `TASK_PROGRESS.md` with the exact live geometry, test commands, build results and remaining GitHub review/CI status.
 
-- [ ] **Step 4: Commit and push**
+- [x] **Step 4: Commit and push**
 
   Stage only the scoped plan, progress, test, CSS and classifier changes. Create focused implementation/progress commits and push `codex/macos-internet-angel-parity` to update PR #8.

@@ -1,6 +1,6 @@
 # Task Progress
 
-Updated: 2026-07-27 10:01 CST (Asia/Shanghai)
+Updated: 2026-07-27 10:32 CST (Asia/Shanghai)
 
 ## macOS Internet Angel Interaction Regression Fix (2026-07-27 09:34 CST)
 
@@ -47,9 +47,11 @@ Updated: 2026-07-27 10:01 CST (Asia/Shanghai)
   A temporary arm64 app build passes strict code-signature verification, reports
   an arm64 Mach-O executable and contains byte-identical overlay CSS/JS assets.
   `git diff --check` also passes.
-- [in progress] Complete the final scoped diff review, commit the implementation
-  and progress evidence, and push the exact head to existing ready PR #8. No
-  install, merge, version bump, tag or Release is part of this follow-up.
+- [verified] Implementation commit `8290ad3` passed the scoped diff review and
+  was pushed to existing ready PR #8. GitHub reports the PR as open and non-draft
+  with exact head `8290ad30b550050346c5b1d151975320db0a14ba`; its merge state is
+  currently `BLOCKED` and no status checks are reported yet. No install, merge,
+  version bump, tag or Release is part of this follow-up.
 
 ## macOS Internet Angel Complete Surface Audit (2026-07-27 01:22 CST)
 
