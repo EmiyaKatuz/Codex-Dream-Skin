@@ -1,6 +1,55 @@
 # Task Progress
 
-Updated: 2026-07-27 01:22 CST (Asia/Shanghai)
+Updated: 2026-07-27 10:01 CST (Asia/Shanghai)
+
+## macOS Internet Angel Interaction Regression Fix (2026-07-27 09:34 CST)
+
+- [verified] Work continues on `codex/macos-internet-angel-parity` and ready
+  PR #8. The worktree was clean at `d4d9be8` before this follow-up. Scope is
+  restricted to the two exact bundled Internet Angel preset IDs; Gothic and
+  imported themes must remain unaffected.
+- [verified] Real CDP pointer input reproduces the auxiliary workspace failure.
+  The Browser tab becomes selected, but the themed workspace root collapses
+  from `991px` to `86px` and its tab panel from `945px` to `40px`. Clicking an
+  Edited files row selects Review, but the broken root expands the Review panel
+  to `16807px`, removes its bounded scroll container and prevents native file
+  positioning from being visible.
+- [verified] Temporarily restoring the workspace root's native
+  `position: absolute` returns the root to `991px`, Browser/Review to `945px`
+  and Review to a bounded `905px` scroll viewport. The cause is the macOS
+  overlay marking multiple nested workspace candidates and forcing
+  `position: relative !important`; it is not a browser network/load failure.
+- [verified] The sidebar scroll root remains `871px` high with `2806px` of
+  content. The themed `1px` border reduces each fixed row to a `28px` client
+  box around `29px` of content, producing a nested `1px` vertical scroll range
+  that consumes wheel input. Temporarily clipping row vertical overflow keeps
+  row `scrollTop` at zero and routes wheel input to the native sidebar scroller.
+- [verified] Red-green regressions now require exactly one innermost workspace
+  mark, forbid workspace positioning overrides and positioned decoration, and
+  require fixed-height sidebar rows to clip vertical overflow. The classifier
+  selects only the smallest valid right-docked workspace. The CSS paints its
+  cyan/blue/pink top stripe as a background layer and no longer changes native
+  position, dimensions, overflow or z-index.
+- [verified] Source hot injection and real input checks pass. A first wheel event
+  over a sidebar row moves the native root from `scrollTop=0` to `420` while all
+  rows stay at zero. Opening `Browser` from the right-panel add menu produces a
+  full `945px` `New tab` panel with the native address field and Start browsing
+  surface. Clicking `macos/tests/internet-angel-macos.test.mjs` from Edited
+  files switches from Browser to Review, scrolls Review to `4641`, and leaves
+  the requested file header visible at panel `y=92`.
+- [verified] The targeted native-window screenshot shows the complete Browser
+  surface without clipping, overlap or document overflow. Computer Use refused
+  access to `com.openai.codex` by policy and CDP screenshots block while the
+  embedded browser is open, so the visual capture used macOS window-level
+  `screencapture`; interaction and geometry assertions remain CDP-derived.
+- [verified] `CODEX_DREAM_SKIN_SKIP_DOCTOR=1 macos/tests/run-tests.sh` passes
+  all shell/Node, shared runtime, Safe CSS, import/ZIP and 10 Swift XCTest cases.
+  A temporary arm64 app build passes strict code-signature verification, reports
+  an arm64 Mach-O executable and contains byte-identical overlay CSS/JS assets.
+  `git diff --check` also passes.
+- [in progress] Complete the final scoped diff review, commit the implementation
+  and progress evidence, and push the exact head to existing ready PR #8. No
+  install, merge, version bump, tag or Release is part of this follow-up.
 
 ## macOS Internet Angel Complete Surface Audit (2026-07-27 01:22 CST)
 

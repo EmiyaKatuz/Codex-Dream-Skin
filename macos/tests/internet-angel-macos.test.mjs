@@ -182,6 +182,25 @@ assert.ok(
   overlayCss.includes('button[data-angel-component="sidebar-row"]'),
   "Only real sidebar buttons may receive the Windows hover plate; expanded folder rows are not selected.",
 );
+assert.match(
+  overlayCss,
+  /\[data-angel-component=["']sidebar-row["']\]\s*\{[\s\S]*?overflow-y:\s*clip\s*!important/,
+  "Themed fixed-height sidebar rows must not become nested vertical scroll containers.",
+);
+const sideWorkspaceRule = overlayCss.match(
+  /\[data-angel-component=["']side-workspace["']\]\s*\{([^}]*)\}/,
+)?.[1] || "";
+assert.notEqual(sideWorkspaceRule, "", "The side workspace paint rule must remain present.");
+assert.doesNotMatch(
+  sideWorkspaceRule,
+  /position\s*:/,
+  "The side workspace skin must preserve the native positioning contract.",
+);
+assert.doesNotMatch(
+  overlayCss,
+  /\[data-angel-component=["']side-workspace["']\]::before/,
+  "Workspace decoration must be paint-only and must not require a positioned pseudo-element.",
+);
 assert.ok(
   overlayCss.includes('button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])'),
   "The compact changed-files pill needs the same first-frame structural fallback as Windows.",
@@ -372,11 +391,24 @@ function makeOverlayFixture() {
   });
   lookalike.closestNodes.set('[class~="absolute"][class~="z-40"]', environmentHost);
 
+  const workspaceOuter = makeNode({
+    className: "absolute bg-token-main-surface-primary",
+    rect: { left: 1220, top: 28, width: 458, height: 840 },
+  });
   const workspace = makeNode({
     className: "contain:layout_paint bg-token-main-surface-primary",
     rect: { left: 1240, top: 48, width: 438, height: 820 },
   });
-  workspace.addQuery('[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container', makeNode());
+  const workspaceEvidence = makeNode();
+  workspaceOuter.addQuery(
+    '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container',
+    workspaceEvidence,
+  );
+  workspace.addQuery(
+    '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container',
+    workspaceEvidence,
+  );
+  workspace.parentElement = workspaceOuter;
 
   const sidebar = makeNode({ className: "app-shell-left-panel" });
   const sidebarMode = makeNode();
@@ -526,7 +558,10 @@ function makeOverlayFixture() {
       radixEnvironment,
       lookalike,
     ]],
-    ['[class*="contain:layout_paint"], [class~="bg-token-main-surface-primary"]', [workspace]],
+    ['[class*="contain:layout_paint"], [class~="bg-token-main-surface-primary"]', [
+      workspaceOuter,
+      workspace,
+    ]],
     ['[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])', [
       environment,
       radixEnvironment,
@@ -656,6 +691,7 @@ function makeOverlayFixture() {
     timers,
     window,
     workspace,
+    workspaceOuter,
   };
 }
 
@@ -690,6 +726,11 @@ assert.equal(component(fixture.changesShell), "changes-shell");
 assert.equal(component(fixture.changesClipHost), "changes-clip-host");
 assert.equal(component(fixture.changesPill), "changes-pill");
 assert.equal(component(fixture.workspace), "side-workspace");
+assert.equal(
+  component(fixture.workspaceOuter),
+  null,
+  "Only the innermost right-docked workspace surface may be themed.",
+);
 assert.equal(component(fixture.sidebar), "sidebar");
 assert.equal(component(fixture.sidebarMode), "sidebar-control");
 assert.equal(component(fixture.sidebarSearch), "sidebar-control");

@@ -51,6 +51,10 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
   transition: translate 120ms steps(2, end), color 120ms linear, border-color 120ms linear, background 120ms linear !important;
 }
 
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="sidebar-row"] {
+  overflow-y: clip !important;
+}
+
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
   [data-angel-component="sidebar-control"],
   [data-angel-component="sidebar-profile"],
@@ -407,22 +411,13 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
 
 /* Auxiliary browser, terminal, collaboration and side-chat workspaces. */
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="side-workspace"] {
-  position: relative !important;
   isolation: isolate;
   color: var(--angel-paper) !important;
   border-left: 2px solid var(--angel-blue) !important;
-  background: linear-gradient(155deg, rgb(25 24 78 / .98), rgb(49 32 103 / .97) 64%, rgb(255 69 200 / .09)) !important;
+  background:
+    linear-gradient(90deg, var(--angel-cyan) 0 34%, var(--angel-blue) 34% 67%, var(--angel-pink) 67%) top / 100% 4px no-repeat,
+    linear-gradient(155deg, rgb(25 24 78 / .98), rgb(49 32 103 / .97) 64%, rgb(255 69 200 / .09)) !important;
   box-shadow: inset 1px 0 rgb(99 244 255 / .44), -8px 0 28px rgb(8 6 34 / .32) !important;
-}
-
-html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="side-workspace"]::before {
-  content: "";
-  position: absolute;
-  z-index: 4;
-  inset: 0 0 auto;
-  height: 4px;
-  pointer-events: none;
-  background: linear-gradient(90deg, var(--angel-cyan) 0 34%, var(--angel-blue) 34% 67%, var(--angel-pink) 67%);
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="side-workspace"] :is([role="tab"], button) {
@@ -1380,9 +1375,6 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] ::-webkit-scro
     max-width: min(320px, calc(100vw - 24px)) !important;
   }
 
-  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="side-workspace"]::before {
-    width: 58%;
-  }
 }
 
 @media (max-width: 680px) {

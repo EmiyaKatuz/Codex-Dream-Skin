@@ -287,15 +287,20 @@
   };
 
   const classifyWorkspaces = () => {
-    for (const candidate of document.querySelectorAll(selectors.workspace)) {
+    const candidates = [...document.querySelectorAll(selectors.workspace)].filter((candidate) => {
       const evidence = candidate.querySelector?.(selectors.workspaceEvidence);
-      if (!evidence) continue;
+      if (!evidence) return false;
       const box = candidate.getBoundingClientRect?.() || { left: 0, width: 0, height: 0, right: 0 };
       const right = Number.isFinite(box.right) ? box.right : box.left + box.width;
-      const rightDocked = box.width >= 260 && box.height >= 180
+      return box.width >= 260 && box.height >= 180
         && box.left >= innerWidth * .45 && right >= innerWidth - 48 && right <= innerWidth + 16;
-      if (rightDocked) mark(candidate, "side-workspace");
-    }
+    });
+    candidates.sort((left, right) => {
+      const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
+      const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+      return (a.width * a.height) - (b.width * b.height);
+    });
+    mark(candidates[0], "side-workspace");
   };
 
   const classifyPermissions = () => {
