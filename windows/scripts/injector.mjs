@@ -328,8 +328,13 @@ export class CdpSession {
       if (!waiter) return;
       clearTimeout(waiter.timeout);
       this.pending.delete(message.id);
-      if (message.error) waiter.reject(new Error(`${message.error.message} (${message.error.code})`));
-      else waiter.resolve(message.result);
+      if (message.error) {
+        // Keep the numeric CDP code on the rejection: unavailableNativeWindow
+        // reads it directly instead of re-parsing a build-specific message.
+        const error = new Error(`${message.error.message} (${message.error.code})`);
+        error.cdpCode = message.error.code;
+        waiter.reject(error);
+      } else waiter.resolve(message.result);
       return;
     }
     for (const listener of this.listeners.get(message.method) ?? []) {
@@ -800,6 +805,21 @@ function unavailableNativeWindow(error, allowVisibleDocumentFallback = false) {
     || /\(-32000\)\s*$/.test(detail)
     || /^(?:browser window not found|no window with given target found)$/i.test(withoutCode);
   const fallback = allowVisibleDocumentFallback && (domainUnsupported || windowNotFound);
+function unavailableNativeWindow(error) {
+  const message = String(error?.message ?? "");
+  const cdpCode = Number(error?.cdpCode);
+  const withoutCode = message.replace(/\s*\(-?\d+\)\s*$/, "").trim();
+  const domainUnsupported = cdpCode === -32601
+    || /\(-32601\)\s*$/.test(message)
+    || /^method(?: ['"]Browser\.getWindowForTarget['"])? not found$/i.test(withoutCode)
+    || /^['"]?Browser\.getWindowForTarget['"]? (?:wasn't|was not) found$/i.test(withoutCode);
+  // Codex 26.721.x (Chrome/150) returns -32000 "Browser window not found"
+  // for a real, focused window. The signal is therefore unavailable rather
+  // than negative; the visible renderer checks remain mandatory below.
+  const windowNotFound = cdpCode === -32000
+    || /\(-32000\)\s*$/.test(message)
+    || /^browser window not found$/i.test(withoutCode)
+    || /^no window with given target found$/i.test(withoutCode);
   return {
     pass: fallback,
     bound: false,
@@ -807,6 +827,10 @@ function unavailableNativeWindow(error, allowVisibleDocumentFallback = false) {
     reason: domainUnsupported ? "browser-window-api-unavailable"
       : windowNotFound ? "target-window-unavailable"
       : "native-window-unavailable",
+    unsupported: domainUnsupported || windowNotFound,
+    reason: domainUnsupported ? "browser-window-api-unavailable"
+      : windowNotFound ? "browser-window-not-found"
+      : "target-window-unavailable",
   };
 }
 
@@ -1258,14 +1282,23 @@ export async function verifySession(
     const documentPass = result.documentVisibility === 'visible' && !result.documentHidden;
     const viewportPass = result.viewport.width >= ${MIN_RENDERER_VIEWPORT_WIDTH} &&
       result.viewport.height >= ${MIN_RENDERER_VIEWPORT_HEIGHT};
-    const windowPass = result.nativeWindow?.pass === true;
+    const nativeWindowPass = result.nativeWindow?.pass === true;
+    // Some Codex/Chrome builds return -32000 for their real visible window,
+    // while older builds may omit the Browser method (-32601). Only those
+    // classified unsupported signals fall back; document, viewport and
+    // route-structure readiness remain independent hard requirements.
+    const fallbackWindowPass = result.nativeWindow?.unsupported === true;
+    const windowPass = nativeWindowPass || fallbackWindowPass;
     const expectedThemeId = ${JSON.stringify(expectedThemeId)};
     const expectedRevision = ${JSON.stringify(expectedRevision)};
     const payloadPass = (!expectedThemeId || result.themeId === expectedThemeId) &&
       (!expectedRevision || result.revision === expectedRevision);
     result.expectedThemeId = expectedThemeId;
     result.expectedRevision = expectedRevision;
-    result.readiness = { windowPass, documentPass, viewportPass, structurePass };
+    result.readiness = {
+      windowPass, documentPass, viewportPass, structurePass,
+      nativeWindowPass, fallbackWindowPass,
+    };
     result.pass = result.installed && result.version === result.expectedVersion &&
       result.stylePresent && windowPass &&
       documentPass && viewportPass && structurePass &&
