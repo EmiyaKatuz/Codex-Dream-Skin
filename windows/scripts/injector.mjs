@@ -783,14 +783,30 @@ async function connectTarget(target, port) {
   return new CdpSession(target, port).open();
 }
 
-function unavailableNativeWindow(error) {
+function unavailableNativeWindow(error, allowVisibleDocumentFallback = false) {
   const detail = String(error?.message ?? "");
+  const cdpCode = Number(error?.cdpCode);
+  const withoutCode = detail.replace(/\s*\(-?\d+\)\s*$/, "").trim();
+  const domainUnsupported = cdpCode === -32601
+    || /\(-32601\)\s*$/.test(detail)
+    || /^method(?: ['"]Browser\.getWindowForTarget['"])? not found$/i.test(withoutCode)
+    || /^['"]?Browser\.getWindowForTarget['"]? (?:wasn't|was not) found$/i.test(withoutCode);
+  // Codex 26.721+ can expose a real visible app renderer while Chromium 150
+  // still returns -32000 for Browser.getWindowForTarget.  This is the same
+  // production behavior already handled by the macOS injector: only this
+  // exact unsupported binding is allowed to fall back to the renderer's hard
+  // visibility, viewport, structure, Browser-ID and payload checks.
+  const windowNotFound = cdpCode === -32000
+    || /\(-32000\)\s*$/.test(detail)
+    || /^(?:browser window not found|no window with given target found)$/i.test(withoutCode);
+  const fallback = allowVisibleDocumentFallback && (domainUnsupported || windowNotFound);
   return {
-    pass: false,
+    pass: fallback,
     bound: false,
-    reason: /\(-32601\)$/.test(detail)
-      ? "browser-window-api-unavailable"
-      : "target-window-unavailable",
+    fallback,
+    reason: domainUnsupported ? "browser-window-api-unavailable"
+      : windowNotFound ? "target-window-unavailable"
+      : "native-window-unavailable",
   };
 }
 
@@ -803,7 +819,7 @@ export async function inspectTargetWindow(session, targetId) {
   try {
     binding = await session.send("Browser.getWindowForTarget", { targetId });
   } catch (error) {
-    return unavailableNativeWindow(error);
+    return unavailableNativeWindow(error, true);
   }
   if (!Number.isInteger(binding?.windowId) || binding.windowId <= 0) {
     return { pass: false, bound: false, reason: "invalid-window-binding" };
@@ -813,7 +829,7 @@ export async function inspectTargetWindow(session, targetId) {
   try {
     latest = await session.send("Browser.getWindowBounds", { windowId: binding.windowId });
   } catch (error) {
-    return unavailableNativeWindow(error);
+    return unavailableNativeWindow(error, false);
   }
   const bounds = { ...(binding.bounds ?? {}), ...(latest?.bounds ?? {}) };
   const state = typeof bounds.windowState === "string" ? bounds.windowState : null;

@@ -1,5 +1,25 @@
 # Task Progress
 
+## Windows stability repair (2026-07-27)
+
+- [diagnosed] The reported approximately two-minute "crash" is the startup
+  rollback timer, not a Windows crash.  The installed verifier records a
+  visible, correctly themed L1 renderer, but Chromium 150 returns
+  `target-window-unavailable`; after 90 seconds the launcher intentionally
+  stops the watcher, closes Codex, and relaunches it normally.
+- [complete] Windows now matches the existing macOS compatibility behavior for
+  this production CDP limitation.  Exact -32000 target-window-not-found and
+  -32601 unsupported-domain responses may use the strict visible-renderer
+  fallback; hidden documents, tiny viewports, invalid structure, wrong Browser
+  identity/payload, invalid bindings, bounds failures, and arbitrary errors
+  still fail closed.
+- [complete] Removed the earlier lite-theme experiment, which was not passed
+  through the Windows theme loader and therefore never affected the installed
+  renderer.  The original full visual appearance remains unchanged.
+- [verified] Windows injector/renderer syntax, exact payload construction,
+  window-readiness, session, bootstrap, one-shot and renderer fixtures pass.
+  `git diff --check` passes.
+
 Updated: 2026-07-25 08:31 HKT (Asia/Hong_Kong)
 
 ## v1.5.1 Version Release (2026-07-25 08:28 HKT)

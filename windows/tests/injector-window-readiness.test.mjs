@@ -187,18 +187,35 @@ test("visible settings and home anchors are the only L0 structure exceptions", a
   assert.equal(noAnchor.result.readiness.structurePass, false);
 });
 
-test("missing or unsupported Browser window APIs fail closed", async () => {
+test("unsupported target-window binding uses the strict visible-renderer fallback", async () => {
   const missing = await verify({
     bindingError: new Error("No window with given target found (-32000)"),
   });
-  assert.equal(missing.result.pass, false);
+  assert.equal(missing.result.pass, true);
+  assert.equal(missing.result.nativeWindow.fallback, true);
   assert.equal(missing.result.nativeWindow.reason, "target-window-unavailable");
 
   const unsupported = await verify({
     bindingError: new Error("'Browser.getWindowForTarget' wasn't found (-32601)"),
   });
-  assert.equal(unsupported.result.pass, false);
+  assert.equal(unsupported.result.pass, true);
+  assert.equal(unsupported.result.nativeWindow.fallback, true);
   assert.equal(unsupported.result.nativeWindow.reason, "browser-window-api-unavailable");
+
+  const hidden = await verify({
+    bindingError: new Error("Browser window not found (-32000)"),
+    dom: makeDomFixture({ visibilityState: "hidden", hidden: true }),
+  });
+  assert.equal(hidden.result.pass, false,
+    "A hidden renderer must fail even when target-window binding is unsupported.");
+  assert.equal(hidden.result.readiness.documentPass, false);
+
+  const arbitraryFailure = await verify({
+    bindingError: new Error("Browser process disconnected"),
+  });
+  assert.equal(arbitraryFailure.result.pass, false,
+    "Unknown native-window failures must not use the visible-document fallback.");
+  assert.equal(arbitraryFailure.result.nativeWindow.fallback, false);
 
   const zeroWindowId = await verify({ windowId: 0 });
   assert.equal(zeroWindowId.result.pass, false);
