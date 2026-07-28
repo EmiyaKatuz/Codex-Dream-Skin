@@ -43,7 +43,7 @@ const stableTestidLiteral = (testid) => {
   }
   return JSON.stringify(`[data-testid="${testid}"]`);
 };
-const SKIN_VERSION = "1.5.7";
+const SKIN_VERSION = "1.5.8";
 const INTERNET_ANGEL_MACOS_THEME_IDS = new Set([
   "preset-internet-angel",
   "preset-internet-angel-default",

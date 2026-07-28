@@ -10,7 +10,7 @@
   <sub>Windows 源码安装的默认主题素材；界面、动画与控件皮肤由运行时注入层生成</sub>
 </p>
 
-> 当前 fork 版本：`1.5.7`（2026-07-26）。主要开发与验证平台为 Windows；macOS 与 Linux 能力随上游及本 fork 的贡献继续维护。
+> 当前 fork 版本：`1.5.8`（2026-07-29）。主要开发与验证平台为 Windows；macOS 与 Linux 能力随上游及本 fork 的贡献继续维护。
 
 Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases)。
 
@@ -73,7 +73,7 @@ Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://githu
 
 ### 已整合的上游更新
 
-当前分支已合并上游 `upstream/main` 的 `3aaaf7d`（上游版本 `1.5.5`），并纳入以下能力：
+当前分支已合并上游 `upstream/main` 的 `611c101`（上游版本 `1.5.6`），并纳入以下能力：
 
 - Windows Inno Setup 安装器、版本检查、自动 Release 构建与覆盖更新支持。
 - 主题 ZIP 导入、清单与 SHA-256 校验、Safe CSS 策略以及导入事务回滚。
@@ -83,7 +83,17 @@ Windows 与 macOS 安装包发布在本 fork 的 [GitHub Releases](https://githu
 - macOS 菜单栏应用、DMG 构建、主题 ZIP 工作流和社区主题恢复机制。
 - Linux 安装、验证、恢复与发行归档脚本。
 
-Windows 使用本 fork 的超天酱专属渲染覆盖层；macOS 使用通用运行时。各平台共享选择器契约、主题格式和注入安全边界。
+Windows 使用本 fork 的超天酱专属渲染覆盖层；macOS 在通用运行时上叠加超天酱专属覆盖层。各平台共享选择器契约、主题格式和注入安全边界。
+
+### v1.5.8 PR 合并、兼容性与安全更新
+
+- 合并 PR #8：macOS 补齐超天酱主题覆盖层、首页 Command Deck、动画状态、响应式布局及对应回归测试，DMG 同步携带 JPEG 与 Pixel Cafe 两套主题资源。
+- 合并 PR #10：Windows 原生窗口兼容回退只接受明确的 `Browser window not found` 与 `No window with given target found`，其他 `-32000`、窗口边界失败、连接中止和超时继续安全失败；独立验证脚本加载同一判断实现。
+- 合并 PR #12：宽屏高窗口中的 Command Deck 随可用高度下移，避免遮挡首页标题，紧凑窗口与分屏布局保持原位。
+- 合并上游 `1.5.6`：移除可旁路校验的 Node.js 环境变量覆盖，执行前验证受信 Node.js 的 Authenticode 签名；Release Setup 继续使用内置并经哈希校验的运行时，用户无需另装 Node.js。
+- 主题文案中的 `$` 序列通过函数式替换逐字写入 payload，Windows 与 macOS 均会拒绝残留占位符或无法解析的渲染脚本。
+- Windows 启动验证失败时会区分可见且已渲染的皮肤与真实损坏会话，前者保留正在使用的 Codex 窗口，后者继续回滚；macOS 日志不再记录窗口标题与页面 URL。
+- 统一运行时资源、图片元数据校验和 Release 前置回归检查，任一可移植检查失败都会在创建版本标签前终止发布。
 
 ### v1.5.7 Issue 修复与应用图标
 
@@ -158,7 +168,7 @@ Release 用户从开始菜单打开 `Codex Dream Skin`；源码安装用户也�
 2. 下载最新 Setup.exe，并核对对应的 SHA-256。
 3. 运行安装向导覆盖现有安装，再从开始菜单启动 `Codex Dream Skin`。
 
-覆盖安装会保留活动主题、已保存主题、导入图片和配置备份。`v1.5.7` 使用新的语义版本号，托盘版本检查可以识别本次更新。
+覆盖安装会保留活动主题、已保存主题、导入图片和配置备份。`v1.5.8` 可以由托盘版本检查识别。
 
 Release 用户可以从「设置 → 应用 → 已安装的应用」卸载 Codex Dream Skin。卸载器会先恢复 Codex 官方外观，并默认保留 `%LOCALAPPDATA%\CodexDreamSkin` 中的主题与图片。
 

@@ -14,17 +14,17 @@
   <sub>The default Windows theme asset; the runtime injection layer renders the controls, layout, and animation.</sub>
 </p>
 
-> Current fork release: `1.5.7` (2026-07-26). Windows is the primary development and verification platform. macOS and Linux support continue alongside upstream and fork contributions.
+> Current fork release: `1.5.8` (2026-07-29). Windows is the primary development and verification platform. macOS and Linux support continue alongside upstream and fork contributions.
 
 Installers are published through this fork's [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin/releases).
 
 ## About this fork
 
-This independent fork is based on [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin). It redesigns Codex Desktop around the INTERNET ANGEL theme and adds a Windows-specific renderer overlay, responsive layout behavior, animated state presentation, local theme storage, and a themed tray experience.
+This independent fork is based on [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin). It redesigns Codex Desktop around the INTERNET ANGEL theme and adds platform-specific renderer overlays, responsive layout behavior, animated state presentation, local theme storage, and themed tray or menu-bar experiences.
 
 The theme uses CDP on the local loopback interface. The official Codex package, `WindowsApps`, `app.asar`, and application signatures remain unchanged.
 
-The current branch includes upstream `3aaaf7d` (`v1.5.5`). Future upstream changes will be reviewed and integrated around this fork's theme and compatibility requirements.
+The current branch includes upstream `611c101` (`v1.5.6`). Future upstream changes will be reviewed and integrated around this fork's theme and compatibility requirements.
 
 ## Fork highlights
 
@@ -57,6 +57,14 @@ The Windows release builder verifies the theme IDs, image mappings, and SHA-256 
 - Pause, resume, reapply, inspect theme folders, check for updates, or fully restore the stock Codex appearance.
 - Open DreamSkin.cc Gallery and Studio from the client. Supported community links require local confirmation before application.
 - Windows Setup, shortcuts, uninstall metadata, protocol registration, and tray now share a multi-size INTERNET ANGEL icon redrawn to match the Pixel Cafe character. The macOS app and DMG use the same artwork.
+
+### 1.5.8 pull requests, compatibility, and security
+
+- PR #8 brings the INTERNET ANGEL overlay, Command Deck, animated state presentation, responsive layout, and regression coverage to macOS.
+- PR #10 restricts the Windows native-window fallback to exact known window-not-found responses. Other `-32000` responses, bounds failures, aborted connections, and timeouts remain fail-closed.
+- PR #12 moves Command Deck down with available height on wide Windows home layouts, keeping compact and split layouts unchanged.
+- Upstream `1.5.6` removes the Node.js environment override that could bypass validators, validates trusted Node.js signatures before execution, preserves `$` sequences during payload construction, redacts macOS page metadata from logs, and blocks releases before tagging when portable regressions fail.
+- Release Setup still includes its pinned, hash-validated Node.js runtime. End users do not need a separate Node.js installation.
 
 ### 1.5.7 issue fixes and compatibility
 
