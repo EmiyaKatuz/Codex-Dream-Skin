@@ -5161,6 +5161,13 @@ html.codex-dream-skin.dream-home-dual-panel .dream-home .composer-surface-chrome
     --thread-content-max-width: var(--dream-home-wide-content-max) !important;
   }
 
+  /* The fallback deck is absolutely positioned, so let it descend only when
+     the fullscreen canvas has enough vertical room. This clears the native
+     Home heading without compressing the composer on shorter windows. */
+  html.codex-dream-skin .dream-home #codex-dream-skin-presets {
+    top: clamp(350px, 38cqh, 450px);
+  }
+
   html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child {
     width: var(--dream-home-wide-content-max) !important;
     max-width: 1560px !important;

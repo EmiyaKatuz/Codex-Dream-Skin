@@ -22,6 +22,7 @@ const section = css.slice(sectionStart, sectionEnd);
 const adaptiveSection = css.slice(adaptiveStart, adaptiveEnd);
 assert.match(section, /@container home-main-content \(min-width: 1280px\) and \(min-height: 780px\)/);
 assert.match(section, /--dream-home-wide-content-max:\s*min\(1560px, calc\(100cqw - 112px\)\)/);
+assert.match(section, /#codex-dream-skin-presets\s*\{[\s\S]*?top:\s*clamp\(350px, 38cqh, 450px\)/);
 assert.match(section, /\.group\\\/home-suggestions > div > div\s*\{[\s\S]*?gap:\s*clamp\(18px, 1\.15cqw, 26px\)/);
 assert.match(section, /button\.dream-codex-preset\s*\{[\s\S]*?min-height:\s*140px/);
 assert.match(section, /\.dream-home \.composer-surface-chrome\s*\{[\s\S]*?min-height:\s*110px/);
