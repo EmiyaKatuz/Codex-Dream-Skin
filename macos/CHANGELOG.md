@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.9 — 2026-07-29
+
+### 更新
+
+- 将超天酱组件分类、专属覆盖层与动画整理为统一运行时资源，并同步到 Windows、macOS 与 Linux 注入器。
+- GitHub Actions 的源码检出与 Node.js 环境操作升级到使用 Node.js 24 的官方版本，并继续固定不可变提交 SHA。
+
+### 修复
+
+- 加固跨平台 payload 回归测试与运行时资源换行规则，确保发布候选检查在 Linux、Windows PowerShell 5.1 和 PowerShell 7 环境中结果一致。
+
 ## 1.5.8 — 2026-07-29
 
 ### 新增

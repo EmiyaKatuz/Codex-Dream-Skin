@@ -1,6 +1,6 @@
 # Windows Changelog
 
-## 未发布
+## 1.5.9 — 2026-07-29
 
 ### 新增
 
@@ -14,6 +14,11 @@
 ### 文档
 
 - 精简中英文 README，保留安装、更新、恢复、跨平台架构与安全边界等必要信息。
+
+### 维护
+
+- GitHub Actions 的源码检出与 Node.js 环境操作升级到使用 Node.js 24 的官方版本，并继续固定不可变提交 SHA。
+- 加固跨平台 payload 回归测试与运行时资源换行规则，确保发布候选检查在 Linux、Windows PowerShell 5.1 和 PowerShell 7 环境中结果一致。
 
 ## 1.5.8 — 2026-07-29
 
