@@ -40,6 +40,10 @@ const stableTestidLiteral = (testid) => {
   return JSON.stringify(`[data-testid="${testid}"]`);
 };
 const SKIN_VERSION = "1.5.8";
+const INTERNET_ANGEL_EXTENSION_THEME_IDS = new Set([
+  "preset-internet-angel",
+  "preset-internet-angel-default",
+]);
 const MAX_ART_BYTES = 10 * 1024 * 1024;
 const MAX_SAFE_CSS_BYTES = 256 * 1024;
 const STRONG_THEME_AUDIT_MS = 30000;
@@ -52,6 +56,10 @@ const OPERATION_UI_HOST_ID = "chatgpt-dream-skin-operation";
 const OPERATION_UI_REGISTRY_KEY = "__CHATGPT_DREAM_SKIN_OPERATION_UI__";
 const OPERATION_KINDS = new Set(["apply", "pause", "switch"]);
 const OPERATION_UI_STATES = new Set(["success", "error", "cancelled"]);
+
+export function usesInternetAngelExtension(theme) {
+  return INTERNET_ANGEL_EXTENSION_THEME_IDS.has(String(theme?.id || "").trim());
+}
 // Shared with macOS: in-renderer progress for pause/apply so both platforms feel the same.
 const OPERATION_UI_CSS = `
   :host {
@@ -156,6 +164,10 @@ function parseArgs(argv) {
     operationUiState: null,
     operationMessage: null,
     operationToken: null,
+    win32WindowPid: null,
+    win32WindowHwnd: null,
+    win32WindowWidth: null,
+    win32WindowHeight: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -175,6 +187,10 @@ function parseArgs(argv) {
     else if (arg === "--operation-ui-state") options.operationUiState = argv[++i];
     else if (arg === "--operation-message") options.operationMessage = argv[++i];
     else if (arg === "--operation-token") options.operationToken = argv[++i];
+    else if (arg === "--win32-window-pid") options.win32WindowPid = argv[++i];
+    else if (arg === "--win32-window-hwnd") options.win32WindowHwnd = argv[++i];
+    else if (arg === "--win32-window-width") options.win32WindowWidth = argv[++i];
+    else if (arg === "--win32-window-height") options.win32WindowHeight = argv[++i];
     else if (arg === "--reload") options.reload = true;
     else if (arg === "--self-test") options.mode = "self-test";
     else if (arg === "--check-payload") options.mode = "check-payload";
@@ -191,6 +207,39 @@ function parseArgs(argv) {
   }
   if (options.operationToken !== null && !/^\d{1,12}:\d{13}:\d{1,8}$/.test(options.operationToken)) {
     throw new Error("Invalid operation token");
+  }
+  const win32EvidenceValues = [
+    options.win32WindowPid,
+    options.win32WindowHwnd,
+    options.win32WindowWidth,
+    options.win32WindowHeight,
+  ];
+  const win32EvidenceCount = win32EvidenceValues.filter((value) => value !== null).length;
+  if (win32EvidenceCount !== 0 && win32EvidenceCount !== win32EvidenceValues.length) {
+    throw new Error("Win32 window evidence requires PID, HWND, width, and height");
+  }
+  if (win32EvidenceCount === win32EvidenceValues.length) {
+    if (!/^[1-9]\d{0,9}$/.test(options.win32WindowPid)
+      || Number(options.win32WindowPid) > 0xffffffff
+      || !/^[1-9]\d{0,19}$/.test(options.win32WindowHwnd)
+      || !/^[1-9]\d{0,5}$/.test(options.win32WindowWidth)
+      || !/^[1-9]\d{0,5}$/.test(options.win32WindowHeight)) {
+      throw new Error("Invalid Win32 window evidence");
+    }
+    const width = Number(options.win32WindowWidth);
+    const height = Number(options.win32WindowHeight);
+    if (width < MIN_RENDERER_VIEWPORT_WIDTH || height < MIN_RENDERER_VIEWPORT_HEIGHT) {
+      throw new Error("Win32 window evidence is smaller than the renderer safety floor");
+    }
+    options.win32WindowEvidence = {
+      source: "win32-hwnd",
+      processId: Number(options.win32WindowPid),
+      hwnd: options.win32WindowHwnd,
+      width,
+      height,
+    };
+  } else {
+    options.win32WindowEvidence = null;
   }
   if (options.mode === "begin-operation") {
     if (!OPERATION_KINDS.has(options.operationKind)) {
@@ -694,11 +743,15 @@ export async function loadTheme(themeDir) {
 
 export async function loadPayload(themeDir = path.join(root, "assets"), candidateTheme = null) {
   const loadedTheme = candidateTheme ?? await loadTheme(themeDir);
-  const [css, template] = await Promise.all([
+  const [baseCss, template, internetAngelCss, internetAngelTemplate] = await Promise.all([
     fs.readFile(path.join(root, "assets", "dream-skin.css"), "utf8"),
     fs.readFile(path.join(root, "assets", "renderer-inject.js"), "utf8"),
+    fs.readFile(path.join(root, "assets", "internet-angel-extension.css"), "utf8"),
+    fs.readFile(path.join(root, "assets", "internet-angel-extension.js"), "utf8"),
   ]);
-  const combinedCss = loadedTheme.safeCss ? `${css}\n${loadedTheme.safeCss}\n` : css;
+  const internetAngelExtension = usesInternetAngelExtension(loadedTheme.theme);
+  const themedCss = internetAngelExtension ? `${baseCss}\n${internetAngelCss}` : baseCss;
+  const combinedCss = loadedTheme.safeCss ? `${themedCss}\n${loadedTheme.safeCss}\n` : themedCss;
   const extension = path.extname(loadedTheme.imagePath).toLowerCase();
   const mime = extension === ".jpg" || extension === ".jpeg" ? "image/jpeg"
     : extension === ".webp" ? "image/webp" : "image/png";
@@ -710,6 +763,7 @@ export async function loadPayload(themeDir = path.join(root, "assets"), candidat
     .update(SKIN_VERSION)
     .update(combinedCss)
     .update(template)
+    .update(internetAngelTemplate)
     .update(JSON.stringify(loadedTheme.theme))
     .digest("hex")
     .slice(0, 20);
@@ -719,20 +773,24 @@ export async function loadPayload(themeDir = path.join(root, "assets"), candidat
   // replacement would splice the template source back into the payload -- a
   // stray "$`" produced a SyntaxError, while "$&"/"$$" silently corrupted the
   // theme name.
-  const payload = template
+  const basePayload = template
     .replace("__DREAM_SKIN_CSS_JSON__", () => JSON.stringify(combinedCss))
     .replace("__DREAM_SKIN_ART_JSON__", () => JSON.stringify(artDataUrl))
     .replace("__DREAM_SKIN_THEME_JSON__", () => JSON.stringify(loadedTheme.theme))
     .replace("__DREAM_SKIN_VERSION_JSON__", () => JSON.stringify(SKIN_VERSION))
     .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", () => JSON.stringify(styleRevision))
     .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => JSON.stringify(revision))
-    .replace("__DREAM_CSS_JSON__", () => JSON.stringify(css))
+    .replace("__DREAM_CSS_JSON__", () => JSON.stringify(baseCss))
     .replace("__DREAM_ART_JSON__", () => JSON.stringify(artDataUrl))
     .replace("__DREAM_THEME_JSON__", () => JSON.stringify(loadedTheme.theme));
+  const payload = `${basePayload};\n${internetAngelTemplate.replace(
+    "__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__",
+    () => JSON.stringify(internetAngelExtension),
+  )}`;
   // Defence in depth for every caller, not just --check-payload: a template
   // splice leaves an unreplaced placeholder token behind and usually breaks the
   // syntax outright, so refuse to hand a corrupted script to the renderer.
-  if (/__DREAM(?:_SKIN)?_[A-Z0-9_]+_JSON__/.test(payload)) {
+  if (/__(?:DREAM(?:_SKIN)?|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+_JSON__/.test(payload)) {
     throw new Error("Payload placeholders were not fully replaced");
   }
   try {
@@ -743,7 +801,7 @@ export async function loadPayload(themeDir = path.join(root, "assets"), candidat
     throw new Error(`Payload failed to parse as JavaScript: ${error.message}`);
   }
   const { imageBytes: _imageBytes, ...themeState } = loadedTheme;
-  return { ...themeState, payload, revision };
+  return { ...themeState, internetAngelExtension, payload, revision };
 }
 
 async function fileExists(filePath) {
@@ -807,7 +865,7 @@ async function connectTarget(target, port) {
   return new CdpSession(target, port).open();
 }
 
-function unavailableNativeWindow(error) {
+function unavailableNativeWindow(error, win32WindowEvidence = null) {
   const message = String(error?.message ?? "");
   const cdpCode = Number(error?.cdpCode);
   const withoutCode = message.replace(/\s*\(-?\d+\)\s*$/, "").trim();
@@ -822,7 +880,7 @@ function unavailableNativeWindow(error) {
     || /^no window with given target found$/i.test(withoutCode);
   const windowNotFound = windowNotFoundMessage
     && (cdpCode === -32000 || /\(-32000\)\s*$/.test(message));
-  return {
+  const result = {
     pass: false,
     bound: false,
     unsupported: domainUnsupported || windowNotFound,
@@ -830,9 +888,24 @@ function unavailableNativeWindow(error) {
       : windowNotFound ? "browser-window-not-found"
       : "target-window-unavailable",
   };
+  if (!result.unsupported || win32WindowEvidence?.source !== "win32-hwnd") return result;
+  return {
+    ...result,
+    pass: true,
+    bound: true,
+    targetBound: false,
+    fallback: true,
+    source: "win32-hwnd",
+    processId: win32WindowEvidence.processId,
+    hwnd: win32WindowEvidence.hwnd,
+    width: win32WindowEvidence.width,
+    height: win32WindowEvidence.height,
+    cdpReason: result.reason,
+    reason: null,
+  };
 }
 
-export async function inspectTargetWindow(session, targetId) {
+export async function inspectTargetWindow(session, targetId, win32WindowEvidence = null) {
   if (typeof targetId !== "string" || !BROWSER_ID_PATTERN.test(targetId)) {
     return { pass: false, bound: false, reason: "invalid-target-id" };
   }
@@ -841,7 +914,7 @@ export async function inspectTargetWindow(session, targetId) {
   try {
     binding = await session.send("Browser.getWindowForTarget", { targetId });
   } catch (error) {
-    return unavailableNativeWindow(error);
+    return unavailableNativeWindow(error, win32WindowEvidence);
   }
   if (!Number.isInteger(binding?.windowId) || binding.windowId <= 0) {
     return { pass: false, bound: false, reason: "invalid-window-binding" };
@@ -868,6 +941,9 @@ export async function inspectTargetWindow(session, targetId) {
   return {
     pass: statePass && boundsPass,
     bound: true,
+    targetBound: true,
+    fallback: false,
+    source: "cdp-browser-window",
     windowId: binding.windowId,
     state,
     width,
@@ -1138,6 +1214,8 @@ async function presentOperationUi(session, token, state, message, timeoutMs = 10
 
 async function removeFromSession(session) {
   return session.evaluate(`(() => {
+    try { window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__?.cleanup?.(); } catch {}
+    delete window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__;
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
     const state = window.__CODEX_DREAM_SKIN_STATE__;
     let cleaned = false;
@@ -1190,8 +1268,9 @@ export async function verifySession(
   targetId,
   expectedThemeId = null,
   expectedRevision = null,
+  win32WindowEvidence = null,
 ) {
-  const nativeWindow = await inspectTargetWindow(session, targetId);
+  const nativeWindow = await inspectTargetWindow(session, targetId, win32WindowEvidence);
   return session.evaluate(`(() => {
     const box = (node) => {
       if (!node) return null;
@@ -1285,12 +1364,13 @@ export async function verifySession(
     const documentPass = result.documentVisibility === 'visible' && !result.documentHidden;
     const viewportPass = result.viewport.width >= ${MIN_RENDERER_VIEWPORT_WIDTH} &&
       result.viewport.height >= ${MIN_RENDERER_VIEWPORT_HEIGHT};
-    const nativeWindowPass = result.nativeWindow?.pass === true;
-    // Some Codex/Chrome builds return -32000 for their real visible window,
-    // while older builds may omit the Browser method (-32601). Only those
-    // classified unsupported signals fall back; document, viewport and
-    // route-structure readiness remain independent hard requirements.
-    const fallbackWindowPass = result.nativeWindow?.unsupported === true;
+    const nativeWindowPass = result.nativeWindow?.pass === true &&
+      result.nativeWindow?.source === 'cdp-browser-window';
+    // Compatibility fallback is deliberately native-only. Renderer DOM
+    // visibility can support the readiness decision, but cannot replace a
+    // window-ownership signal when Codex omits CDP Browser.WindowID.
+    const fallbackWindowPass = result.nativeWindow?.pass === true &&
+      result.nativeWindow?.source === 'win32-hwnd';
     const windowPass = nativeWindowPass || fallbackWindowPass;
     const expectedThemeId = ${JSON.stringify(expectedThemeId)};
     const expectedRevision = ${JSON.stringify(expectedRevision)};
@@ -1318,13 +1398,20 @@ async function waitForVerifiedSession(
   timeoutMs,
   expectedThemeId = null,
   expectedRevision = null,
+  win32WindowEvidence = null,
 ) {
   const deadline = Date.now() + timeoutMs;
   let lastResult;
   let lastError;
   while (Date.now() < deadline) {
     try {
-      lastResult = await verifySession(session, targetId, expectedThemeId, expectedRevision);
+      lastResult = await verifySession(
+        session,
+        targetId,
+        expectedThemeId,
+        expectedRevision,
+        win32WindowEvidence,
+      );
       lastError = null;
       if (lastResult.pass) return lastResult;
     } catch (error) {
@@ -1457,8 +1544,9 @@ async function runOneShot(options) {
               options.timeoutMs,
               loadedPayload?.theme.id ?? null,
               loadedPayload?.revision ?? null,
+              options.win32WindowEvidence,
             )
-            : await verifySession(session, target.id);
+            : await verifySession(session, target.id, null, null, options.win32WindowEvidence);
         results.push({ targetId: target.id, markers: probe.markers, result: verified });
         if (operationToken) {
           const passed = options.mode === "remove" ? verified === true : verified?.pass;
@@ -1848,13 +1936,16 @@ if (path.resolve(process.argv[1] || "") === path.resolve(scriptPath)) {
   console.log(JSON.stringify({ pass: true, version: SKIN_VERSION, test: "loopback-cdp-validation" }));
   } else if (options.mode === "check-payload") {
     const loaded = await loadPayload(options.themeDir);
-    const unresolved = /__DREAM_SKIN_[A-Z0-9_]+_JSON__/.test(loaded.payload);
+    const unresolved = /__(?:DREAM_SKIN|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+_JSON__/.test(
+      loaded.payload,
+    );
     if (unresolved) {
       throw new Error("Payload placeholders were not fully replaced");
     }
     console.log(JSON.stringify({
       pass: true,
       version: SKIN_VERSION,
+      internetAngelExtension: loaded.internetAngelExtension,
       payloadBytes: Buffer.byteLength(loaded.payload),
       themeId: loaded.theme.id,
       appearance: loaded.theme.appearance,

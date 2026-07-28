@@ -1,6 +1,6 @@
 (() => {
-  const enabled = __INTERNET_ANGEL_MACOS_ENABLED_JSON__;
-  const registryKey = "__CODEX_INTERNET_ANGEL_MACOS_STATE__";
+  const enabled = __INTERNET_ANGEL_EXTENSION_ENABLED_JSON__;
+  const registryKey = "__CODEX_INTERNET_ANGEL_EXTENSION_STATE__";
   const componentAttribute = "data-angel-component";
   const selectors = {
     composer: ".composer-surface-chrome",

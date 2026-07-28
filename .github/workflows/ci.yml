@@ -39,7 +39,7 @@ jobs:
           while IFS= read -r file; do
             node --check "$file" >/dev/null
           done < <(
-            find macos windows -type f \( -name '*.mjs' -o -name '*.js' \) -print
+            find linux macos runtime tools windows -type f \( -name '*.mjs' -o -name '*.js' \) -print
           )
 
       - name: Check Windows PowerShell source encoding

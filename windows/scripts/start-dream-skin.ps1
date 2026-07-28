@@ -121,9 +121,6 @@ try {
   $debugLaunchAttempted = $false
   $debugLaunch = $null
   $debugLaunchBaselineProcessIds = @()
-  # Set by the verify loop when the renderer reports a visible, structurally
-  # complete skin even though verification did not pass overall.
-  $skinLooksRendered = $false
   try {
     if ($null -eq (Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex)) {
       # Codex is closed on this path; sync the appearanceTheme pin to the
@@ -173,6 +170,16 @@ try {
       Start-Sleep -Milliseconds 400
       $cdpIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex
     }
+    $win32Window = Wait-DreamSkinWin32WindowEvidence -Codex $codex -TimeoutMilliseconds 30000
+    if ($null -eq $win32Window) {
+      throw 'Codex exposed CDP without a verified visible Win32 HWND owned by the registered executable.'
+    }
+    $win32WindowArgs = @(
+      '--win32-window-pid', "$($win32Window.ProcessId)",
+      '--win32-window-hwnd', "$($win32Window.Handle)",
+      '--win32-window-width', "$($win32Window.Width)",
+      '--win32-window-height', "$($win32Window.Height)"
+    )
   } catch {
     $launchError = $_
     if ($debugLaunchAttempted) {
@@ -224,7 +231,7 @@ try {
       Exit-DreamSkinOperationLock -Mutex $operationLock
       $operationLock = $null
       & $node.Path $Injector --watch --port $Port --browser-id $cdpIdentity.BrowserId `
-        --theme-dir $themePaths.Active --pause-file $themePaths.PauseFile
+        --theme-dir $themePaths.Active --pause-file $themePaths.PauseFile @win32WindowArgs
       $foregroundExitCode = $LASTEXITCODE
       if ($foregroundExitCode -ne 0 -and $pauseWasSet) {
         Set-DreamSkinPaused -Paused $true -StateRoot $StateRoot | Out-Null
@@ -246,7 +253,7 @@ try {
     $injectorArgs = @((ConvertTo-DreamSkinProcessArgument -Value $Injector), '--watch', '--port', "$Port",
       '--browser-id', $cdpIdentity.BrowserId, '--theme-dir',
       (ConvertTo-DreamSkinProcessArgument -Value $themePaths.Active), '--pause-file',
-      (ConvertTo-DreamSkinProcessArgument -Value $themePaths.PauseFile))
+      (ConvertTo-DreamSkinProcessArgument -Value $themePaths.PauseFile)) + $win32WindowArgs
     $daemon = Start-Process -FilePath $node.Path -ArgumentList $injectorArgs -WindowStyle Hidden -PassThru `
       -RedirectStandardOutput $StdoutPath -RedirectStandardError $StderrPath
     Start-Sleep -Milliseconds 500
@@ -282,28 +289,14 @@ try {
     # watcher keeps applying in the background, so retry until a deadline.
     $verifyDeadline = (Get-Date).AddSeconds(90)
     while ($true) {
-      $verify = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+      $verifyArguments = @(
         $Injector, '--verify', '--port', "$Port",
         '--browser-id', $cdpIdentity.BrowserId, '--theme-dir', $themePaths.Active,
-        '--timeout-ms', '30000')
+        '--timeout-ms', '30000'
+      ) + $win32WindowArgs
+      $verify = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList $verifyArguments
       Write-DreamSkinUtf8FileAtomically -Path $VerifyPath -Content (($verify.Output -join "`r`n") + "`r`n")
       if ($verify.ExitCode -eq 0) { break }
-      # A verify can fail while the theme is demonstrably on screen: the
-      # renderer reports the document visible, the viewport sized and the shell
-      # structure present, and only the native-window probe -- which some Codex
-      # builds never resolve -- comes back false.  Killing Codex in that state
-      # destroys a working skin the user is looking at, so remember it and let
-      # the rollback below leave the app alone (#267).
-      $skinLooksRendered = $false
-      try {
-        $verifyJson = ($verify.Output -join "`n") | ConvertFrom-Json -ErrorAction Stop
-        $readiness = $verifyJson.readiness
-        $skinLooksRendered = [bool]$verifyJson.installed -and [bool]$verifyJson.stylePresent -and
-          [bool]$readiness.documentPass -and [bool]$readiness.viewportPass -and
-          [bool]$readiness.structurePass
-      } catch {
-        $skinLooksRendered = $false
-      }
       if ($daemon.HasExited) { throw "The injector exited during startup. See $StderrPath" }
       if ((Get-Date) -ge $verifyDeadline) { throw "Dream Skin verification failed. See $VerifyPath" }
       Start-Sleep -Seconds 3
@@ -343,21 +336,13 @@ try {
       }
     }
     if ($injectorStopped) { Remove-Item -LiteralPath $StatePath -Force -ErrorAction SilentlyContinue }
-    if ($launchedWithCdp -and -not $skinLooksRendered) {
+    if ($launchedWithCdp) {
       try {
         Stop-DreamSkinCodex -Codex $codex -AllowForce
         $null = Start-DreamSkinCodex -Codex $codex
       } catch {
         Write-Warning 'Startup rollback could not fully restart Codex; close Codex to ensure its CDP port is closed.'
       }
-    } elseif ($launchedWithCdp) {
-      # The skin is on screen and only an inconclusive probe failed. Force-
-      # restarting Codex here would take a working window away from the user
-      # and leave them with the stock appearance, which is worse than the
-      # unverified state we are in. The injector is already stopped and the
-      # state file removed, so nothing claims this session is verified; Codex
-      # keeps running with its debug port until the user closes it (#267).
-      Write-Warning 'Dream Skin could not verify this session, but the theme is rendered. Codex was left running; close and reopen it to return to the stock appearance.'
     }
     if ($pauseWasSet -and $pauseCleared) {
       try {

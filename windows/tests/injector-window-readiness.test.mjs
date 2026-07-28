@@ -8,6 +8,13 @@ import { verifySession } from "../scripts/injector.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const startPath = path.resolve(here, "../scripts/start-dream-skin.ps1");
+const win32WindowEvidence = {
+  source: "win32-hwnd",
+  processId: 4120,
+  hwnd: "918273645",
+  width: 1280,
+  height: 800,
+};
 
 const selectors = {
   shell: "main.main-surface",
@@ -129,13 +136,14 @@ function makeSession({
   };
 }
 
-async function verify(overrides = {}) {
+async function verify(overrides = {}, nativeFallback = null) {
   const session = makeSession(overrides);
   const result = await verifySession(
     session,
     "page-main",
     "fixture-theme",
     "fixture-revision",
+    nativeFallback,
   );
   return { result, session };
 }
@@ -189,7 +197,7 @@ test("visible settings and home anchors are the only L0 structure exceptions", a
   assert.equal(noAnchor.result.readiness.structurePass, false);
 });
 
-test("uninformative Browser window replies defer to a visible structured renderer", async () => {
+test("uninformative Browser window replies require verified Win32 HWND evidence", async () => {
   for (const [label, bindingError] of [
     ["window-not-found", new Error("No window with given target found (-32000)")],
     ["window-not-found-by-code", Object.assign(new Error("Browser window not found"), {
@@ -201,30 +209,38 @@ test("uninformative Browser window replies defer to a visible structured rendere
     })],
     ["domain-unsupported-prose", new Error("Method not found (-32601)")],
   ]) {
-    const visible = await verify({ bindingError });
+    const withoutHwnd = await verify({ bindingError });
+    assert.equal(withoutHwnd.result.pass, false, `${label}: DOM-only fallback must fail`);
+    assert.equal(withoutHwnd.result.readiness.windowPass, false, label);
+    assert.equal(withoutHwnd.result.readiness.fallbackWindowPass, false, label);
+
+    const visible = await verify({ bindingError }, win32WindowEvidence);
     assert.equal(visible.result.pass, true, label);
     assert.equal(visible.result.nativeWindow.unsupported, true, label);
+    assert.equal(visible.result.nativeWindow.source, "win32-hwnd", label);
+    assert.equal(visible.result.nativeWindow.hwnd, win32WindowEvidence.hwnd, label);
+    assert.equal(visible.result.nativeWindow.processId, win32WindowEvidence.processId, label);
     assert.equal(visible.result.readiness.windowPass, true, label);
     assert.equal(visible.result.readiness.nativeWindowPass, false, label);
     assert.equal(visible.result.readiness.fallbackWindowPass, true, label);
     const hidden = await verify({
       bindingError,
       dom: makeDomFixture({ visibilityState: "hidden", hidden: true }),
-    });
+    }, win32WindowEvidence);
     assert.equal(hidden.result.pass, false, `${label}: hidden documents must still fail`);
     assert.equal(hidden.result.readiness.documentPass, false, label);
 
     const tiny = await verify({
       bindingError,
       dom: makeDomFixture({ viewportWidth: 319, viewportHeight: 239 }),
-    });
+    }, win32WindowEvidence);
     assert.equal(tiny.result.pass, false, `${label}: tiny viewports must still fail`);
     assert.equal(tiny.result.readiness.viewportPass, false, label);
 
     const noStructure = await verify({
       bindingError,
       dom: makeDomFixture({ shell: null, sidebar: null }),
-    });
+    }, win32WindowEvidence);
     assert.equal(noStructure.result.pass, false, `${label}: missing L1 structure must still fail`);
     assert.equal(noStructure.result.readiness.structurePass, false, label);
   }

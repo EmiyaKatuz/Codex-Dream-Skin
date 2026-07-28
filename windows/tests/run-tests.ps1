@@ -1427,6 +1427,9 @@ args = [
   $doctorToolPath = Join-Path $projectRoot 'tools\doctor-selectors.test.mjs'
   $doctorToolResult = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @($doctorToolPath)
   if ($doctorToolResult.ExitCode -ne 0) { throw "Runtime contract tool failed: $doctorToolPath" }
+  $extensionToolPath = Join-Path $projectRoot 'tools\internet-angel-extension.test.mjs'
+  $extensionToolResult = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @($extensionToolPath)
+  if ($extensionToolResult.ExitCode -ne 0) { throw "Runtime contract tool failed: $extensionToolPath" }
   $injectorSource = Read-DreamSkinUtf8File -Path (Join-Path $Root 'scripts\injector.mjs')
   foreach ($requiredInjectorBehavior in @(
     'MAX_ART_BYTES', 'createHash', 'readImageMetadata', '50MP safety limit', 'STRONG_THEME_AUDIT_MS',

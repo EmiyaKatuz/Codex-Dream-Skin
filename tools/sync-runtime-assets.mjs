@@ -110,6 +110,14 @@ function compileWindowsImageMetadata(source) {
 
 const sourceCss = await fs.readFile(path.join(projectRoot, "runtime", "dream-skin.css"), "utf8");
 const sourceRuntime = await fs.readFile(path.join(projectRoot, "runtime", "renderer-inject.js"), "utf8");
+const sourceInternetAngelExtensionCss = await fs.readFile(
+  path.join(projectRoot, "runtime", "internet-angel-extension.css"),
+  "utf8",
+);
+const sourceInternetAngelExtension = await fs.readFile(
+  path.join(projectRoot, "runtime", "internet-angel-extension.js"),
+  "utf8",
+);
 const sourceThemePackageValidator = await fs.readFile(
   path.join(projectRoot, "runtime", "theme-package-validator.mjs"),
   "utf8",
@@ -147,6 +155,22 @@ const outputs = [
   {
     content: compileRuntime(sourceRuntime),
     paths: ["macos/assets/renderer-inject.js"],
+  },
+  {
+    content: sourceInternetAngelExtensionCss,
+    paths: [
+      "macos/assets/internet-angel-extension.css",
+      "windows/assets/internet-angel-extension.css",
+      "linux/assets/internet-angel-extension.css",
+    ],
+  },
+  {
+    content: sourceInternetAngelExtension,
+    paths: [
+      "macos/assets/internet-angel-extension.js",
+      "windows/assets/internet-angel-extension.js",
+      "linux/assets/internet-angel-extension.js",
+    ],
   },
   {
     content: sourceThemePackageValidator,

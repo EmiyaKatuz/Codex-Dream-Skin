@@ -33,8 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private let requiredEngineRelativePaths = [
     "VERSION",
     "assets/dream-skin.css",
-    "assets/internet-angel-macos.css",
-    "assets/internet-angel-macos.js",
+    "assets/internet-angel-extension.css",
+    "assets/internet-angel-extension.js",
     "assets/portal-hero.png",
     "assets/renderer-inject.js",
     "assets/safe-css-policy.json",

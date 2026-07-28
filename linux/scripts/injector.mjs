@@ -6,6 +6,7 @@ import http from "node:http";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { Script } from "node:vm";
 import { readImageMetadata } from "./image-metadata.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -39,6 +40,10 @@ const stableTestidLiteral = (testid) => {
   return JSON.stringify(`[data-testid="${testid}"]`);
 };
 const SKIN_VERSION = "1.5.8";
+const INTERNET_ANGEL_EXTENSION_THEME_IDS = new Set([
+  "preset-internet-angel",
+  "preset-internet-angel-default",
+]);
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const CDP_ID_PATTERN = /^[A-Za-z0-9._-]{1,200}$/;
 const MAX_ART_BYTES = 16 * 1024 * 1024;
@@ -46,6 +51,10 @@ const OPERATION_UI_HOST_ID = "chatgpt-dream-skin-operation";
 const OPERATION_UI_REGISTRY_KEY = "__CHATGPT_DREAM_SKIN_OPERATION_UI__";
 const OPERATION_KINDS = new Set(["apply", "pause", "switch"]);
 const OPERATION_UI_STATES = new Set(["success", "error", "cancelled"]);
+
+export function usesInternetAngelExtension(theme) {
+  return INTERNET_ANGEL_EXTENSION_THEME_IDS.has(String(theme?.id || "").trim());
+}
 const OPERATION_UI_CSS = `
   :host {
     all: initial;
@@ -733,27 +742,31 @@ async function loadStaticPayloadAssets() {
     staticPayloadAssets = Promise.all([
       fs.readFile(path.join(root, "assets", "dream-skin.css"), "utf8"),
       fs.readFile(path.join(root, "assets", "renderer-inject.js"), "utf8"),
+      fs.readFile(path.join(root, "assets", "internet-angel-extension.css"), "utf8"),
+      fs.readFile(path.join(root, "assets", "internet-angel-extension.js"), "utf8"),
     ]).catch((error) => {
       staticPayloadAssets = null;
       throw error;
     });
   }
-  const [css, template] = await staticPayloadAssets;
-  return { css, template, cacheHit };
+  const [css, template, internetAngelCss, internetAngelTemplate] = await staticPayloadAssets;
+  return { css, template, internetAngelCss, internetAngelTemplate, cacheHit };
 }
 
 function invalidateStaticPayloadAssets() {
   staticPayloadAssets = null;
 }
 
-async function loadPayload(themeDir) {
+export async function loadPayload(themeDir) {
   const startedAt = performance.now();
   const [staticAssets, loaded] = await Promise.all([
     loadStaticPayloadAssets(),
     loadTheme(themeDir),
   ]);
-  const { css, template } = staticAssets;
+  const { css: baseCss, template, internetAngelCss, internetAngelTemplate } = staticAssets;
   const { art, extension, theme } = loaded;
+  const internetAngelExtension = usesInternetAngelExtension(theme);
+  const css = internetAngelExtension ? `${baseCss}\n${internetAngelCss}` : baseCss;
   const styleRevision = createHash("sha256").update(css).digest("hex").slice(0, 20);
   const artMetadata = readImageMetadata(art, extension);
   if (!artMetadata) {
@@ -769,23 +782,34 @@ async function loadPayload(themeDir) {
     .update(SKIN_VERSION)
     .update(css)
     .update(template)
+    .update(internetAngelTemplate)
     .update(JSON.stringify(theme))
     .digest("hex")
     .slice(0, 20);
-  const payload = template
-    .replace("__DREAM_SKIN_CSS_JSON__", JSON.stringify(css))
-    .replace("__DREAM_SKIN_ART_JSON__", JSON.stringify(artDataUrl))
-    .replace("__DREAM_SKIN_THEME_JSON__", JSON.stringify(theme))
-    .replace("__DREAM_SKIN_VERSION_JSON__", JSON.stringify(SKIN_VERSION))
-    .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", JSON.stringify(styleRevision))
-    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify(revision))
-    .replace("__DREAM_CSS_JSON__", JSON.stringify(css))
-    .replace("__DREAM_ART_JSON__", JSON.stringify(artDataUrl))
-    .replace("__DREAM_THEME_JSON__", JSON.stringify(theme));
-  const unresolved = payload.match(/__DREAM(?:_SKIN)?_[A-Z_]+__/g);
+  const basePayload = template
+    .replace("__DREAM_SKIN_CSS_JSON__", () => JSON.stringify(css))
+    .replace("__DREAM_SKIN_ART_JSON__", () => JSON.stringify(artDataUrl))
+    .replace("__DREAM_SKIN_THEME_JSON__", () => JSON.stringify(theme))
+    .replace("__DREAM_SKIN_VERSION_JSON__", () => JSON.stringify(SKIN_VERSION))
+    .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", () => JSON.stringify(styleRevision))
+    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => JSON.stringify(revision))
+    .replace("__DREAM_CSS_JSON__", () => JSON.stringify(baseCss))
+    .replace("__DREAM_ART_JSON__", () => JSON.stringify(artDataUrl))
+    .replace("__DREAM_THEME_JSON__", () => JSON.stringify(theme));
+  const payload = `${basePayload};\n${internetAngelTemplate.replace(
+    "__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__",
+    () => JSON.stringify(internetAngelExtension),
+  )}`;
+  const unresolved = payload.match(/__(?:DREAM(?:_SKIN)?|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+__/g);
   if (unresolved) throw new Error(`Payload has unresolved placeholders: ${[...new Set(unresolved)].join(", ")}`);
+  try {
+    new Script(payload, { filename: "dream-skin-payload.js" });
+  } catch (error) {
+    throw new Error(`Payload is not a parsable renderer script: ${error.message}`);
+  }
   return {
     imageBytes: art.length,
+    internetAngelExtension,
     payload,
     revision,
     theme,
@@ -964,6 +988,8 @@ async function presentOperationUi(session, token, state, message, timeoutMs = 10
 
 async function removeFromSession(session) {
   return session.evaluate(`(() => {
+    try { window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__?.cleanup?.(); } catch {}
+    delete window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__;
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
     const state = window.__CODEX_DREAM_SKIN_STATE__;
     let cleaned = false;
@@ -1359,7 +1385,8 @@ function watchPayloadSources(themeDir, onDirty) {
       watcher = watchFs(directory, { persistent: false }, (_event, filename) => {
         const name = filename ? String(filename) : "";
         const staticChanged = directory === assetsRoot &&
-          (!name || name === "dream-skin.css" || name === "renderer-inject.js");
+      (!name || name === "dream-skin.css" || name === "renderer-inject.js" ||
+        name === "internet-angel-extension.css" || name === "internet-angel-extension.js");
         if (kind === "static" && !staticChanged) return;
         onDirty({ staticChanged });
       });
@@ -2140,6 +2167,7 @@ if (path.resolve(process.argv[1] || "") === path.resolve(scriptPath)) {
       console.log(JSON.stringify({
         pass: true,
         version: SKIN_VERSION,
+        internetAngelExtension: loaded.internetAngelExtension,
         themeId: loaded.theme.id,
         themeName: loaded.theme.name,
         imageBytes: loaded.imageBytes,

@@ -1099,6 +1099,145 @@ function Get-DreamSkinCodexProcesses {
     })
 }
 
+function Initialize-DreamSkinWin32WindowProbe {
+  if ('CodexDreamSkin.NativeWindowProbeV1' -as [type]) { return }
+  Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
+namespace CodexDreamSkin {
+  public sealed class NativeWindowEvidence {
+    public string Handle { get; set; }
+    public uint ProcessId { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+  }
+
+  public static class NativeWindowProbeV1 {
+    private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rect {
+      public int Left;
+      public int Top;
+      public int Right;
+      public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindowVisible(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr hwnd, uint command);
+
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hwnd, int index);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(
+      IntPtr hwnd,
+      int attribute,
+      out int value,
+      int valueSize);
+
+    public static NativeWindowEvidence[] Find(
+      uint[] allowedProcessIds,
+      int minimumWidth,
+      int minimumHeight) {
+      var allowed = new HashSet<uint>(allowedProcessIds ?? Array.Empty<uint>());
+      var results = new List<NativeWindowEvidence>();
+      if (allowed.Count == 0) return results.ToArray();
+
+      EnumWindows((hwnd, _) => {
+        uint processId;
+        GetWindowThreadProcessId(hwnd, out processId);
+        if (!allowed.Contains(processId) || !IsWindowVisible(hwnd) || IsIconic(hwnd)) return true;
+        if (GetWindow(hwnd, 4) != IntPtr.Zero) return true; // GW_OWNER
+        if ((GetWindowLong(hwnd, -20) & 0x00000080) != 0) return true; // WS_EX_TOOLWINDOW
+
+        int cloaked;
+        if (DwmGetWindowAttribute(hwnd, 14, out cloaked, sizeof(int)) == 0 && cloaked != 0) {
+          return true;
+        }
+
+        Rect rect;
+        if (!GetWindowRect(hwnd, out rect)) return true;
+        var width = Math.Max(0, rect.Right - rect.Left);
+        var height = Math.Max(0, rect.Bottom - rect.Top);
+        if (width < minimumWidth || height < minimumHeight) return true;
+        results.Add(new NativeWindowEvidence {
+          Handle = unchecked((ulong)hwnd.ToInt64()).ToString(
+            System.Globalization.CultureInfo.InvariantCulture),
+          ProcessId = processId,
+          Width = width,
+          Height = height
+        });
+        return true;
+      }, IntPtr.Zero);
+      return results.ToArray();
+    }
+  }
+}
+'@
+}
+
+function Get-DreamSkinWin32WindowEvidence {
+  param([Parameter(Mandatory = $true)][object]$Codex)
+  Initialize-DreamSkinWin32WindowProbe
+  $processes = @(Get-DreamSkinCodexProcesses -Codex $Codex)
+  $processIds = @($processes | ForEach-Object { [uint32]$_.ProcessId })
+  if ($processIds.Count -eq 0) { return $null }
+
+  $candidates = @([CodexDreamSkin.NativeWindowProbeV1]::Find($processIds, 320, 240) |
+    Sort-Object -Property @{ Expression = { [int64]$_.Width * [int64]$_.Height }; Descending = $true })
+  foreach ($candidate in $candidates) {
+    $current = Get-CimInstance Win32_Process -Filter "ProcessId = $([int]$candidate.ProcessId)" `
+      -ErrorAction SilentlyContinue
+    $currentPath = if ($current) { Get-DreamSkinProcessExecutablePath -ProcessInfo $current } else { $null }
+    if ($currentPath -and (Test-DreamSkinPathEqual -Left $currentPath -Right $Codex.Executable)) {
+      return [pscustomobject]@{
+        Source = 'win32-hwnd'
+        ProcessId = [int]$candidate.ProcessId
+        Handle = "$($candidate.Handle)"
+        Width = [int]$candidate.Width
+        Height = [int]$candidate.Height
+      }
+    }
+  }
+  return $null
+}
+
+function Wait-DreamSkinWin32WindowEvidence {
+  param(
+    [Parameter(Mandatory = $true)][object]$Codex,
+    [ValidateRange(250, 120000)][int]$TimeoutMilliseconds = 30000
+  )
+  $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
+  do {
+    $evidence = Get-DreamSkinWin32WindowEvidence -Codex $Codex
+    if ($null -ne $evidence) { return $evidence }
+    Start-Sleep -Milliseconds 200
+  } while ([DateTime]::UtcNow -lt $deadline)
+  return $null
+}
+
 function Get-DreamSkinCodexProcessesExcept {
   param(
     [Parameter(Mandatory = $true)][object]$Codex,

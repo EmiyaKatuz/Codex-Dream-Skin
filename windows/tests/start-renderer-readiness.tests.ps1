@@ -79,6 +79,15 @@ function Get-DreamSkinVerifiedCdpIdentity {
   param([int]$Port, [object]$Codex)
   return [pscustomobject]@{ BrowserId = 'fixture-browser' }
 }
+function Wait-DreamSkinWin32WindowEvidence {
+  param([object]$Codex, [int]$TimeoutMilliseconds)
+  return [pscustomobject]@{
+    ProcessId = 909
+    Handle = '123456'
+    Width = 1280
+    Height = 800
+  }
+}
 function Stop-DreamSkinRecordedInjector { param([object]$State); return $true }
 function Set-DreamSkinPaused { param([bool]$Paused, [string]$StateRoot); return $true }
 function ConvertTo-DreamSkinProcessArgument { param([string]$Value); return $Value }

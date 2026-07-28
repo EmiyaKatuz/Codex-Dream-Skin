@@ -47,6 +47,10 @@ try {
   if ($null -ne $state -and $state.browserId -and "$($state.browserId)" -cne $cdpIdentity.BrowserId) {
     throw 'The active CDP browser does not match the saved Dream Skin session; state was preserved.'
   }
+  $win32Window = Wait-DreamSkinWin32WindowEvidence -Codex $codex -TimeoutMilliseconds 5000
+  if ($null -eq $win32Window) {
+    throw 'No visible Win32 HWND owned by the verified Codex executable is available.'
+  }
 
   # Without an explicit --theme-dir the injector falls back to the engine's
   # bundled assets theme, so verification compares the live skin against the
@@ -54,7 +58,11 @@ try {
   # active theme, exactly like the watcher applies it.
   $themePaths = Get-DreamSkinThemePaths -StateRoot (Join-Path $env:LOCALAPPDATA 'CodexDreamSkin')
   $arguments = @($injector, '--verify', '--port', "$Port", '--browser-id', $cdpIdentity.BrowserId,
-    '--theme-dir', $themePaths.Active, '--timeout-ms', '30000')
+    '--theme-dir', $themePaths.Active, '--timeout-ms', '30000',
+    '--win32-window-pid', "$($win32Window.ProcessId)",
+    '--win32-window-hwnd', "$($win32Window.Handle)",
+    '--win32-window-width', "$($win32Window.Width)",
+    '--win32-window-height', "$($win32Window.Height)")
   if ($ScreenshotPath) { $arguments += @('--screenshot', $ScreenshotPath) }
   & $node.Path @arguments
   $verifyExitCode = $LASTEXITCODE

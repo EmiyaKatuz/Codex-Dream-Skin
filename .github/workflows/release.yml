@@ -208,7 +208,7 @@ jobs:
           while IFS= read -r file; do
             node --check "$file" >/dev/null
           done < <(
-            find macos windows -type f \( -name '*.mjs' -o -name '*.js' \) -print
+            find linux macos runtime tools windows -type f \( -name '*.mjs' -o -name '*.js' \) -print
           )
 
       # macos/tests/run-tests.sh already re-checks the macOS runtime assertions

@@ -44,7 +44,7 @@ const stableTestidLiteral = (testid) => {
   return JSON.stringify(`[data-testid="${testid}"]`);
 };
 const SKIN_VERSION = "1.5.8";
-const INTERNET_ANGEL_MACOS_THEME_IDS = new Set([
+const INTERNET_ANGEL_EXTENSION_THEME_IDS = new Set([
   "preset-internet-angel",
   "preset-internet-angel-default",
 ]);
@@ -246,7 +246,7 @@ export function assessRendererVerification(renderer, nativeWindow, expected) {
     && structurePass && windowPass && !result.documentOverflow?.x;
   const payloadPass = (!expected.expectedThemeId || result.themeId === expected.expectedThemeId)
     && (!expected.expectedRevision || result.revision === expected.expectedRevision);
-  const angelThemeExpected = INTERNET_ANGEL_MACOS_THEME_IDS.has(String(
+  const angelThemeExpected = INTERNET_ANGEL_EXTENSION_THEME_IDS.has(String(
     result.themeId || expected.expectedThemeId || "",
   ).trim());
   const angelSurfacePass = !angelThemeExpected || result.angelSurfacePass === true;
@@ -289,8 +289,8 @@ export function assessRendererVerification(renderer, nativeWindow, expected) {
   return result;
 }
 
-export function usesInternetAngelMacosOverlay(theme) {
-  return INTERNET_ANGEL_MACOS_THEME_IDS.has(String(theme?.id || "").trim());
+export function usesInternetAngelExtension(theme) {
+  return INTERNET_ANGEL_EXTENSION_THEME_IDS.has(String(theme?.id || "").trim());
 }
 
 function parseArgs(argv) {
@@ -830,8 +830,8 @@ async function loadStaticPayloadAssets() {
     staticPayloadAssets = Promise.all([
       fs.readFile(path.join(root, "assets", "dream-skin.css"), "utf8"),
       fs.readFile(path.join(root, "assets", "renderer-inject.js"), "utf8"),
-      fs.readFile(path.join(root, "assets", "internet-angel-macos.css"), "utf8"),
-      fs.readFile(path.join(root, "assets", "internet-angel-macos.js"), "utf8"),
+      fs.readFile(path.join(root, "assets", "internet-angel-extension.css"), "utf8"),
+      fs.readFile(path.join(root, "assets", "internet-angel-extension.js"), "utf8"),
     ]).catch((error) => {
       staticPayloadAssets = null;
       throw error;
@@ -853,8 +853,8 @@ export async function loadPayload(themeDir) {
   ]);
   const { css: baseCss, template, internetAngelCss, internetAngelTemplate } = staticAssets;
   const { art, extension, safeCss, safeCssStatus, theme } = loaded;
-  const internetAngelMacosOverlay = usesInternetAngelMacosOverlay(theme);
-  const themedCss = internetAngelMacosOverlay ? `${baseCss}\n${internetAngelCss}` : baseCss;
+  const internetAngelExtension = usesInternetAngelExtension(theme);
+  const themedCss = internetAngelExtension ? `${baseCss}\n${internetAngelCss}` : baseCss;
   const combinedCss = safeCss ? `${themedCss}\n${safeCss}\n` : themedCss;
   const styleRevision = createHash("sha256").update(combinedCss).digest("hex").slice(0, 20);
   const artMetadata = readImageMetadata(art, extension);
@@ -885,13 +885,13 @@ export async function loadPayload(themeDir) {
     .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", () => JSON.stringify(styleRevision))
     .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => JSON.stringify(revision));
   const payload = `${basePayload};\n${internetAngelTemplate.replace(
-    "__INTERNET_ANGEL_MACOS_ENABLED_JSON__",
-    () => JSON.stringify(internetAngelMacosOverlay),
+    "__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__",
+    () => JSON.stringify(internetAngelExtension),
   )}`;
   assertPayloadIntegrity(payload);
   return {
     imageBytes: art.length,
-    internetAngelMacosOverlay,
+    internetAngelExtension,
     payload,
     revision,
     safeCssStatus,
@@ -913,7 +913,7 @@ export async function loadPayload(themeDir) {
 // the template, not only the `$` replacement patterns that motivated it.
 // `new Script` compiles without running the payload, so nothing executes here.
 export function assertPayloadIntegrity(payload) {
-  if (/__DREAM_SKIN_[A-Z0-9_]+_JSON__/.test(payload)) {
+  if (/__(?:DREAM_SKIN|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+_JSON__/.test(payload)) {
     throw new Error("Payload placeholders were not fully replaced");
   }
   try {
@@ -1092,8 +1092,8 @@ async function presentOperationUi(session, token, state, message, timeoutMs = 10
 
 async function removeFromSession(session) {
   return session.evaluate(`(() => {
-    try { window.__CODEX_INTERNET_ANGEL_MACOS_STATE__?.cleanup?.(); } catch {}
-    delete window.__CODEX_INTERNET_ANGEL_MACOS_STATE__;
+    try { window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__?.cleanup?.(); } catch {}
+    delete window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__;
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
     const state = window.__CODEX_DREAM_SKIN_STATE__;
     let cleaned = false;
@@ -1735,8 +1735,8 @@ function watchPayloadSources(themeDir, onDirty) {
         const staticChanged = directory === assetsRoot && (!name || [
           "dream-skin.css",
           "renderer-inject.js",
-          "internet-angel-macos.css",
-          "internet-angel-macos.js",
+    "internet-angel-extension.css",
+    "internet-angel-extension.js",
         ].includes(name));
         if (kind === "static" && !staticChanged) return;
         onDirty({ staticChanged });
@@ -2449,7 +2449,7 @@ if (path.resolve(process.argv[1] || "") === path.resolve(scriptPath)) {
         payloadIntegrity: "verified",
         themeId: loaded.theme.id,
         themeName: loaded.theme.name,
-        internetAngelMacosOverlay: loaded.internetAngelMacosOverlay,
+        internetAngelExtension: loaded.internetAngelExtension,
         imageBytes: loaded.imageBytes,
         payloadBytes: Buffer.byteLength(loaded.payload),
         safeCssStatus: loaded.safeCssStatus,

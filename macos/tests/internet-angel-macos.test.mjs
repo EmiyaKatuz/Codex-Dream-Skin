@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
-import { usesInternetAngelMacosOverlay } from "../scripts/injector.mjs";
+import { usesInternetAngelExtension } from "../scripts/injector.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const macosRoot = path.resolve(here, "..");
@@ -16,8 +16,8 @@ const appDelegatePath = path.join(
   "CodexDreamSkinMenuBar",
   "AppDelegate.swift",
 );
-const overlayCssPath = path.join(macosRoot, "assets", "internet-angel-macos.css");
-const overlayScriptPath = path.join(macosRoot, "assets", "internet-angel-macos.js");
+const overlayCssPath = path.join(macosRoot, "assets", "internet-angel-extension.css");
+const overlayScriptPath = path.join(macosRoot, "assets", "internet-angel-extension.js");
 const windowsRoot = path.resolve(macosRoot, "..", "windows");
 
 async function isFile(filePath) {
@@ -28,11 +28,11 @@ async function isFile(filePath) {
   }
 }
 
-assert.equal(usesInternetAngelMacosOverlay({ id: "preset-internet-angel" }), true);
-assert.equal(usesInternetAngelMacosOverlay({ id: "preset-internet-angel-default" }), true);
-assert.equal(usesInternetAngelMacosOverlay({ id: "preset-gothic-void-crusade" }), false);
-assert.equal(usesInternetAngelMacosOverlay({ id: "custom-internet-angel-copy" }), false);
-assert.equal(usesInternetAngelMacosOverlay({ id: "custom-1", name: "INTERNET ANGEL" }), false);
+assert.equal(usesInternetAngelExtension({ id: "preset-internet-angel" }), true);
+assert.equal(usesInternetAngelExtension({ id: "preset-internet-angel-default" }), true);
+assert.equal(usesInternetAngelExtension({ id: "preset-gothic-void-crusade" }), false);
+assert.equal(usesInternetAngelExtension({ id: "custom-internet-angel-copy" }), false);
+assert.equal(usesInternetAngelExtension({ id: "custom-1", name: "INTERNET ANGEL" }), false);
 
 assert.equal(await isFile(overlayCssPath), true, "The macOS Angel CSS overlay must be packaged.");
 assert.equal(await isFile(overlayScriptPath), true, "The macOS Angel lifecycle must be packaged.");
@@ -44,12 +44,12 @@ const overlayCss = await fs.readFile(overlayCssPath, "utf8");
 const overlayScript = await fs.readFile(overlayScriptPath, "utf8");
 const windowsRenderer = await fs.readFile(path.join(windowsRoot, "assets", "renderer-inject.js"), "utf8");
 const windowsCss = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
-for (const assetName of ["internet-angel-macos.css", "internet-angel-macos.js"]) {
+for (const assetName of ["internet-angel-extension.css", "internet-angel-extension.js"]) {
   assert.match(injectorSource, new RegExp(assetName.replaceAll(".", "\\.")));
   assert.match(appDelegateSource, new RegExp(assetName.replaceAll(".", "\\.")));
   assert.match(doctorSource, new RegExp(assetName.replaceAll(".", "\\.")));
 }
-assert.match(injectorSource, /internetAngelMacosOverlay/);
+assert.match(injectorSource, /internetAngelExtension/);
 assert.match(
   injectorSource,
   /\.update\(internetAngelTemplate\)/,
@@ -697,7 +697,7 @@ function makeOverlayFixture() {
 
 const fixture = makeOverlayFixture();
 vm.runInNewContext(
-  overlayScript.replace("__INTERNET_ANGEL_MACOS_ENABLED_JSON__", "true"),
+  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "true"),
   fixture.context,
 );
 const component = (node) => node.getAttribute("data-angel-component");
@@ -786,7 +786,7 @@ assert.notEqual(
 assert.equal(typeof fixture.listeners.get("transitionend"), "function");
 
 vm.runInNewContext(
-  overlayScript.replace("__INTERNET_ANGEL_MACOS_ENABLED_JSON__", "false"),
+  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "false"),
   fixture.context,
 );
 assert.equal(fixture.nodes.some((node) => component(node)), false, "Theme switch cleanup must remove all marks.");
