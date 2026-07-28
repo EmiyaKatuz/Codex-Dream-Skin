@@ -1,46 +1,36 @@
 # Task Progress
 
-Updated: 2026-07-26 23:53 CST (Asia/Taipei)
+Updated: 2026-07-26 23:10 HKT (Asia/Hong_Kong)
 
-## Windows false-crash and renderer-lag fix (2026-07-26)
+## Windows Chrome/150 Native-Window Compatibility Backport
 
-- [complete] Branch `codex/fix-windows-crash-lag` is based on
-  `origin/main@78497ca` (fork v1.5.7).
-- [verified] The local installed v1.5.7 session injects the expected theme and
-  has no injector error, but `verify.log` reports
-  `nativeWindow.reason=target-window-unavailable` with visible document,
-  valid viewport and complete renderer structure. Windows Application events
-  contain no corresponding Codex crash. This matches upstream issue #267: the
-  90-second startup rollback force-restarts an otherwise working Codex window.
-- [verified] The fork already contains bounded renderer observation from
-  `881a65c`: root/body/main boundaries only, a 1500 ms structural debounce and
-  a 60-second safety refresh. Remaining default compositor cost includes a
-  full task-surface `backdrop-filter` plus blur on multiple fixed Internet Angel
-  decorations.
-- [complete] Ported upstream Windows CDP `-32000`/`-32601` unsupported-window
-  fallback and the independent no-forced-restart safeguard from upstream PR
-  #270. The preservation path additionally requires exact version, theme ID and
-  payload revision matches; hidden/tiny/structurally incomplete or unclassified
-  transport failures still fail closed.
-- [complete] Removed backdrop compositing from the full task wash, fixed
-  Internet Angel decoration layer, sidebar, app header and composer while
-  retaining their opaque gradients and leaving short-lived menus/dialogs out of
-  the override. Added a CSS regression for the persistent surfaces.
-- [verified] Focused native-window, rendered-skin preservation, payload-template,
-  renderer scheduling and compositor CSS regressions pass. The complete Windows
-  PowerShell 5.1 suite passes after the final safety tightening, as do Node
-  syntax checks and `git diff --check`. PowerShell 7 is not installed locally;
-  GitHub Actions remains that compatibility gate.
-- [blocked for local live check] The installed v1.5.7 session reproduced the
-  90-second rollback and removed `state.json` before hot-apply verification, so
-  a safe live recheck now requires closing/restarting this Codex task. The user
-  agreed to run the restart-based acceptance steps from the pushed PR branch.
-- [complete] Fix commit `c455cd3` was pushed through the user fork branch
-  `f0909172434:codex/fix-windows-crash-lag`; Draft PR #10 targets this fork's
-  `main` and includes the restart-based manual acceptance and recovery steps.
-- [pending] User restart-based Windows acceptance and GitHub Actions results.
-  Keep PR #10 in Draft until the two-minute no-restart check, Verify output,
-  screenshot and long-task responsiveness check are reviewed.
+- [complete] Reproduced the v1.5.7 rollback on Microsoft Store
+  `OpenAI.Codex_26.721.4979.0_x64`: the renderer and theme verified except for
+  `Browser.getWindowForTarget`, which returned exact CDP error
+  `-32000 Browser window not found` on both the page and browser WebSockets.
+- [complete] Confirmed upstream already fixed the same root cause in
+  `Fei-Away/Codex-Dream-Skin#265` (`e54703d`) and documented it in issue
+  `Fei-Away/Codex-Dream-Skin#267`; the public child-fork v1.5.7 predates that
+  upstream merge.
+- [complete] Branch `fix/windows-cdp-window-not-found` backports the focused
+  Windows classifier/fallback and regression coverage onto child-fork
+  `main@78497ca` without importing unrelated macOS, CI or release changes.
+- [verified] Focused readiness/one-shot/bootstrap Node tests pass 11/11; the
+  complete Windows PowerShell regression suite passes; Node syntax,
+  `--check-payload`, and `git diff --check` pass.
+- [verified] The exact branch injector ran live against Store Codex
+  `26.721.4979.0`: it classified the real `-32000` reply as
+  `browser-window-not-found`, reported `fallbackWindowPass=true`, and exited 0
+  with `result.pass=true`.
+- [complete] Commit `8f9fa54` is pushed to
+  `Rhongomiant1227:fix/windows-cdp-window-not-found`; child-fork PR #9 is open
+  against `EmiyaKatuz:main` with explicit attribution to upstream #265 and
+  environment/test evidence.
+- [complete] Added independent Codex `26.721.4979.0` / raw `-32000` evidence
+  to upstream issue #267 in comment `#issuecomment-5084191931`; no duplicate
+  upstream PR was opened because the fix is already merged there.
+- [in progress] Monitor PR #9 CI and maintainer feedback. The child-fork fix is
+  submitted but not merged or released yet.
 
 Updated: 2026-07-25 08:31 HKT (Asia/Hong_Kong)
 
