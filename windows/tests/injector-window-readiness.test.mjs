@@ -246,6 +246,7 @@ test("unclassified window failures and invalid bindings still fail closed", asyn
   for (const bindingError of [
     new Error("CDP socket closed"),
     new Error("CDP command timed out: Browser.getWindowForTarget"),
+    Object.assign(new Error("Internal server error (-32000)"), { cdpCode: -32000 }),
     Object.assign(new Error("Internal error (-32603)"), { cdpCode: -32603 }),
   ]) {
     const result = await verify({ bindingError });
@@ -259,6 +260,32 @@ test("unclassified window failures and invalid bindings still fail closed", asyn
   assert.equal(zeroWindowId.result.nativeWindow.reason, "invalid-window-binding");
   assert.equal(zeroWindowId.session.calls.length, 1,
     "An invalid target binding must not be reused for a bounds query.");
+});
+
+test("window-bounds failures never fall back to renderer evidence", async () => {
+  for (const [label, boundsError] of [
+    ["window-not-found", Object.assign(new Error("Browser window not found"), {
+      cdpCode: -32000,
+    })],
+    ["domain-unsupported", Object.assign(new Error("Protocol method unavailable"), {
+      cdpCode: -32601,
+    })],
+    ["transport", new Error("CDP socket closed")],
+  ]) {
+    const { result, session } = await verify({ boundsError });
+    assert.equal(result.pass, false, label);
+    assert.deepEqual({ ...result.nativeWindow }, {
+      pass: false,
+      bound: true,
+      windowId: 41,
+      reason: "window-bounds-unavailable",
+    }, label);
+    assert.equal(result.readiness.windowPass, false, label);
+    assert.deepEqual(session.calls, [
+      { method: "Browser.getWindowForTarget", params: { targetId: "page-main" } },
+      { method: "Browser.getWindowBounds", params: { windowId: 41 } },
+    ], label);
+  }
 });
 
 test("minimized and undersized native windows fail closed", async () => {
