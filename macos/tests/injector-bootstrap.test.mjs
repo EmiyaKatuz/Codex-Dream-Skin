@@ -98,6 +98,14 @@ assert.match(
   /finally\s*\{[\s\S]*Promise\.all\(\[\.\.\.sessions\.values\(\)\][\s\S]*removeEarly\(record\)/,
   "Watcher shutdown must unregister persistent Page scripts before closing CDP sessions.",
 );
+const probeSessionStart = source.indexOf("async function probeSession");
+const probeSessionSource = source.slice(probeSessionStart, probeSessionStart + 1800);
+assert.ok(probeSessionStart >= 0, "Codex target discovery probe must exist.");
+assert.match(
+  probeSessionSource,
+  /data-settings-panel-slug/,
+  "Every settings panel must be recognized, not only Appearance with a theme preview.",
+);
 assert.match(
   source,
   /const earlyApplied = await session\.evaluate\([\s\S]*if \(!earlyApplied\) \{[\s\S]*applyToSession/,
@@ -113,6 +121,43 @@ assert.match(source, /result\.cardLabelCoverage\.filter\(Boolean\)\.length >= re
 assert.match(source, /angelCards\.length === 4/);
 assert.match(source, /angelDeckPass/);
 assert.match(source, /suggestionLabelColorsMatch/);
+assert.match(
+  source,
+  /composerAngelPass/,
+  "Internet Angel verification must reject a visible native-gray task composer.",
+);
+assert.match(source, /outlineWidth/);
+assert.match(
+  source,
+  /environmentAngelPass/,
+  "Internet Angel verification must reject a present but unclassified Environment panel.",
+);
+assert.match(source, /composerClearOfSidebar/);
+assert.match(source, /composerInsideViewport/);
+assert.match(source, /environmentInsideViewport/);
+assert.match(source, /data-angel-component/);
+assert.match(
+  source,
+  /sidebarAngelPass/,
+  "Internet Angel verification must reject visible native sidebar controls missed by classification.",
+);
+assert.match(source, /sidebar-new-task/);
+assert.doesNotMatch(
+  source,
+  /sidebarCoverage\.length\s*>=\s*1/,
+  "Settings and other alternate routes may legitimately omit thread sidebar controls.",
+);
+assert.match(
+  source,
+  /paletteAngelPass/,
+  "An open composer Add palette must be classified and styled before verification passes.",
+);
+assert.match(source, /composer-palette-item/);
+assert.match(
+  source,
+  /turnNavigationAngelPass/,
+  "Visible turn-navigation and scroll controls must be classified for Internet Angel.",
+);
 assert.match(
   source,
   /const siblingCandidates = [\s\S]{0,260}const heroChain = \[\]/,

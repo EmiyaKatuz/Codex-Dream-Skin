@@ -182,6 +182,7 @@ fi
 
 "$NODE" "$ROOT/scripts/injector.mjs" --check-payload >/dev/null
 "$NODE" "$ROOT/tests/image-metadata.test.mjs"
+"$NODE" "$ROOT/tests/internet-angel-macos.test.mjs"
 "$NODE" "$ROOT/tests/injector-bootstrap.test.mjs"
 "$NODE" "$ROOT/tests/injector-session.test.mjs"
 "$NODE" "$ROOT/tests/window-readiness.test.mjs"

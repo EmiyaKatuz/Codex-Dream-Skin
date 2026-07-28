@@ -43,14 +43,54 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
   let nextBlob = 0;
   const attributesFor = (values) => [...values].map(([name, value]) => ({ name, value }));
   const makeDomNode = (name, parentElement = null, values = new Map()) => {
+    const nodeListeners = new Map();
     const node = {
       name,
+      tagName: String(name).toUpperCase(),
+      id: "",
+      className: "",
+      textContent: "",
+      innerHTML: "",
       parentElement,
+      children: [],
+      listeners: nodeListeners,
       get attributes() { return attributesFor(values); },
       getAttribute(attribute) { return values.get(attribute) ?? null; },
       setAttribute(attribute, value) { values.set(attribute, String(value)); },
       removeAttribute(attribute) { values.delete(attribute); },
-      appendChild(child) { child.parentElement = node; return child; },
+      appendChild(child) {
+        child.parentElement = node;
+        node.children.push(child);
+        if (child.id) nodes.set(child.id, child);
+        return child;
+      },
+      addEventListener(type, callback) { nodeListeners.set(type, callback); },
+      dispatchEvent(event) { node.lastEvent = event; return true; },
+      focus() { node.focusCount = (node.focusCount || 0) + 1; },
+      replaceChildren(...children) {
+        for (const child of node.children) child.parentElement = null;
+        node.children = [];
+        for (const child of children) node.appendChild(child);
+        node.textContent = children.map((child) => child.textContent || "").join("");
+      },
+      remove() {
+        if (node.parentElement?.children) {
+          node.parentElement.children = node.parentElement.children.filter((child) => child !== node);
+        }
+        if (node.id) nodes.delete(node.id);
+        node.parentElement = null;
+      },
+      querySelectorAll(selector) {
+        const results = [];
+        const visit = (candidate) => {
+          const classes = String(candidate.className || "").split(/\s+/);
+          if (selector === "button.angel-preset-card" && candidate.tagName === "BUTTON" &&
+              classes.includes("angel-preset-card")) results.push(candidate);
+          for (const child of candidate.children || []) visit(child);
+        };
+        visit(node);
+        return results;
+      },
     };
     domNodes.add(node);
     return node;
@@ -58,17 +98,7 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
   const root = makeDomNode("root", null, attrs);
   root.classList = rootClasses;
   root.style = rootStyle;
-  root.appendChild = (node) => {
-    node.parentElement = root;
-    if (node.id) nodes.set(node.id, node);
-    return node;
-  };
   const body = makeDomNode("body", root);
-  body.appendChild = (node) => {
-    node.parentElement = body;
-    if (node.id) nodes.set(node.id, node);
-    return node;
-  };
   const register = (selector, node) => {
     const current = selectorNodes.get(selector) || [];
     current.push(node);
@@ -114,7 +144,7 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     head: root,
     body,
     adoptedStyleSheets: adopted ? [] : undefined,
-    createElement(tag) { return tag === "style" ? makeStyleNode() : { tagName: tag }; },
+    createElement(tag) { return tag === "style" ? makeStyleNode() : makeDomNode(tag); },
     getElementById(id) { return nodes.get(id) || null; },
     querySelector(selector) {
       if (settings && (selector.includes("appearance-theme") || selector.includes("theme-preview"))) {
@@ -252,6 +282,16 @@ export async function runRendererRuntimeTest(assetRoot) {
   // and the measured fossil selector must be absent from the canonical CSS.
   assert.doesNotMatch(css, /(?:^|[.#\s])(?:codex-dream-skin|dream-skin-home|dream-home|dream-task)(?:[\s.#:{>]|$)|home-suggestion-list-item/);
   assert.match(css, /html\[data-dream-skin="active"\]/);
+  const angelHomeStart = css.indexOf("/* Internet Angel home deck");
+  const angelHomeEnd = css.indexOf("/* Internet Angel sidebar and broadcast HUD", angelHomeStart);
+  assert.ok(angelHomeStart >= 0 && angelHomeEnd > angelHomeStart,
+    "Internet Angel home section markers must remain available for isolation checks.");
+  const angelHomeCss = css.slice(angelHomeStart, angelHomeEnd);
+  const unscopedAngelRoots = angelHomeCss.match(
+    /html\[data-dream-skin="active"\](?!\[data-dream-theme="internet-angel"\])/g,
+  ) ?? [];
+  assert.equal(unscopedAngelRoots.length, 0,
+    "Internet Angel home rules must not affect Gothic or custom themes.");
   // Home gating must stay single-level: CSS forbids :has() inside :has(),
   // and Chromium drops any rule that nests it (the v1.3.1 regression).  The
   // canonical CSS therefore gates on the :has()-free home-route-css alias.
@@ -403,6 +443,34 @@ export async function runRendererRuntimeTest(assetRoot) {
     assert.equal(explicitLight.rootStyle.values.get(variable), expected,
       `${variable} must support official hex forms and clamp RGB channels`);
   }
+
+  const defaultAngelHome = makeFixture({ nativeAppearance: "dark", homeDeck: true });
+  vm.runInNewContext(
+    defaultAngelHome.payloadFor({ id: "preset-internet-angel-default" }),
+    defaultAngelHome.context,
+  );
+  assert.equal(defaultAngelHome.attrs.get("data-dream-theme"), "internet-angel");
+  assert.equal(defaultAngelHome.nodes.has("chatgpt-internet-angel-deck"), true);
+  assert.equal(defaultAngelHome.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+
+  const namedCustomHome = makeFixture({ nativeAppearance: "dark", homeDeck: true });
+  vm.runInNewContext(
+    namedCustomHome.payloadFor({ id: "custom-theme", name: "Choten fan theme" }),
+    namedCustomHome.context,
+  );
+  assert.equal(namedCustomHome.attrs.get("data-dream-theme"), "standard",
+    "Theme names must not opt custom themes into the Internet Angel renderer.");
+  assert.equal(namedCustomHome.nodes.has("chatgpt-internet-angel-deck"), false);
+  assert.equal(namedCustomHome.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+
+  const standardHome = makeFixture({ nativeAppearance: "dark", homeDeck: true });
+  vm.runInNewContext(standardHome.payloadFor({ id: "preset-standard" }), standardHome.context);
+  assert.equal(standardHome.attrs.get("data-dream-theme"), "standard");
+  assert.equal(standardHome.nodes.has("chatgpt-internet-angel-deck"), false);
+  assert.equal(standardHome.nodes.has("chatgpt-internet-angel-sidebar"), false);
+  assert.equal(standardHome.nodes.has("chatgpt-internet-angel-hud"), false);
+  assert.equal(standardHome.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+  assert.equal(standardHome.intervals.size, 0);
 
   rootObserver.callback([]);
   home.flushTimers(64);

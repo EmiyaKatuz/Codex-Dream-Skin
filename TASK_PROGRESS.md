@@ -80,7 +80,170 @@ Updated: 2026-07-26 23:10 HKT (Asia/Hong_Kong)
   behavior hardened by PR #10; it is not separately released yet.
 
 Updated: 2026-07-25 08:31 HKT (Asia/Hong_Kong)
+Updated: 2026-07-27 10:32 CST (Asia/Shanghai)
 
+## macOS Internet Angel Interaction Regression Fix (2026-07-27 09:34 CST)
+
+- [verified] Work continues on `codex/macos-internet-angel-parity` and ready
+  PR #8. The worktree was clean at `d4d9be8` before this follow-up. Scope is
+  restricted to the two exact bundled Internet Angel preset IDs; Gothic and
+  imported themes must remain unaffected.
+- [verified] Real CDP pointer input reproduces the auxiliary workspace failure.
+  The Browser tab becomes selected, but the themed workspace root collapses
+  from `991px` to `86px` and its tab panel from `945px` to `40px`. Clicking an
+  Edited files row selects Review, but the broken root expands the Review panel
+  to `16807px`, removes its bounded scroll container and prevents native file
+  positioning from being visible.
+- [verified] Temporarily restoring the workspace root's native
+  `position: absolute` returns the root to `991px`, Browser/Review to `945px`
+  and Review to a bounded `905px` scroll viewport. The cause is the macOS
+  overlay marking multiple nested workspace candidates and forcing
+  `position: relative !important`; it is not a browser network/load failure.
+- [verified] The sidebar scroll root remains `871px` high with `2806px` of
+  content. The themed `1px` border reduces each fixed row to a `28px` client
+  box around `29px` of content, producing a nested `1px` vertical scroll range
+  that consumes wheel input. Temporarily clipping row vertical overflow keeps
+  row `scrollTop` at zero and routes wheel input to the native sidebar scroller.
+- [verified] Red-green regressions now require exactly one innermost workspace
+  mark, forbid workspace positioning overrides and positioned decoration, and
+  require fixed-height sidebar rows to clip vertical overflow. The classifier
+  selects only the smallest valid right-docked workspace. The CSS paints its
+  cyan/blue/pink top stripe as a background layer and no longer changes native
+  position, dimensions, overflow or z-index.
+- [verified] Source hot injection and real input checks pass. A first wheel event
+  over a sidebar row moves the native root from `scrollTop=0` to `420` while all
+  rows stay at zero. Opening `Browser` from the right-panel add menu produces a
+  full `945px` `New tab` panel with the native address field and Start browsing
+  surface. Clicking `macos/tests/internet-angel-macos.test.mjs` from Edited
+  files switches from Browser to Review, scrolls Review to `4641`, and leaves
+  the requested file header visible at panel `y=92`.
+- [verified] The targeted native-window screenshot shows the complete Browser
+  surface without clipping, overlap or document overflow. Computer Use refused
+  access to `com.openai.codex` by policy and CDP screenshots block while the
+  embedded browser is open, so the visual capture used macOS window-level
+  `screencapture`; interaction and geometry assertions remain CDP-derived.
+- [verified] `CODEX_DREAM_SKIN_SKIP_DOCTOR=1 macos/tests/run-tests.sh` passes
+  all shell/Node, shared runtime, Safe CSS, import/ZIP and 10 Swift XCTest cases.
+  A temporary arm64 app build passes strict code-signature verification, reports
+  an arm64 Mach-O executable and contains byte-identical overlay CSS/JS assets.
+  `git diff --check` also passes.
+- [verified] Implementation commit `8290ad3` passed the scoped diff review and
+  was pushed to existing ready PR #8. GitHub reports the PR as open and non-draft
+  with exact head `8290ad30b550050346c5b1d151975320db0a14ba`; its merge state is
+  currently `BLOCKED` and no status checks are reported yet. No install, merge,
+  version bump, tag or Release is part of this follow-up.
+
+## macOS Internet Angel Complete Surface Audit (2026-07-27 01:22 CST)
+
+- [verified] Performed a bidirectional parity audit between the Windows
+  renderer/CSS component inventory and the currently open macOS Codex DOM. The
+  scope remains exact Internet Angel preset IDs only; Gothic and imported themes
+  must remain unaffected.
+- [verified] Live CDP evidence reproduces all newly reported gaps. The open
+  Environment flyout contains two native sections, but the macOS classifier marks
+  only the first header/section; the Sources header therefore keeps its native
+  black background. The left sidebar currently has 195 `sidebar-row` marks,
+  including nested folder controls and screen-reader-only buttons, and applies a
+  visible rest-state plate to all of them. Its native inner scroll container is
+  still functional (`clientHeight=871`, `scrollHeight=2161`), so the defect is
+  visual hierarchy loss rather than a broken scrollbar.
+- [verified] Windows has dedicated `changes-pill`, `changes-shell` and
+  `changes-clip-host` classification and CSS for the compact changed-files status;
+  the macOS overlay currently has none of those components. Windows also keeps
+  ordinary sidebar buttons transparent at rest and reserves the full plate for
+  selected rows, unlike the current macOS overlay.
+- [verified] Added red-green DOM/CSS regressions and exact-theme-gated coverage for
+  both Environment/Sources sections, the compact changed-files shell/clip/pill,
+  transparent sidebar rest states, native selected rows, the composer goal-mode
+  trigger and settings app-main controls. A direct Windows-to-macOS component
+  contract now checks the remaining interaction surfaces for classifier and CSS
+  coverage.
+- [verified] A real `920x820` macOS window exposed a second Environment rendering
+  path: a visible Radix popover exists beside the exiting `absolute z-40` portal.
+  The old classifier accepted only the latter and mislabeled the visible panel as
+  `summary-panel`. The classifier now accepts both portal hosts while retaining
+  the existing dual-section, button-count and Git/semantic safety gates. The
+  theme never writes portal position or translation overrides.
+- [verified] Source hot injection and real-window evidence pass at `920x820` and
+  restored `1694x991`. The visible Radix panel is inside `x=542..842`, the restored
+  panel is inside `x=1378..1678`, both Environment/Sources headers are themed,
+  only the active sidebar task has a selection plate, expanded project folders
+  remain transparent, and the composer/changed-files pill/document have no
+  horizontal overflow. The native window was restored to its original bounds.
+- [verified] `CODEX_DREAM_SKIN_SKIP_DOCTOR=1 macos/tests/run-tests.sh`
+  completed with shell/Node syntax checks, shared runtime synchronization,
+  Safe CSS, import/ZIP/runtime coverage and 10 Swift XCTest cases passing; the
+  live Doctor was explicitly skipped. An arm64 menu-bar `.app` built into `/tmp`,
+  passed strict `codesign` verification, reported an arm64 Mach-O executable and
+  contained byte-identical Internet Angel CSS/JS assets.
+- [verified] Final focused Internet Angel regression, both touched Node syntax
+  checks and `git diff --check` pass. The worktree contains only the four intended
+  follow-up files.
+- [verified] Implementation and regressions were committed as `7447acc` and
+  pushed to the existing ready PR #8 branch. This progress-only update records
+  the completed verification and push. No merge, install, version bump or Release
+  was performed.
+
+## macOS Internet Angel Detail Parity Follow-up (2026-07-27 00:18 CST)
+
+- [complete] Re-audited the current macOS renderer against the Windows Internet
+  Angel implementation for Output, expanded Edited files details and the full
+  conversation surface. Scope remains exact-theme-ID gated and must not affect
+  Gothic or imported themes.
+- [verified] Live Codex 26.721.41059 DOM inspection shows the Edited files card
+  shell is classified, but its icon, action group, distinct Undo/Review states,
+  file-list rows and Show-more footer have no component markers. The existing
+  macOS summary fixture is an Environment lookalike, so it does not exercise a
+  real Output panel.
+- [verified] The current renderer no longer exposes `[data-message-author-role]`;
+  user bubbles, assistant responses, message actions, historical activities and
+  streaming activities now use current structural markers. Inline command/output
+  bodies and the right-side Outputs summary receive dedicated theme surfaces.
+- [complete] Expanded Edited files cards now classify and style the icon, action
+  group, distinct Undo/Review buttons, file-list surface, clickable rows, paths,
+  per-file statistics and Show-more footer. The later generic resource-card rule
+  explicitly excludes classified edited cards so it cannot overwrite the
+  dedicated cyan/pink treatment.
+- [verified] Focused red/green regressions, JavaScript syntax, all macOS shell
+  syntax, the complete macOS repository suite and 10 Swift XCTest cases pass.
+  Live Codex checks at 1694x991 and an emulated 900x900 viewport show no horizontal
+  overflow; the card controls and paths remain contained. The current Outputs
+  panel, Edited files details, conversation bubble and computed styles were
+  checked from source-injected screenshots.
+- [verified] A fresh arm64 app build completed. Strict code-signature verification,
+  arm64 Mach-O inspection and byte-for-byte packaged overlay asset comparisons
+  pass. The build was not installed or published.
+- [complete] Follow-up commit `2111c3b` is pushed to the account fork and ready
+  PR #8 now points at that exact implementation. GitHub reports the PR open and
+  `BLOCKED` with no check rollup; CI and maintainer review remain separate gates.
+  No merge, release or install is claimed.
+
+## macOS Internet Angel Visual Parity (2026-07-26 21:48 CST)
+
+- [complete] Branch `codex/macos-internet-angel-parity` adds a macOS-only,
+  exact-theme-ID overlay for both bundled Internet Angel presets. It covers the
+  composer, Environment/Changes, left navigation and footer, Add palette, turn
+  navigation, settings, terminal/summary, selection, edited-file, overlay and
+  subagent surfaces without activating for Gothic or custom themes.
+- [complete] Rebased the implementation onto current `origin/main@78497ca`
+  (v1.5.7). Conflict resolution preserves the current native-window readiness
+  gate, validated Safe CSS composition and current version while adding the
+  Internet Angel surface gate to the final renderer assessment.
+- [verified] Shared runtime synchronization, the complete macOS suite, 10 Swift
+  XCTest cases, signed-runtime checks and live Doctor all pass on the rebased tree.
+  The current Codex 26.721.41059 renderer reports `pass: true` with the composer,
+  Environment, sidebar footer, turn rail and scroll-to-bottom coverage active and
+  no horizontal overflow.
+- [verified] An arm64 `Codex Dream Skin.app` build completed at version 1.5.7.
+  Strict code-signature verification, Mach-O architecture and packaged overlay
+  asset presence all pass. The temporary build was not installed or published.
+- [complete] Commits `88afb57` and `e7bdd80` are pushed to the account fork.
+  Ready PR #8 targets upstream `main@78497ca`:
+  `https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/pull/8`.
+- [pending] GitHub checks and maintainer review have not completed. The PR is
+  open and currently reports `BLOCKED` with no check rollup yet; it is not
+  merged or released. No version bump, tag, Release publication or installation
+  is in scope.
 ## v1.5.1 Version Release (2026-07-25 08:28 HKT)
 
 - [complete] Created `codex/release-v1.5.1` from the exact synchronized

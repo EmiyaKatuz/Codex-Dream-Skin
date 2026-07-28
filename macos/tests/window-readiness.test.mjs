@@ -56,6 +56,29 @@ const baseRenderer = {
 assert.equal(readyNativeWindow.status, "ready");
 assert.equal(assessRendererVerification(baseRenderer, readyNativeWindow, exactPayload).pass, true);
 
+const angelPayload = {
+  ...exactPayload,
+  expectedThemeId: "preset-internet-angel",
+};
+const angelRenderer = {
+  ...baseRenderer,
+  themeId: angelPayload.expectedThemeId,
+};
+assert.equal(
+  assessRendererVerification(angelRenderer, readyNativeWindow, angelPayload).pass,
+  false,
+  "A visible Internet Angel renderer must not verify before its native surfaces are classified.",
+);
+assert.equal(
+  assessRendererVerification(
+    { ...angelRenderer, angelSurfacePass: true },
+    readyNativeWindow,
+    angelPayload,
+  ).pass,
+  true,
+  "Internet Angel verification must preserve the native-window gate and the overlay surface gate.",
+);
+
 const windowCalls = [];
 assert.equal((await inspectNativeWindow({
   target: { id: "target-main" },

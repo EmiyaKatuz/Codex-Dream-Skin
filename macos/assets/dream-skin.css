@@ -1214,7 +1214,7 @@ html[data-dream-skin="active"] [data-message-author-role] { border-radius: 16px;
 }
 
 /* Internet Angel home deck for the legacy Codex home hierarchy. */
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) {
   --angel-cyan: #63f4ff;
   --angel-pink: #ff45c8;
   --angel-violet: #7f59e8;
@@ -1222,12 +1222,12 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) {
   --angel-card-surface: rgb(40 28 93 / .78);
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child {
   flex-basis: min(430px, calc(100vh - 86px)) !important;
   min-height: min(430px, calc(100vh - 86px)) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child > div:first-child {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child > div:first-child {
   height: clamp(204px, 27vh, 300px) !important;
   min-height: 204px !important;
   border: 2px solid rgb(99 244 255 / .48) !important;
@@ -1237,7 +1237,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > di
     0 16px 38px rgb(16 8 48 / .42) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child > div:first-child::after {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child > div:first-child::after {
   content: "♥  INTERNET ANGEL  //  STREAM ONLINE";
   position: absolute;
   top: 10px;
@@ -1250,7 +1250,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > di
   pointer-events: none;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child > div:nth-child(2) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child > div:nth-child(2) {
   top: 100% !important;
   left: 14px !important;
   right: 14px !important;
@@ -1258,7 +1258,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > di
   padding-top: 28px !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child > div:nth-child(2)::before {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > div:first-child > div:first-child > div:nth-child(2)::before {
   content: "♥  ANGEL COMMAND DECK";
   position: absolute;
   top: 0;
@@ -1276,13 +1276,13 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > di
   pointer-events: none;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions > div {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions > div {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 12px !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button {
   position: relative !important;
   min-width: 0 !important;
   min-height: 124px !important;
@@ -1303,22 +1303,22 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .gro
   text-shadow: 1px 1px 0 var(--angel-ink);
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(2) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(2) {
   border-color: #83ffb7 !important;
   background: linear-gradient(135deg, rgb(55 128 140 / .90), rgb(45 97 127 / .78) 62%, rgb(131 255 183 / .25)) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(3) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(3) {
   border-color: #ffd25b !important;
   background: linear-gradient(135deg, rgb(92 65 155 / .90), rgb(100 70 111 / .80) 62%, rgb(255 210 91 / .28)) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(4) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(4) {
   border-color: var(--angel-pink) !important;
   background: linear-gradient(135deg, rgb(98 39 150 / .90), rgb(106 35 113 / .80) 62%, rgb(255 69 200 / .34)) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button::before {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button::before {
   content: "01  //  EXPLORE";
   position: absolute;
   top: 9px;
@@ -1328,11 +1328,11 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .gro
   letter-spacing: .06em;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(2)::before { content: "02  //  BUILD"; color: #83ffb7; }
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(3)::before { content: "03  //  REVIEW"; color: #ffd25b; }
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(4)::before { content: "04  //  RECOVER"; color: var(--angel-pink); }
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(2)::before { content: "02  //  BUILD"; color: #83ffb7; }
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(3)::before { content: "03  //  REVIEW"; color: #ffd25b; }
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:nth-child(4)::before { content: "04  //  RECOVER"; color: var(--angel-pink); }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button > span:first-child > span:first-child {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button > span:first-child > span:first-child {
   width: 38px !important;
   height: 38px !important;
   margin: 0 0 8px !important;
@@ -1343,17 +1343,17 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .gro
   box-shadow: 3px 3px 0 rgb(23 19 45 / .82) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button svg {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button svg {
   color: var(--angel-ink) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:hover {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button:hover {
   transform: translateY(-3px) !important;
   filter: brightness(1.14) saturate(1.1);
   box-shadow: inset 0 2px rgb(255 255 255 / .22), 6px 7px 0 rgb(23 19 45 / .82), 0 0 22px rgb(99 244 255 / .30) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .composer-surface-chrome {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .composer-surface-chrome {
   min-height: 96px !important;
   border: 2px solid rgb(99 244 255 / .45) !important;
   border-radius: 8px 20px 8px 20px !important;
@@ -1361,7 +1361,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .com
   box-shadow: 5px 5px 0 rgb(255 69 200 / .24), 0 12px 30px rgb(16 8 48 / .42) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/project-selector > button {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/project-selector > button {
   border: 1px solid rgb(99 244 255 / .64) !important;
   border-radius: 4px 10px 4px 10px !important;
   background: rgb(89 53 160 / .54) !important;
@@ -1369,20 +1369,20 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .gro
 }
 
 @media (max-width: 900px) {
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions > div {
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions > div {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
 @media (max-width: 560px) {
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions > div {
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions > div {
     grid-template-columns: 1fr !important;
   }
 }
 
 /* Current Codex home hierarchy. The first child is now an empty banner slot;
    older first-child rules must never give that slot viewport height. */
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) {
   position: relative !important;
   box-sizing: border-box !important;
   width: 100% !important;
@@ -1392,7 +1392,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) {
   container: angel-home / size;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > .home-banners {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > .home-banners {
   display: block !important;
   flex: 0 0 0 !important;
   width: 0 !important;
@@ -1402,7 +1402,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > .h
   overflow: hidden !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > .home-banners + div {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > .home-banners + div {
   position: absolute !important;
   inset: 0 !important;
   box-sizing: border-box !important;
@@ -1413,7 +1413,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > .h
   overflow: hidden !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > .home-banners + div > div:first-child {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > .home-banners + div > div:first-child {
   display: none !important;
   flex: 0 0 0 !important;
   min-height: 0 !important;
@@ -1422,7 +1422,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > .h
 /* Builds that omit the home-banners class still expose the semantic title
    anchor in the real content column. Use that anchor to distinguish the empty
    leading banner host from the content without depending on hashed classes. */
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > div:first-child:not(:has([data-feature="game-source"])) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > div:first-child:not(:has([data-feature="game-source"])) {
   display: block !important;
   flex: 0 0 0 !important;
   width: 0 !important;
@@ -1432,7 +1432,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > di
   overflow: hidden !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > div:has([data-feature="game-source"]) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > div:has([data-feature="game-source"]) {
   position: absolute !important;
   inset: 0 !important;
   box-sizing: border-box !important;
@@ -1443,7 +1443,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > di
   overflow: hidden !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > div:has([data-feature="game-source"]) > div:first-child {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > div:has([data-feature="game-source"]) > div:first-child {
   display: none !important;
   flex: 0 0 0 !important;
   min-height: 0 !important;
@@ -1451,7 +1451,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > di
 
 /* The real composer opens after a preset is selected. It remains the native
    editor, so submission, project selection, and all keyboard behavior survive. */
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > .home-banners + div > div:nth-child(2) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > .home-banners + div > div:nth-child(2) {
   position: absolute !important;
   z-index: 12 !important;
   right: clamp(20px, 5%, 72px) !important;
@@ -1469,7 +1469,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > .h
   transition: opacity 160ms ease, transform 160ms ease, visibility 160ms !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > div:has([data-feature="game-source"]) > div:nth-child(2) {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) > div:has([data-feature="game-source"]) > div:nth-child(2) {
   position: absolute !important;
   z-index: 12 !important;
   right: clamp(20px, 5%, 72px) !important;
@@ -1487,7 +1487,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) > di
   transition: opacity 160ms ease, transform 160ms ease, visibility 160ms !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]):has(#chatgpt-internet-angel-deck[data-angel-composer="open"])
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]):has(#chatgpt-internet-angel-deck[data-angel-composer="open"])
   > .home-banners + div > div:nth-child(2) {
   visibility: visible !important;
   opacity: 1 !important;
@@ -1495,7 +1495,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]):has(
   transform: translateY(0) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]):has(#chatgpt-internet-angel-deck[data-angel-composer="open"])
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]):has(#chatgpt-internet-angel-deck[data-angel-composer="open"])
   > div:has([data-feature="game-source"]) > div:nth-child(2) {
   visibility: visible !important;
   opacity: 1 !important;
@@ -1503,13 +1503,13 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]):has(
   transform: translateY(0) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]):has(#chatgpt-internet-angel-deck[data-angel-ready="true"])
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]):has(#chatgpt-internet-angel-deck[data-angel-ready="true"])
   .group\/home-suggestions {
   visibility: hidden !important;
   pointer-events: none !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) #chatgpt-internet-angel-deck {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) #chatgpt-internet-angel-deck {
   position: absolute;
   z-index: 10;
   top: 49%;
@@ -1520,7 +1520,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) #cha
   pointer-events: auto;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-command-heading {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-command-heading {
   display: flex;
   min-height: 28px;
   align-items: center;
@@ -1537,19 +1537,19 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
   text-shadow: 1px 1px 0 var(--angel-ink);
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-command-heading b {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-command-heading b {
   color: var(--angel-cyan);
   font-size: 8px;
   font-weight: 760;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-grid {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: clamp(12px, 1.25cqi, 18px);
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card {
   --angel-card-accent: var(--angel-cyan);
   position: relative !important;
   display: grid !important;
@@ -1580,11 +1580,11 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
   transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-build { --angel-card-accent: #83ffb7; }
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-review { --angel-card-accent: #ffd25b; }
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-recover { --angel-card-accent: var(--angel-pink); }
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-build { --angel-card-accent: #83ffb7; }
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-review { --angel-card-accent: #ffd25b; }
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-recover { --angel-card-accent: var(--angel-pink); }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card::before {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -1596,12 +1596,12 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
     linear-gradient(125deg, transparent 0 72%, rgb(255 69 200 / .18) 72% 73%, transparent 73%);
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card > * {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card > * {
   position: relative;
   z-index: 1;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-channel {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-channel {
   position: absolute !important;
   top: 9px;
   right: 10px;
@@ -1610,7 +1610,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
   letter-spacing: 0;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-icon {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-icon {
   position: relative !important;
   grid-row: 1 / span 3;
   grid-column: 1;
@@ -1625,12 +1625,12 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
   box-shadow: inset 0 0 0 2px rgb(255 255 255 / .54), 3px 3px 0 rgb(23 19 45 / .82);
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-icon svg {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-icon svg {
   width: 27px;
   height: 27px;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-icon i {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-icon i {
   position: absolute;
   top: -8px;
   right: -8px;
@@ -1645,7 +1645,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
   font: normal 9px/1 sans-serif;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card strong {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card strong {
   grid-column: 2;
   align-self: end;
   color: #fff;
@@ -1654,7 +1654,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
   font-weight: 760;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card small {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card small {
   grid-column: 2;
   align-self: start;
   color: color-mix(in srgb, var(--angel-card-accent) 74%, #fff);
@@ -1662,7 +1662,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
   letter-spacing: 0;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card em {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card em {
   position: absolute;
   right: 8px;
   bottom: 7px;
@@ -1670,7 +1670,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
   font: normal 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card:hover {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card:hover {
   filter: brightness(1.12) saturate(1.08);
   transform: translateY(-3px) !important;
   box-shadow:
@@ -1679,40 +1679,40 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .ang
     0 0 24px color-mix(in srgb, var(--angel-card-accent) 32%, transparent) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card:focus-visible {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card:focus-visible {
   outline: 3px solid #fff !important;
   outline-offset: 4px !important;
 }
 
 @container angel-home (max-width: 900px) {
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) #chatgpt-internet-angel-deck {
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) #chatgpt-internet-angel-deck {
     top: 46%;
     right: 22px;
     left: 22px;
   }
 
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-grid {
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card {
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card {
     min-height: 112px !important;
     padding-block: 18px 12px !important;
   }
 }
 
 @container angel-home (max-width: 520px) {
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-command-heading b,
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card small,
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card em {
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-command-heading b,
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card small,
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card em {
     display: none;
   }
 
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-grid {
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-grid {
     grid-template-columns: 1fr;
   }
 
-  html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card {
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [role="main"]:has([data-testid="home-icon"]) .angel-preset-card {
     min-height: 76px !important;
     grid-template-rows: 1fr !important;
   }
