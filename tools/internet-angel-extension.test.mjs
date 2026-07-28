@@ -25,6 +25,7 @@ const sourceScript = await fs.readFile(
   path.join(projectRoot, "runtime", "internet-angel-extension.js"),
   "utf8",
 );
+const gitAttributes = await fs.readFile(path.join(projectRoot, ".gitattributes"), "utf8");
 
 assert.match(sourceCss, /data-angel-component/);
 assert.match(sourceCss, /prefers-reduced-motion:\s*reduce/);
@@ -32,6 +33,11 @@ assert.match(sourceScript, /__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__/);
 assert.match(sourceScript, /__CODEX_INTERNET_ANGEL_EXTENSION_STATE__/);
 
 for (const platform of ["windows", "macos", "linux"]) {
+  assert.match(
+    gitAttributes,
+    new RegExp(`^${platform}/assets/\\*\\* text eol=lf$`, "m"),
+    `${platform} generated assets must stay LF on every checkout`,
+  );
   assert.equal(
     await fs.readFile(
       path.join(projectRoot, platform, "assets", "internet-angel-extension.css"),

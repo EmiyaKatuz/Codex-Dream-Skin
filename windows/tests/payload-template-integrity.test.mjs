@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 import { loadPayload } from "../scripts/injector.mjs";
 
 // Regression for the payload template substitution bug.
@@ -95,14 +96,23 @@ function assertIntactPayload(payload, label) {
 }
 
 function extractThemeArgument(payload) {
-  // The renderer IIFE ends with (cssJson, artJson, themeJson); the theme object
-  // is the last argument, so read it back from the emitted payload rather than
-  // trusting what we passed in.
-  const tail = payload.slice(payload.lastIndexOf("})("));
-  const start = tail.indexOf('{"');
-  const end = tail.lastIndexOf("}");
-  assert.ok(start > 0 && end > start, "Could not locate the theme argument in the payload.");
-  return JSON.parse(tail.slice(start, end + 1));
+  // Inject an early return into the real renderer IIFE and evaluate only far
+  // enough to recover its arguments. Parsing the final JSON-looking object was
+  // brittle once the shared Internet Angel IIFE was appended to the payload.
+  const marker = "((cssText, artDataUrl, rawConfig) => {";
+  const overlayBoundary = payload.lastIndexOf(";\n(() => {");
+  assert.notEqual(
+    overlayBoundary,
+    -1,
+    "payload must include the Internet Angel extension boundary",
+  );
+  const rendererPayload = payload.slice(0, overlayBoundary);
+  const at = rendererPayload.indexOf(marker);
+  assert.notEqual(at, -1, "payload must keep the canonical renderer IIFE signature");
+  const probe = `${rendererPayload.slice(0, at + marker.length)}
+return rawConfig;
+${rendererPayload.slice(at + marker.length)}`;
+  return vm.runInNewContext(probe, Object.create(null), { timeout: 10_000 });
 }
 
 const DOLLAR_NAMES = [
