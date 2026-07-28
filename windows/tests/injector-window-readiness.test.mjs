@@ -241,7 +241,6 @@ test("native-window errors retain useful classifications", async () => {
   });
   assert.equal(unsupported.result.nativeWindow.reason, "browser-window-api-unavailable");
 });
-
 test("unclassified window failures and invalid bindings still fail closed", async () => {
   for (const bindingError of [
     new Error("CDP socket closed"),

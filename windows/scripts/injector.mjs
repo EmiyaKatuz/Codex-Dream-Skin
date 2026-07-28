@@ -692,7 +692,7 @@ export async function loadTheme(themeDir) {
   };
 }
 
-async function loadPayload(themeDir = path.join(root, "assets"), candidateTheme = null) {
+export async function loadPayload(themeDir = path.join(root, "assets"), candidateTheme = null) {
   const loadedTheme = candidateTheme ?? await loadTheme(themeDir);
   const [css, template] = await Promise.all([
     fs.readFile(path.join(root, "assets", "dream-skin.css"), "utf8"),
@@ -713,16 +713,35 @@ async function loadPayload(themeDir = path.join(root, "assets"), candidateTheme 
     .update(JSON.stringify(loadedTheme.theme))
     .digest("hex")
     .slice(0, 20);
+  // Every replacement uses a function so String.prototype.replace never
+  // interprets $$, $&, $` or $' inside the substituted JSON. Theme text is
+  // user-controlled (theme.json legitimately allows "$"), and a literal-string
+  // replacement would splice the template source back into the payload -- a
+  // stray "$`" produced a SyntaxError, while "$&"/"$$" silently corrupted the
+  // theme name.
   const payload = template
-    .replace("__DREAM_SKIN_CSS_JSON__", JSON.stringify(combinedCss))
-    .replace("__DREAM_SKIN_ART_JSON__", JSON.stringify(artDataUrl))
-    .replace("__DREAM_SKIN_THEME_JSON__", JSON.stringify(loadedTheme.theme))
-    .replace("__DREAM_SKIN_VERSION_JSON__", JSON.stringify(SKIN_VERSION))
-    .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", JSON.stringify(styleRevision))
-    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify(revision))
-    .replace("__DREAM_CSS_JSON__", JSON.stringify(css))
-    .replace("__DREAM_ART_JSON__", JSON.stringify(artDataUrl))
-    .replace("__DREAM_THEME_JSON__", JSON.stringify(loadedTheme.theme));
+    .replace("__DREAM_SKIN_CSS_JSON__", () => JSON.stringify(combinedCss))
+    .replace("__DREAM_SKIN_ART_JSON__", () => JSON.stringify(artDataUrl))
+    .replace("__DREAM_SKIN_THEME_JSON__", () => JSON.stringify(loadedTheme.theme))
+    .replace("__DREAM_SKIN_VERSION_JSON__", () => JSON.stringify(SKIN_VERSION))
+    .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", () => JSON.stringify(styleRevision))
+    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => JSON.stringify(revision))
+    .replace("__DREAM_CSS_JSON__", () => JSON.stringify(css))
+    .replace("__DREAM_ART_JSON__", () => JSON.stringify(artDataUrl))
+    .replace("__DREAM_THEME_JSON__", () => JSON.stringify(loadedTheme.theme));
+  // Defence in depth for every caller, not just --check-payload: a template
+  // splice leaves an unreplaced placeholder token behind and usually breaks the
+  // syntax outright, so refuse to hand a corrupted script to the renderer.
+  if (/__DREAM(?:_SKIN)?_[A-Z0-9_]+_JSON__/.test(payload)) {
+    throw new Error("Payload placeholders were not fully replaced");
+  }
+  try {
+    // Compile-only: this parses the payload and discards the result. It never
+    // runs the renderer script here.
+    new Function(payload);
+  } catch (error) {
+    throw new Error(`Payload failed to parse as JavaScript: ${error.message}`);
+  }
   const { imageBytes: _imageBytes, ...themeState } = loadedTheme;
   return { ...themeState, payload, revision };
 }
