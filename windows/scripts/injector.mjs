@@ -799,10 +799,10 @@ function unavailableNativeWindow(error) {
   // Codex 26.721.x (Chrome/150) returns -32000 "Browser window not found"
   // for a real, focused window. The signal is therefore unavailable rather
   // than negative; the visible renderer checks remain mandatory below.
-  const windowNotFound = cdpCode === -32000
-    || /\(-32000\)\s*$/.test(message)
-    || /^browser window not found$/i.test(withoutCode)
+  const windowNotFoundMessage = /^browser window not found$/i.test(withoutCode)
     || /^no window with given target found$/i.test(withoutCode);
+  const windowNotFound = windowNotFoundMessage
+    && (cdpCode === -32000 || /\(-32000\)\s*$/.test(message));
   return {
     pass: false,
     bound: false,
@@ -831,8 +831,13 @@ export async function inspectTargetWindow(session, targetId) {
   let latest;
   try {
     latest = await session.send("Browser.getWindowBounds", { windowId: binding.windowId });
-  } catch (error) {
-    return unavailableNativeWindow(error);
+  } catch {
+    return {
+      pass: false,
+      bound: true,
+      windowId: binding.windowId,
+      reason: "window-bounds-unavailable",
+    };
   }
   const bounds = { ...(binding.bounds ?? {}), ...(latest?.bounds ?? {}) };
   const state = typeof bounds.windowState === "string" ? bounds.windowState : null;

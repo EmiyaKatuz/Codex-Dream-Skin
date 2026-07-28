@@ -1343,6 +1343,12 @@ args = [
   if (-not $verifyScriptSource.Contains('Get-DreamSkinVerifiedCdpIdentityForAnyRegistered')) {
     throw 'Verify lost the any-registered endpoint fallback for Store auto-updates.'
   }
+  $themeImportPattern = '(?m)^\.\s+\(Join-Path \$PSScriptRoot ''theme-windows\.ps1''\)\r?$'
+  $themeImportMatches = [regex]::Matches($verifyScriptSource, $themeImportPattern)
+  $themePathsCallIndex = $verifyScriptSource.IndexOf('Get-DreamSkinThemePaths', [System.StringComparison]::Ordinal)
+  if ($themeImportMatches.Count -ne 1 -or $themePathsCallIndex -le $themeImportMatches[0].Index) {
+    throw 'Verify must import theme-windows.ps1 exactly once before resolving managed theme paths.'
+  }
   foreach ($verifyCaller in @(
     @{ Name = 'start-dream-skin.ps1'; Source = $startSource },
     @{ Name = 'verify-dream-skin.ps1'; Source = $verifyScriptSource }

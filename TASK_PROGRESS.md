@@ -1,5 +1,33 @@
 # Task Progress
 
+Updated: 2026-07-28 CST (Asia/Taipei)
+
+## Windows native-window fallback hardening (PR #10)
+
+- [complete] Merged child-fork `main@32ce20b` into
+  `codex/fix-windows-crash-lag` with merge commit `e56f1c0`; the public branch
+  history was preserved and the two conflicts were resolved against the
+  current readiness-test baseline.
+- [complete] Repositioned PR #10 as a safety follow-up to merged PR #9. Removed
+  the redundant startup-level rendered-skin fallback and its ineffective
+  fixture, plus the abandoned payload-template and compositor-CSS tests. The
+  final diff contains no startup or visual/CSS changes, and sidebar lag remains
+  a separate unresolved issue.
+- [complete] Restricted `-32000` fallback to the exact known window-not-found
+  messages from `Browser.getWindowForTarget`. Generic `-32000` failures remain
+  fail-closed, and every `Browser.getWindowBounds` error now reports
+  `window-bounds-unavailable` without falling back to renderer evidence.
+- [complete] `verify-dream-skin.ps1` now imports `theme-windows.ps1` exactly once
+  before calling `Get-DreamSkinThemePaths`; the Windows suite pins this import
+  contract.
+- [verified] Focused native-window readiness tests pass 10/10, all portable
+  Windows Node tests pass 16/16, injector self-test and payload validation pass,
+  the complete Windows PowerShell 5.1 suite passes, and `git diff --check`
+  passes.
+- [pending] Commit and push the hardening diff, update PR metadata and outdated
+  review threads, then require Static checks, PowerShell 5.1, PowerShell 7 and
+  macOS repository regressions to pass on the exact pushed head.
+
 Updated: 2026-07-26 23:10 HKT (Asia/Hong_Kong)
 
 ## Windows Chrome/150 Native-Window Compatibility Backport
@@ -22,15 +50,15 @@ Updated: 2026-07-26 23:10 HKT (Asia/Hong_Kong)
   `26.721.4979.0`: it classified the real `-32000` reply as
   `browser-window-not-found`, reported `fallbackWindowPass=true`, and exited 0
   with `result.pass=true`.
-- [complete] Commit `8f9fa54` is pushed to
-  `Rhongomiant1227:fix/windows-cdp-window-not-found`; child-fork PR #9 is open
-  against `EmiyaKatuz:main` with explicit attribution to upstream #265 and
-  environment/test evidence.
+- [complete] Commit `8f9fa54` was pushed to
+  `Rhongomiant1227:fix/windows-cdp-window-not-found`; child-fork PR #9 merged as
+  `32ce20b` with explicit attribution to upstream #265 and environment/test
+  evidence.
 - [complete] Added independent Codex `26.721.4979.0` / raw `-32000` evidence
   to upstream issue #267 in comment `#issuecomment-5084191931`; no duplicate
   upstream PR was opened because the fix is already merged there.
-- [in progress] Monitor PR #9 CI and maintainer feedback. The child-fork fix is
-  submitted but not merged or released yet.
+- [complete] PR #9 is merged into the child fork. Its fallback is now the base
+  behavior hardened by PR #10; it is not separately released yet.
 
 Updated: 2026-07-25 08:31 HKT (Asia/Hong_Kong)
 
