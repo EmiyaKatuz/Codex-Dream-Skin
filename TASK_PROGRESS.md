@@ -1,5 +1,81 @@
 # Task Progress
 
+Updated: 2026-07-30 CST (Asia/Shanghai)
+
+## Internet Angel hover-sidebar theme repair
+
+- [diagnosed] Branch `codex/fix-internet-angel-hover-sidebar`. Fixed expansion
+  uses `aside.app-shell-left-panel` and was already themed. Collapsing it creates
+  a different native node, `[data-testid="app-shell-floating-left-panel"]`,
+  whose computed background remained the native `rgb(24, 24, 24)` because the
+  Internet Angel lifecycle did not classify it.
+- [complete] Reused the stable native test ID in the existing sidebar selector,
+  so fixed and floating sidebars enter the same component lifecycle. The shared
+  runtime generated identical extension assets for macOS, Windows and Linux.
+- [verified] A red-green lifecycle fixture now models the floating node. Live
+  CDP collapse/left-edge-hover reproduction confirms the floating node receives
+  `data-angel-component="sidebar"` and the Internet Angel scanline/blue-purple
+  gradient, blue border and cyan/pink shadow instead of the native black plate.
+- [complete] A follow-up experiment made floating and fixed wide-art backgrounds
+  numerically identical, but user visual review found that this suppressed the
+  floating panel's Internet Angel scanlines, blue-purple surface and neon edge.
+  Live same-window comparison then proved why equal transparency still looked
+  different: the fixed panel reveals the body artwork, while the floating panel
+  overlays an already shaded main surface and becomes doubly dark. Moving the
+  fixed ornament layer also overlapped the floating search/footer layout.
+- [verified] Fixed-sidebar selectors and ornament ownership remain unchanged.
+  Internet Angel floating-only paint now draws the preset's 16:9 artwork in
+  viewport cover coordinates behind the same immersive gradient, and reuses only
+  layout-safe section/list ornaments. Live computed style reports a viewport
+  layer of `1779.56px 1001px` at `-51.56px 0`, `sidebar` classification, heart
+  section ornaments, no migrated fixed ornament node and no temporary style.
+- [verified] Shared synchronization, Internet Angel parity, macOS and Windows
+  payload checks, JavaScript syntax and `git diff --check` pass. The complete
+  macOS suite exits 0 with Swift XCTest 10/10 plus renderer, Safe CSS,
+  ZIP/import, shell and runtime-state coverage; Doctor was explicitly skipped
+  because live CDP evidence was collected separately in this task.
+- [complete] Implementation commit created on the feature branch. No merge,
+  version bump, tag, Release, or published client asset has been created.
+- [diagnosed] The floating panel's `Codex` mode switch still inherits the
+  native near-white text color. Live CDP comparison shows the fixed switch is
+  transparent too, but receives `var(--ds-accent)` and its suffix from a base
+  CSS rule scoped only to `__DREAM_SELECTOR_LEFT_PANEL__`. The floating panel
+  uses the same button contract under a different parent and misses that rule.
+- [complete] Focused red-green CSS contracts now reuse the existing mode-switch,
+  specific muted-placeholder and Internet Angel corner declarations for both
+  sidebar parents without changing any fixed-sidebar values.
+- [verified] After hot injection, fixed and floating `Codex` controls report
+  identical computed text/background/border/radius/font/suffix/icon values;
+  the focused Internet Angel macOS regression passes.
+- [verified] Runtime synchronization, macOS and Windows payload checks and
+  `git diff --check` pass. The complete macOS suite exits 0 with Swift XCTest
+  10/10 plus renderer, Safe CSS, ZIP/import, shell and runtime-state coverage;
+  Doctor was explicitly skipped because live CDP evidence was collected here.
+- [blocked] Push and PR creation remain pending: `gh auth status` reports the
+  active GitHub token invalid, and HTTPS `git push` cannot obtain a username.
+  Re-authenticate GitHub, then push this branch and open the PR without changing
+  the verified commit contents.
+- [diagnosed] A semantic live-CDP audit paired 60 fixed/floating sidebar control
+  types and found 89 computed-style differences. Almost all are descendant SVG
+  colors; the remaining visible differences are foreground text and selected-row
+  paint. Their declarations are still scoped only to the fixed sidebar even
+  though both panels now share the same component lifecycle.
+- [complete] Shared only the existing sidebar descendant/control visual
+  selectors with the floating panel: text and SVG colors, transitions, hover
+  paint, base selected rows, and the Internet Angel selected-row plate/icon.
+  Fixed container background, layering, wide-art surface and ornament ownership
+  remain unchanged.
+- [verified] Focused red-green contracts cover every shared declaration. After
+  hot injection, a live semantic CDP comparison reports identical search and
+  help control/SVG colors, borders, radii and effects in fixed and floating
+  panels; the fixed SVG tint remains `rgba(175, 174, 178, 0.96)`. A source-scope
+  audit found no remaining fixed-only descendant color, hover or selected-state
+  rules.
+- [verified] Runtime synchronization, macOS and Windows payload integrity, and
+  `git diff --check` pass. The complete macOS suite exits 0 with Swift XCTest
+  10/10 plus renderer, Safe CSS, ZIP/import, shell and runtime-state coverage;
+  Doctor was explicitly skipped because live CDP evidence was collected here.
+
 Updated: 2026-07-28 CST (Asia/Taipei)
 
 ## Windows native-window fallback hardening (PR #10)

@@ -11,7 +11,7 @@
     environmentGit: '[data-testid*="git"], [aria-label*="git" i], [class*="git-"]',
     workspace: '[class*="contain:layout_paint"], [class~="bg-token-main-surface-primary"]',
     workspaceEvidence: '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container',
-    sidebar: "aside.app-shell-left-panel",
+    sidebar: 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]',
     paletteScroll: 'div.vertical-scroll-fade-mask[class~="overflow-y-auto"]',
     paletteHeading: '[class~="sticky"][class~="top-0"][class~="z-10"]',
     paletteItem: 'button[class~="w-full"][class~="shrink-0"][class~="rounded-lg"][class~="text-left"]',
