@@ -69,28 +69,28 @@ html.codex-dream-skin aside.app-shell-left-panel {
   backdrop-filter: none !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel nav {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) nav {
   background: transparent !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel button {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button {
   color: var(--dream-text) !important;
   transition: background-color 180ms cubic-bezier(.22, 1, .36, 1), color 180ms cubic-bezier(.22, 1, .36, 1) !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel button:hover {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button:hover {
   background: var(--dream-accent-soft) !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel [class~="bg-token-list-hover-background"],
-html.codex-dream-skin aside.app-shell-left-panel [aria-current="page"] {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [class~="bg-token-list-hover-background"],
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [aria-current="page"] {
   color: var(--dream-text) !important;
   background: var(--dream-accent-hover) !important;
   box-shadow: inset 0 0 0 1px var(--dream-line-soft) !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel svg,
-html.codex-dream-skin aside.app-shell-left-panel [class*="text-token"] {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) svg,
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [class*="text-token"] {
   color: currentColor;
 }
 
@@ -700,14 +700,14 @@ html.codex-dream-skin main.main-surface.dream-route-utility > header.app-header-
 }
 
 /* Section toggles are labels, not framed navigation buttons. */
-html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-toggle"] {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button[class~="group/section-toggle"] {
   border-color: transparent !important;
   border-radius: 3px !important;
   background: transparent !important;
   transform: none !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-toggle"]:hover {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button[class~="group/section-toggle"]:hover {
   color: var(--angel-cyan) !important;
   border-color: transparent !important;
   background: color-mix(in oklab, var(--angel-cyan) 7%, transparent) !important;
@@ -715,11 +715,11 @@ html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-to
 }
 
 /* Conversation rows receive a full-height, full-width selection plate. */
-html.codex-dream-skin aside.app-shell-left-panel [role="list"] > [role="listitem"] {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [role="list"] > [role="listitem"] {
   min-height: 39px !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel [role="list"] > [role="listitem"]
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [role="list"] > [role="listitem"]
   [role="button"][class~="group"] {
   display: flex !important;
   align-items: center !important;
@@ -733,7 +733,7 @@ html.codex-dream-skin aside.app-shell-left-panel [role="list"] > [role="listitem
   border-radius: 7px !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel [role="list"] > [role="listitem"]
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [role="list"] > [role="listitem"]
   [role="button"][class~="group"][class~="bg-token-list-hover-background"] {
   border-color: var(--angel-cyan) !important;
 }
@@ -1898,7 +1898,7 @@ html.codex-dream-skin :where(
 
 /* Sidebar section captions read like small channel headers while their adjacent
    native overflow and compose controls stay visually separate and clickable. */
-html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-toggle"] {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button[class~="group/section-toggle"] {
   padding-left: 8px !important;
   color: var(--angel-cyan) !important;
   border-left: 3px solid var(--angel-pink) !important;
@@ -1911,7 +1911,7 @@ html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-to
   letter-spacing: .02em;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-toggle"]::before {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button[class~="group/section-toggle"]::before {
   content: "";
   flex: 0 0 11px;
   width: 11px;
@@ -1926,7 +1926,7 @@ html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-to
   filter: drop-shadow(1px 1px 0 color-mix(in oklab, var(--angel-ink) 72%, transparent));
 }
 
-html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-toggle"]:hover {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button[class~="group/section-toggle"]:hover {
   color: #fff !important;
   border-left-color: var(--angel-cyan) !important;
   background:
@@ -2083,11 +2083,11 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
   backdrop-filter: blur(12px) saturate(1.16) !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel nav {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) nav {
   padding-inline: 7px !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel button {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button {
   position: relative;
   border: 1px solid transparent !important;
   border-radius: 5px !important;
@@ -2100,13 +2100,13 @@ html.codex-dream-skin aside.app-shell-left-panel button {
     border-color 120ms linear !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel button:hover {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button:hover {
   transform: translateX(2px);
   border-color: color-mix(in oklab, var(--angel-cyan) 70%, transparent) !important;
   background: color-mix(in oklab, var(--angel-cyan) 14%, var(--dream-accent-soft)) !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel .dream-new-task-button {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) :is(.dream-new-task-button, [data-angel-component="sidebar-new-task"]) {
   min-height: 36px;
   padding-inline: 12px 38px !important;
   color: color-mix(in oklab, var(--angel-paper) 88%, var(--angel-cyan)) !important;
@@ -2122,8 +2122,8 @@ html.codex-dream-skin aside.app-shell-left-panel .dream-new-task-button {
     2px 2px 0 color-mix(in oklab, var(--angel-blue) 32%, transparent) !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel .dream-new-task-button:hover,
-html.codex-dream-skin aside.app-shell-left-panel .dream-new-task-button:focus-visible {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) :is(.dream-new-task-button, [data-angel-component="sidebar-new-task"]):hover,
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) :is(.dream-new-task-button, [data-angel-component="sidebar-new-task"]):focus-visible {
   transform: translateX(2px);
   color: var(--angel-paper) !important;
   border-color: var(--angel-cyan) !important;
@@ -2138,13 +2138,13 @@ html.codex-dream-skin aside.app-shell-left-panel .dream-new-task-button:focus-vi
     0 0 12px color-mix(in oklab, var(--angel-cyan) 22%, transparent) !important;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel .dream-new-task-button :where(svg, [data-icon]) {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) :is(.dream-new-task-button, [data-angel-component="sidebar-new-task"]) :where(svg, [data-icon]) {
   color: var(--angel-cyan) !important;
   filter: drop-shadow(1px 1px 0 color-mix(in oklab, var(--angel-ink) 68%, transparent));
 }
 
-html.codex-dream-skin aside.app-shell-left-panel [class~="bg-token-list-hover-background"],
-html.codex-dream-skin aside.app-shell-left-panel [aria-current="page"] {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [class~="bg-token-list-hover-background"],
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [aria-current="page"] {
   border-color: var(--angel-cyan) !important;
   background:
     linear-gradient(90deg,
@@ -2285,7 +2285,7 @@ html.codex-dream-skin .dream-sidebar-packet {
   background: color-mix(in oklab, var(--dream-sidebar) 82%, transparent);
 }
 
-html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-toggle"]::after {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button[class~="group/section-toggle"]::after {
   content: "CHANNEL //";
   margin-left: auto;
   color: color-mix(in oklab, var(--angel-cyan) 54%, var(--dream-text-muted));
@@ -2294,11 +2294,11 @@ html.codex-dream-skin aside.app-shell-left-panel button[class~="group/section-to
   opacity: .72;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel [role="list"] > [role="listitem"] {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [role="list"] > [role="listitem"] {
   position: relative;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel [role="list"] > [role="listitem"]::before {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [role="list"] > [role="listitem"]::before {
   content: "";
   position: absolute;
   z-index: 3;
@@ -2312,7 +2312,7 @@ html.codex-dream-skin aside.app-shell-left-panel [role="list"] > [role="listitem
   rotate: 45deg;
 }
 
-html.codex-dream-skin aside.app-shell-left-panel [role="list"] > [role="listitem"]:has([class~="bg-token-list-hover-background"])::before {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [role="list"] > [role="listitem"]:has([class~="bg-token-list-hover-background"])::before {
   border-color: var(--angel-paper);
   background: var(--angel-pink);
   box-shadow: 0 0 7px color-mix(in oklab, var(--angel-pink) 72%, transparent);
@@ -5155,7 +5155,7 @@ html.codex-dream-skin.dream-home-dual-panel .dream-home .composer-surface-chrome
 
 @media (prefers-reduced-motion: reduce) {
   #codex-dream-skin-chrome *,
-  html.codex-dream-skin aside.app-shell-left-panel button:hover,
+  html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button:hover,
   .dream-home [data-feature="game-source"] button:hover,
   .dream-home .group\/home-suggestions button:hover,
   html.codex-dream-skin button[class~="bg-token-foreground"]:hover {

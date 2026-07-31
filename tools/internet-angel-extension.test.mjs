@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 
 import {
   loadPayload as loadWindowsPayload,
@@ -26,6 +27,20 @@ const sourceScript = await fs.readFile(
   "utf8",
 );
 const gitAttributes = await fs.readFile(path.join(projectRoot, ".gitattributes"), "utf8");
+
+function extractRendererCss(payload) {
+  const marker = "((cssText, artDataUrl,";
+  const overlayBoundary = payload.lastIndexOf(";\n(() => {");
+  assert.notEqual(overlayBoundary, -1, "payload must include the Internet Angel extension boundary");
+  const rendererPayload = payload.slice(0, overlayBoundary);
+  const at = rendererPayload.indexOf(marker);
+  assert.notEqual(at, -1, "payload must keep the canonical renderer IIFE signature");
+  const bodyAt = rendererPayload.indexOf("=> {", at);
+  assert.notEqual(bodyAt, -1, "renderer IIFE must keep a block body");
+  const bodyStart = bodyAt + "=> {".length;
+  const probe = `${rendererPayload.slice(0, bodyStart)}\nreturn cssText;\n${rendererPayload.slice(bodyStart)}`;
+  return vm.runInNewContext(probe, Object.create(null), { timeout: 10_000 });
+}
 
 assert.match(sourceCss, /data-angel-component/);
 assert.match(sourceCss, /prefers-reduced-motion:\s*reduce/);
@@ -57,16 +72,35 @@ for (const platform of ["windows", "macos", "linux"]) {
 }
 
 for (const platform of ["windows", "linux"]) {
-  const renderer = await fs.readFile(
-    path.join(projectRoot, platform, "assets", "renderer-inject.js"),
-    "utf8",
-  );
+  const [renderer, platformCss] = await Promise.all([
+    fs.readFile(path.join(projectRoot, platform, "assets", "renderer-inject.js"), "utf8"),
+    fs.readFile(path.join(projectRoot, platform, "assets", "dream-skin.css"), "utf8"),
+  ]);
   assert.match(renderer, /"preset-internet-angel"[\s\S]{0,120}"preset-internet-angel-default"/,
     `${platform} renderer must use the same exact bundled theme IDs as its injector`);
   assert.match(renderer, /setAttribute\("data-dream-theme", isInternetAngelTheme \? "internet-angel" : "standard"\)/,
     `${platform} renderer must satisfy the shared extension CSS theme gate`);
   assert.match(renderer, /removeAttribute\("data-dream-theme"\)/,
     `${platform} renderer cleanup must remove the shared extension CSS theme gate`);
+  const sidebarParents = ':is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"])';
+  for (const suffix of [
+    "nav",
+    "button",
+    "button:hover",
+    ':is(.dream-new-task-button, [data-angel-component="sidebar-new-task"])',
+    'button[class~="group/section-toggle"]',
+    '[role="list"] > [role="listitem"]',
+  ]) {
+    assert.ok(
+      platformCss.includes(`html.codex-dream-skin ${sidebarParents} ${suffix}`),
+      `${platform} must share its existing fixed-sidebar ${suffix} presentation with the floating sidebar`,
+    );
+  }
+  assert.doesNotMatch(
+    platformCss,
+    /html\.codex-dream-skin aside\.app-shell-left-panel (?:nav|button|svg|\[class|\[role)/,
+    `${platform} must not leave visual descendant rules scoped only to the fixed sidebar`,
+  );
 }
 
 for (const predicate of [usesWindowsExtension, usesMacosExtension, usesLinuxExtension]) {
@@ -84,6 +118,10 @@ for (const [platform, loadPayload] of [
     path.join(projectRoot, "macos", "presets", "preset-internet-angel"),
   );
   assert.equal(loaded.internetAngelExtension, true, `${platform} must enable the shared extension`);
+  assert.ok(
+    extractRendererCss(loaded.payload).includes(sourceCss),
+    `${platform} must pass the shared extension CSS to the renderer style IIFE`,
+  );
   assert.match(loaded.payload, /__CODEX_INTERNET_ANGEL_EXTENSION_STATE__/);
   assert.doesNotMatch(loaded.payload, /__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__/);
 }

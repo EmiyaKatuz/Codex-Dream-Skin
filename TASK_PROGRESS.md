@@ -2,6 +2,33 @@
 
 Updated: 2026-07-31 CST (Asia/Shanghai)
 
+## Final payload CSS pre-PR blocker
+
+- [diagnosed] A final production-payload audit found that the Windows and Linux
+  renderer templates consume only `__DREAM_CSS_JSON__`, while their injectors
+  replace that effective placeholder with `baseCss`. The computed Internet
+  Angel extension CSS is therefore absent from both final renderer payloads;
+  validated Windows Safe CSS is absent for the same reason.
+- [complete] Added direct final-IIFE CSS argument regressions for the shared
+  Internet Angel extension and Windows Safe CSS, then replaced the effective
+  placeholder with `combinedCss` on Windows and `css` on Linux.
+- [complete] Reused the existing Windows/Linux fixed-sidebar descendant rules
+  for the floating panel through an equal-specificity `:is()` parent. Fixed
+  container paint, geometry and ornament ownership remain unchanged.
+- [verified] Focused red-green tests prove the extension and Safe CSS reach the
+  final renderer IIFE. A Chromium computed-style fixture reports parity for
+  navigation, buttons, new-task, section, selected-row and list-item styles on
+  both platforms; only the intentional floating-container paint/geometry differs.
+- [verified] Platform payload checks, runtime synchronization, JavaScript
+  syntax and `git diff --check` pass. Portable Windows Node coverage passes
+  21/21; the complete macOS suite passes, including Swift XCTest 10/10.
+- [complete] Committed the final payload/parity correction on the feature branch.
+- [pending] Push the feature branch and open the PR. Windows PowerShell and real
+  Windows/Linux visual smoke remain CI/platform evidence gaps already accepted
+  for this change.
+
+Updated: 2026-07-31 CST (Asia/Shanghai)
+
 ## Cross-platform floating-sidebar contract follow-up
 
 - [complete] User expanded the scope beyond the macOS bundled preset: the

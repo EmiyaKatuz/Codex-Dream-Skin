@@ -793,7 +793,7 @@ export async function loadPayload(themeDir) {
     .replace("__DREAM_SKIN_VERSION_JSON__", () => JSON.stringify(SKIN_VERSION))
     .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", () => JSON.stringify(styleRevision))
     .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => JSON.stringify(revision))
-    .replace("__DREAM_CSS_JSON__", () => JSON.stringify(baseCss))
+    .replace("__DREAM_CSS_JSON__", () => JSON.stringify(css))
     .replace("__DREAM_ART_JSON__", () => JSON.stringify(artDataUrl))
     .replace("__DREAM_THEME_JSON__", () => JSON.stringify(theme));
   const payload = `${basePayload};\n${internetAngelTemplate.replace(
