@@ -23,9 +23,10 @@ Updated: 2026-07-31 CST (Asia/Shanghai)
   syntax and `git diff --check` pass. Portable Windows Node coverage passes
   21/21; the complete macOS suite passes, including Swift XCTest 10/10.
 - [complete] Committed the final payload/parity correction on the feature branch.
-- [pending] Push the feature branch and open the PR. Windows PowerShell and real
-  Windows/Linux visual smoke remain CI/platform evidence gaps already accepted
-  for this change.
+- [complete] Pushed the feature branch to the `Maker-Wen` fork and opened
+  `EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose#13` against `main`.
+- [pending] PR CI and review. Windows PowerShell and real Windows/Linux visual
+  smoke remain CI/platform evidence gaps already accepted for this change.
 
 Updated: 2026-07-31 CST (Asia/Shanghai)
 
