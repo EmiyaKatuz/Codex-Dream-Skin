@@ -7,13 +7,18 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const windowsRoot = path.resolve(here, "..");
 const template = await fs.readFile(path.join(windowsRoot, "assets", "renderer-inject.js"), "utf8");
+const linuxTemplate = await fs.readFile(
+  path.join(windowsRoot, "..", "linux", "assets", "renderer-inject.js"),
+  "utf8",
+);
 const css = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
-const buildPayload = (config = {}) => template
+const buildPayloadFrom = (rendererTemplate, config = {}) => rendererTemplate
   .replace("__DREAM_CSS_JSON__", JSON.stringify(".fixture { color: blue; }"))
   .replace("__DREAM_ART_JSON__", JSON.stringify("data:image/png;base64,AA=="))
   .replace("__DREAM_THEME_JSON__", JSON.stringify(config))
   .replace("__DREAM_SKIN_VERSION_JSON__", JSON.stringify("1.3.5"))
   .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify("test-revision"));
+const buildPayload = (config = {}) => buildPayloadFrom(template, config);
 const payload = buildPayload();
 
 assert.match(template, /速率限制重置机会\|rate limit reset opportunity/i,
@@ -492,6 +497,7 @@ function createFixture({
   shellPresent,
   mainPresent = shellPresent,
   sidebarPresent = shellPresent,
+  floatingSidebarPresent = false,
   staleSkin = false,
   homePresent = false,
   homeHeadingPresent = false,
@@ -517,6 +523,7 @@ function createFixture({
   let objectUrlCount = 0;
   let hasMain = mainPresent;
   let hasSidebar = sidebarPresent;
+  let hasFloatingSidebar = floatingSidebarPresent;
   let timeoutCalls = 0;
   let textCandidateStyleReads = 0;
   const textCandidateSet = new Set(textScanCandidates);
@@ -551,6 +558,21 @@ function createFixture({
     },
     contains(value) { return classes.has(value); },
   });
+  const makePartNode = (selector) => {
+    const attributes = new Map();
+    return {
+      nodeType: 1,
+      classList: makeClassList(),
+      getAttribute(name) { return attributes.get(name) ?? null; },
+      setAttribute(name, value) { attributes.set(name, String(value)); },
+      removeAttribute(name) { attributes.delete(name); },
+      matches(candidate) { return candidate === selector; },
+      querySelectorAll() { return []; },
+      getBoundingClientRect() { return { width: 280, height: 760 }; },
+    };
+  };
+  const shellSidebar = makePartNode("aside.app-shell-left-panel");
+  const floatingSidebar = makePartNode('[data-testid="app-shell-floating-left-panel"]');
 
   root = {
     className: shellAppearance,
@@ -669,7 +691,10 @@ function createFixture({
     querySelector(selector) {
       if (selector === "main.main-surface") return hasMain ? shellMain : null;
       if (selector === "main") return hasMain ? shellMain : null;
-      if (selector === "aside.app-shell-left-panel") return hasSidebar ? {} : null;
+      if (selector === "aside.app-shell-left-panel") return hasSidebar ? shellSidebar : null;
+      if (selector === '[data-testid="app-shell-floating-left-panel"]') {
+        return hasFloatingSidebar ? floatingSidebar : null;
+      }
       if (selector === '[role="main"]:has([data-testid="home-icon"])') {
         return hasMain && homePresent ? routeMain : null;
       }
@@ -681,6 +706,20 @@ function createFixture({
         throw new Error("forced text scan failure");
       }
       if (selector.startsWith("body button")) return textScanCandidates;
+      if (selector === "aside.app-shell-left-panel") return hasSidebar ? [shellSidebar] : [];
+      if (selector === '[data-testid="app-shell-floating-left-panel"]') {
+        return hasFloatingSidebar ? [floatingSidebar] : [];
+      }
+      if (selector === 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]') {
+        return [
+          ...(hasSidebar ? [shellSidebar] : []),
+          ...(hasFloatingSidebar ? [floatingSidebar] : []),
+        ];
+      }
+      if (selector === "[data-ds-part]") {
+        return [shellSidebar, floatingSidebar]
+          .filter((node) => node.getAttribute("data-ds-part") !== null);
+      }
       if (selector === '[role="main"]') return hasMain ? [routeMain] : [];
       if (selector === ".dream-task") return routeClasses.has("dream-task") ? [routeMain] : [];
       if (selector === ".dream-home-utility") {
@@ -781,6 +820,8 @@ function createFixture({
     rootAttributes,
     rootStyles,
     revokedUrls,
+    shellSidebar,
+    floatingSidebar,
     routeClasses,
     utilityClasses,
     getTimeoutCalls() { return timeoutCalls; },
@@ -795,6 +836,7 @@ function createFixture({
       hasSidebar = value;
     },
     setSidebarPresent(value) { hasSidebar = value; },
+    setFloatingSidebarPresent(value) { hasFloatingSidebar = value; },
     setMainPresent(value) { hasMain = value; },
   };
 }
@@ -812,6 +854,63 @@ assert.equal(main.rootClasses.has("dream-theme-dark"), true);
 assert.equal(main.rootClasses.has("dream-art-standard"), true);
 assert.equal(main.rootClasses.has("dream-task-ambient"), true);
 assert.equal(main.routeClasses.has("dream-task"), true);
+
+const sidebarParts = createFixture({
+  shellPresent: true,
+  floatingSidebarPresent: true,
+});
+vm.runInNewContext(payload, sidebarParts.context);
+assert.equal(sidebarParts.shellSidebar.getAttribute("data-ds-part"), "sidebar");
+assert.equal(sidebarParts.floatingSidebar.getAttribute("data-ds-part"), "sidebar",
+  "Windows Safe CSS must expose fixed and floating sidebars through the same public part");
+assert.equal(sidebarParts.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+assert.equal(sidebarParts.shellSidebar.getAttribute("data-ds-part"), null);
+assert.equal(sidebarParts.floatingSidebar.getAttribute("data-ds-part"), null);
+
+const dynamicSidebarPart = createFixture({ shellPresent: true });
+vm.runInNewContext(payload, dynamicSidebarPart.context);
+assert.equal(dynamicSidebarPart.floatingSidebar.getAttribute("data-ds-part"), null);
+dynamicSidebarPart.setFloatingSidebarPresent(true);
+dynamicSidebarPart.observers[0].callback([{
+  type: "childList",
+  target: dynamicSidebarPart.context.document.body,
+  addedNodes: [dynamicSidebarPart.floatingSidebar],
+  removedNodes: [],
+}]);
+assert.equal(dynamicSidebarPart.floatingSidebar.getAttribute("data-ds-part"), "sidebar",
+  "Windows must expose a newly mounted floating portal without waiting for the fallback scan");
+dynamicSidebarPart.setFloatingSidebarPresent(false);
+dynamicSidebarPart.observers[0].callback([{
+  type: "childList",
+  target: dynamicSidebarPart.context.document.body,
+  addedNodes: [],
+  removedNodes: [dynamicSidebarPart.floatingSidebar],
+}]);
+assert.equal(dynamicSidebarPart.floatingSidebar.getAttribute("data-ds-part"), null,
+  "Windows must clear the public part immediately when the floating portal unmounts");
+
+for (const [platform, rendererTemplate] of [
+  ["windows", template],
+  ["linux", linuxTemplate],
+]) {
+  for (const themeId of ["preset-internet-angel", "preset-internet-angel-default"]) {
+    const angel = createFixture({ shellPresent: true });
+    vm.runInNewContext(buildPayloadFrom(rendererTemplate, { id: themeId }), angel.context);
+    assert.equal(angel.rootAttributes.get("data-dream-theme"), "internet-angel",
+      `${platform} must activate shared Internet Angel CSS for ${themeId}`);
+    assert.equal(angel.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+    assert.equal(angel.rootAttributes.has("data-dream-theme"), false,
+      `${platform} cleanup must remove the shared theme gate`);
+  }
+
+  for (const themeId of ["preset-standard", "custom-internet-angel-copy"]) {
+    const standard = createFixture({ shellPresent: true });
+    vm.runInNewContext(buildPayloadFrom(rendererTemplate, { id: themeId }), standard.context);
+    assert.equal(standard.rootAttributes.get("data-dream-theme"), "standard",
+      `${platform} must not opt non-bundled themes into Internet Angel CSS`);
+    assert.equal(standard.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+  }
+}
 assert.equal(main.observers[0].observations.length, 3,
   "The renderer must observe only root, body, and main shell boundaries.");
 assert.equal(main.observers[0].observations.some(({ options }) => options.subtree), false,

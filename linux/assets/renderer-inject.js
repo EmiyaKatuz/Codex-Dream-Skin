@@ -1,6 +1,11 @@
 ((cssText, artDataUrl, rawConfig) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
+  const INTERNET_ANGEL_THEME_IDS = new Set([
+    "preset-internet-angel",
+    "preset-internet-angel-default",
+  ]);
+  const isInternetAngelTheme = INTERNET_ANGEL_THEME_IDS.has(String(rawConfig?.id || "").trim());
   const STYLE_REVISION = "9";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
@@ -425,6 +430,7 @@
     }
     resizeTargets.clear();
     root?.removeAttribute("data-dream-skin");
+    root?.removeAttribute("data-dream-theme");
     root?.classList.remove(...ROOT_CLASSES);
     root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
     root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
@@ -765,6 +771,7 @@
     }
 
     root.setAttribute("data-dream-skin", "active");
+    root.setAttribute("data-dream-theme", isInternetAngelTheme ? "internet-angel" : "standard");
     root.classList.add("codex-dream-skin");
     applyProfile(root);
 

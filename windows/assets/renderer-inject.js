@@ -2,6 +2,12 @@
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
   const PART_ATTR = "data-ds-part";
+  const FLOATING_SIDEBAR_SELECTOR = '[data-testid="app-shell-floating-left-panel"]';
+  const INTERNET_ANGEL_THEME_IDS = new Set([
+    "preset-internet-angel",
+    "preset-internet-angel-default",
+  ]);
+  const isInternetAngelTheme = INTERNET_ANGEL_THEME_IDS.has(String(rawConfig?.id || "").trim());
   const STYLE_REVISION = "8";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
@@ -424,6 +430,7 @@
     }
     resizeTargets.clear();
     root?.removeAttribute("data-dream-skin");
+    root?.removeAttribute("data-dream-theme");
     root?.classList.remove(...ROOT_CLASSES);
     root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
     root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
@@ -758,7 +765,7 @@
       try { return [...document.querySelectorAll(selector)]; } catch { return []; }
     };
     add("root", [document.documentElement]);
-    add("sidebar", all("aside.app-shell-left-panel"));
+    add("sidebar", all(`aside.app-shell-left-panel, ${FLOATING_SIDEBAR_SELECTOR}`));
     add("main", all("main.main-surface"));
     add("header", all("header.app-header-tint"));
     add("home", all('[role="main"]:has([data-testid="home-icon"])'));
@@ -801,6 +808,7 @@
     }
 
     root.setAttribute("data-dream-skin", "active");
+    root.setAttribute("data-dream-theme", isInternetAngelTheme ? "internet-angel" : "standard");
     root.classList.add("codex-dream-skin");
     applyProfile(root);
     refreshSafeCssParts();
@@ -1627,6 +1635,11 @@
   const hasNativeStructuralNode = (record) =>
     [...(record.addedNodes || []), ...(record.removedNodes || [])]
       .some((node) => node?.nodeType === 1 && !isInjectedNode(node));
+  const hasFloatingSidebarNode = (record) =>
+    [...(record.addedNodes || []), ...(record.removedNodes || [])]
+      .some((node) => node?.nodeType === 1 && (
+        node.matches?.(FLOATING_SIDEBAR_SELECTOR) || node.querySelector?.(FLOATING_SIDEBAR_SELECTOR)
+      ));
   const classifyRuntimeSurfaces = (records) => {
     const roots = records
       .flatMap((record) => [...(record.addedNodes || [])])
@@ -1782,6 +1795,7 @@
   observer = new MutationObserver((records) => {
     if (samplingNativeShell) return;
     classifyRuntimeSurfaces(records);
+    if (records.some(hasFloatingSidebarNode)) refreshSafeCssParts();
     const hasShellChange = records.some((record) => {
       if (record.type === "childList") return hasNativeStructuralNode(record);
       if (record.attributeName !== "class") return true;

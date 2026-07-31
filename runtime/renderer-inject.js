@@ -595,6 +595,7 @@
     const desired = new Map();
     addPart(desired, "root", [document.documentElement]);
     addPart(desired, "sidebar", selectorNodes("left-panel"));
+    addPart(desired, "sidebar", selectorNodes("floating-left-panel"));
     addPart(desired, "main", selectorNodes("shell-main"));
     addPart(desired, "header", selectorNodes("header-tint"));
     addPart(desired, "home", selectorNodes("home-route"));

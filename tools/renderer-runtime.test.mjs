@@ -222,8 +222,13 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     register('[data-message-author-role]', node);
     return node;
   };
+  const addDynamicFloatingSidebar = () => {
+    const node = makeDomNode("floating-sidebar", body);
+    register('[data-testid="app-shell-floating-left-panel"]', node);
+    return node;
+  };
   return {
-    addDynamicMessage, attrs, context, document, domNodes, flushTimers, intervals, listeners,
+    addDynamicFloatingSidebar, addDynamicMessage, attrs, context, document, domNodes, flushTimers, intervals, listeners,
     nodes, observers, partFixtures, payloadFor, revoked, root, rootClasses, rootStyle, timers, window,
   };
 }
@@ -370,6 +375,11 @@ export async function runRendererRuntimeTest(assetRoot) {
   partObserver.callback([{ type: "childList" }]);
   home.flushTimers(80);
   assert.equal(dynamicMessage.getAttribute("data-ds-part"), "message");
+  const floatingSidebar = home.addDynamicFloatingSidebar();
+  partObserver.callback([{ type: "childList" }]);
+  home.flushTimers(80);
+  assert.equal(floatingSidebar.getAttribute("data-ds-part"), "sidebar",
+    "A dynamically mounted floating sidebar must share the public Safe CSS sidebar part");
 
   const full = makeFixture({ nativeAppearance: "dark" });
   vm.runInNewContext(full.payloadFor({ art: { taskMode: "full" } }), full.context);

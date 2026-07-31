@@ -49,7 +49,7 @@ const PLACEHOLDERS = [
   "__DREAM_SKIN_PAYLOAD_REVISION_JSON__",
 ];
 
-async function buildWith(themeFields) {
+async function buildWith(themeFields, safeCss = null) {
   const themeDir = await fs.mkdtemp(path.join(os.tmpdir(), "dream-skin-payload-"));
   try {
     await fs.copyFile(
@@ -67,6 +67,9 @@ async function buildWith(themeFields) {
       }),
       "utf8",
     );
+    if (safeCss !== null) {
+      await fs.writeFile(path.join(themeDir, "theme.css"), safeCss, "utf8");
+    }
     return await loadPayload(themeDir);
   } finally {
     await fs.rm(themeDir, { recursive: true, force: true });
@@ -95,7 +98,7 @@ function assertIntactPayload(payload, label) {
   );
 }
 
-function extractThemeArgument(payload) {
+function extractRendererArguments(payload) {
   // Inject an early return into the real renderer IIFE and evaluate only far
   // enough to recover its arguments. Parsing the final JSON-looking object was
   // brittle once the shared Internet Angel IIFE was appended to the payload.
@@ -110,7 +113,7 @@ function extractThemeArgument(payload) {
   const at = rendererPayload.indexOf(marker);
   assert.notEqual(at, -1, "payload must keep the canonical renderer IIFE signature");
   const probe = `${rendererPayload.slice(0, at + marker.length)}
-return rawConfig;
+return { cssText, rawConfig };
 ${rendererPayload.slice(at + marker.length)}`;
   return vm.runInNewContext(probe, Object.create(null), { timeout: 10_000 });
 }
@@ -131,7 +134,7 @@ test("theme names containing $ substitution patterns cannot corrupt the payload"
     assertIntactPayload(loaded.payload, label);
     assert.equal(loaded.theme.name, name, `${label}: loadTheme must keep the name verbatim.`);
     assert.equal(
-      extractThemeArgument(loaded.payload).name,
+      extractRendererArguments(loaded.payload).rawConfig.name,
       name,
       `${label}: the theme name in the payload must be byte-for-byte identical to theme.json.`,
     );
@@ -154,7 +157,7 @@ test("$ patterns in every user-visible theme string survive the build", async ()
   };
   const loaded = await buildWith(fields);
   assertIntactPayload(loaded.payload, "all-fields");
-  const emitted = extractThemeArgument(loaded.payload);
+  const emitted = extractRendererArguments(loaded.payload).rawConfig;
   for (const [key, value] of Object.entries(fields)) {
     assert.equal(loaded.theme[key], value, `loadTheme mangled ${key}.`);
     assert.equal(emitted[key], value, `The payload mangled ${key}.`);
@@ -165,14 +168,24 @@ test("an ordinary theme name is unaffected by the fix", async () => {
   const name = "桥本有菜 Dream Skin";
   const loaded = await buildWith({ name });
   assertIntactPayload(loaded.payload, "ordinary");
-  assert.equal(extractThemeArgument(loaded.payload).name, name);
+  assert.equal(extractRendererArguments(loaded.payload).rawConfig.name, name);
 
   const shipped = await loadPayload();
   assertIntactPayload(shipped.payload, "shipped-assets");
   assert.equal(
-    extractThemeArgument(shipped.payload).name,
+    extractRendererArguments(shipped.payload).rawConfig.name,
     shipped.theme.name,
     "The shipped theme must round-trip through the payload unchanged.",
+  );
+});
+
+test("validated Safe CSS reaches the renderer style argument", async () => {
+  const safeCss = '[data-ds-part="sidebar"] { color: #123456; }\n';
+  const loaded = await buildWith({}, safeCss);
+  assert.equal(loaded.safeCssStatus, "validated");
+  assert.ok(
+    extractRendererArguments(loaded.payload).cssText.includes(safeCss),
+    "the final renderer IIFE must receive validated Safe CSS",
   );
 });
 

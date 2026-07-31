@@ -230,39 +230,43 @@ html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ {
 
 html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ nav { background: transparent !important; }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ button,
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ a {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) :is(button, a) {
   color: var(--ds-text) !important;
   transition: background-color .18s cubic-bezier(.22, 1, .36, 1),
     border-color .18s cubic-bezier(.22, 1, .36, 1),
     color .18s cubic-bezier(.22, 1, .36, 1) !important;
 }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ [class*="text-token-foreground"] {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) [class*="text-token-foreground"] {
   color: var(--ds-text) !important;
 }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ [class*="text-token-input-placeholder-foreground"] {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) [class*="text-token-input-placeholder-foreground"] {
   color: rgb(var(--ds-muted-rgb) / .92) !important;
 }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ svg {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) svg {
   color: rgb(var(--ds-muted-rgb) / .96) !important;
 }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ button:hover,
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ a:hover {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) :is(button, a):hover {
   background: rgb(var(--ds-accent-rgb) / .09) !important;
   color: var(--ds-text) !important;
   transform: none !important;
 }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ button:hover svg,
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ a:hover svg {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) :is(button, a):hover svg {
   color: var(--ds-accent) !important;
 }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ button[aria-label^="切换模式"] {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) button[aria-label^="切换模式"] {
   background: transparent !important;
   border: 0 !important;
   color: var(--ds-accent) !important;
@@ -272,20 +276,22 @@ html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ button[aria-label^=
   text-shadow: none !important;
 }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ button[aria-label^="切换模式"]::after {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) button[aria-label^="切换模式"]::after {
   content: " ·";
   color: var(--ds-secondary);
 }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ [class~="bg-token-list-hover-background"],
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ [aria-current="page"] {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) :is([class~="bg-token-list-hover-background"], [aria-current="page"]) {
   background: rgb(var(--ds-accent-rgb) / .12) !important;
   border: 1px solid rgb(var(--ds-accent-rgb) / .22) !important;
   box-shadow: 0 4px 16px rgb(var(--ds-bg-rgb) / .12) !important;
   color: var(--ds-text) !important;
 }
 
-html[data-dream-skin="active"] __DREAM_SELECTOR_LEFT_PANEL__ [aria-current="page"] svg {
+html[data-dream-skin="active"]
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) [aria-current="page"] svg {
   color: var(--ds-accent) !important;
 }
 
@@ -914,6 +920,42 @@ html[data-dream-skin="active"][data-dream-art-wide="true"]:has(__DREAM_SELECTOR_
   background: linear-gradient(90deg,
     var(--ds-immersive-sidebar),
     var(--ds-immersive-edge) 100%) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"]:is([data-dream-task-mode="full"], [data-dream-art-task-mode="full"])[data-dream-art-wide="true"]:has(__DREAM_SELECTOR_SHELL_MAIN__):not(:has(__DREAM_SELECTOR_SHELL_MAIN__ __DREAM_SELECTOR_HOME_ROUTE_CSS__))
+  [data-testid="app-shell-floating-left-panel"],
+html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:has(__DREAM_SELECTOR_SHELL_MAIN__ __DREAM_SELECTOR_HOME_ROUTE_CSS__)
+  [data-testid="app-shell-floating-left-panel"] {
+  background-image:
+    linear-gradient(90deg, var(--ds-immersive-sidebar), var(--ds-immersive-edge) 100%),
+    var(--dream-skin-art) !important;
+  background-position:
+    0 0,
+    calc(100vw - max(100vw, 177.7778vh)) calc(42vh - max(23.625vw, 42vh)) !important;
+  background-size: 100% 100%, max(100vw, 177.7778vh) max(56.25vw, 100vh) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: scroll, fixed !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"]:is([data-dream-task-mode="ambient"], [data-dream-art-task-mode="ambient"], [data-dream-task-mode="banner"], [data-dream-art-task-mode="banner"])[data-dream-art-wide="true"]:has(__DREAM_SELECTOR_SHELL_MAIN__):not(:has(__DREAM_SELECTOR_SHELL_MAIN__ __DREAM_SELECTOR_HOME_ROUTE_CSS__))
+  [data-testid="app-shell-floating-left-panel"] {
+  background-image:
+    linear-gradient(90deg, var(--ds-task-immersive-sidebar), var(--ds-task-immersive-edge) 100%),
+    var(--dream-skin-art) !important;
+  background-position:
+    0 0,
+    calc(100vw - max(100vw, 177.7778vh)) calc(42vh - max(23.625vw, 42vh)) !important;
+  background-size: 100% 100%, max(100vw, 177.7778vh) max(56.25vw, 100vh) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: scroll, fixed !important;
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
@@ -1752,12 +1794,12 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"]
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"]
-  __DREAM_SELECTOR_LEFT_PANEL__ :is(button, a) {
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) :is(button, a) {
   border-radius: 3px 10px 3px 10px !important;
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"]
-  __DREAM_SELECTOR_LEFT_PANEL__ :is([class~="bg-token-list-hover-background"], [aria-current="page"]) {
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) :is([class~="bg-token-list-hover-background"], [aria-current="page"]) {
   border: 1px solid var(--angel-cyan) !important;
   background:
     linear-gradient(90deg, rgb(45 60 165 / .72), rgb(123 55 160 / .70)) !important;
@@ -1769,13 +1811,13 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"]
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"]
-  __DREAM_SELECTOR_LEFT_PANEL__ :is([class~="bg-token-list-hover-background"], [aria-current="page"]) svg {
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) :is([class~="bg-token-list-hover-background"], [aria-current="page"]) svg {
   color: var(--angel-cyan) !important;
   filter: drop-shadow(1px 1px 0 var(--angel-ink));
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"]
-  __DREAM_SELECTOR_LEFT_PANEL__ button[class~="group/section-toggle"] {
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) button[class~="group/section-toggle"] {
   min-height: 32px;
   padding-left: 9px !important;
   color: var(--angel-cyan) !important;
@@ -1786,7 +1828,7 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"]
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"]
-  __DREAM_SELECTOR_LEFT_PANEL__ button[class~="group/section-toggle"]::before {
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) button[class~="group/section-toggle"]::before {
   content: "♥";
   flex: 0 0 12px;
   color: var(--angel-pink);
@@ -1795,7 +1837,7 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"]
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"]
-  __DREAM_SELECTOR_LEFT_PANEL__ button[class~="group/section-toggle"]::after {
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) button[class~="group/section-toggle"]::after {
   content: "CHANNEL //";
   margin-left: auto;
   color: rgb(99 244 255 / .58);
@@ -1804,12 +1846,12 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"]
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"]
-  __DREAM_SELECTOR_LEFT_PANEL__ [role="list"] > [role="listitem"] {
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) [role="list"] > [role="listitem"] {
   position: relative;
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"]
-  __DREAM_SELECTOR_LEFT_PANEL__ [role="list"] > [role="listitem"]::before {
+  :is(__DREAM_SELECTOR_LEFT_PANEL__, [data-testid="app-shell-floating-left-panel"]) [role="list"] > [role="listitem"]::before {
   content: "";
   position: absolute;
   z-index: 2;
