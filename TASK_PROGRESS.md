@@ -1,5 +1,66 @@
 # Task Progress
 
+Updated: 2026-07-31 CST (Asia/Shanghai)
+
+## Cross-platform floating-sidebar contract follow-up
+
+- [complete] User expanded the scope beyond the macOS bundled preset: the
+  fixed/floating Internet Angel sidebar must work on Windows and Linux too, and
+  platforms that support imported Safe CSS must expose both sidebar variants as
+  the same public `sidebar` part. Linux does not currently import theme ZIPs or
+  Safe CSS, so this task will not add a new Linux theme-store subsystem.
+- [complete] Added the optional floating-panel selector to the shared contract;
+  canonical macOS and Windows now expose fixed and floating panels through the
+  same Safe CSS `sidebar` part. Windows refreshes that part immediately when a
+  floating portal is added or removed instead of waiting for its fallback scan.
+- [complete] Windows and Linux now set the shared extension's root theme gate
+  only for the two exact bundled Internet Angel IDs, set `standard` for every
+  other theme, and remove the gate during cleanup. The existing broad art-profile
+  heuristic is not reused for theme activation.
+- [complete] The shared classifier now visits every matching sidebar, covering
+  the native transition where fixed and floating panels briefly coexist.
+- [verified] Red tests reproduced all three gaps: dynamic canonical Safe CSS
+  part assignment, Windows floating Safe CSS assignment, and simultaneous
+  sidebar classification. Focused macOS, Windows and shared tests now pass;
+  the Windows VM fixture also executes the Linux renderer for exact-ID,
+  non-bundled-ID and cleanup behavior. Shared synchronization, JavaScript syntax
+  and `git diff --check` pass.
+- [verified] The complete macOS suite passes, including Swift build/XCTest
+  10/10, shared runtime, Safe CSS, ZIP/import, shell and Doctor coverage. All
+  portable Windows Node tests pass, including renderer, bootstrap, session,
+  one-shot, window readiness, payload integrity and injector self-checks; Linux
+  syntax and payload construction pass. The independent final review found no
+  Critical or Important issues.
+- [blocked] This macOS host has neither `pwsh` nor Windows PowerShell, so the
+  Windows PowerShell suite must run in CI. Real Windows/Linux Codex screenshot
+  smoke is also unavailable locally; these platform evidence gaps remain open
+  even though the executable renderer and payload contracts pass.
+- [complete] Committed the reviewed P1/P2 follow-up on
+  `codex/fix-internet-angel-hover-sidebar`.
+- [blocked] Push and PR creation remain blocked by GitHub authentication:
+  `gh auth status` reports the active token for `Maker-Wen` as invalid, and an
+  HTTPS push cannot read a username. Re-authenticate, then push this branch and
+  open the PR without changing the verified implementation.
+
+Updated: 2026-07-31 CST (Asia/Shanghai)
+
+## Internet Angel hover-sidebar pre-PR review follow-up
+
+- [scoped] The review's Safe CSS finding affects imported themes that target
+  `[data-ds-part="sidebar"]`; it does not affect the bundled Internet Angel
+  sidebar, which uses the separate `data-angel-component` classifier verified
+  live in this task. The current PR remains scoped to the macOS bundled theme.
+- [complete] Reworked the macOS lifecycle fixture to model fixed-sidebar
+  removal, an empty refresh interval, and a later floating portal mount as two
+  body mutations. The floating node now has its own mode, search, new-task,
+  section, selected-row, profile and help controls, and disconnected nodes no
+  longer appear in document queries or cleanup assertions.
+- [verified] The focused test first failed on an unclassified floating mode
+  control, then passed after the fixture gained real floating descendants. The
+  complete macOS suite passes with Swift XCTest 10/10 plus shared runtime,
+  payload, Safe CSS, ZIP/import, shell and runtime-state coverage; Doctor was
+  skipped because this follow-up changes only the test fixture.
+
 Updated: 2026-07-30 CST (Asia/Shanghai)
 
 ## Internet Angel hover-sidebar theme repair

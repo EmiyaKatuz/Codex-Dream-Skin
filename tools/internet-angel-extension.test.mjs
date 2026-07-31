@@ -56,6 +56,19 @@ for (const platform of ["windows", "macos", "linux"]) {
   );
 }
 
+for (const platform of ["windows", "linux"]) {
+  const renderer = await fs.readFile(
+    path.join(projectRoot, platform, "assets", "renderer-inject.js"),
+    "utf8",
+  );
+  assert.match(renderer, /"preset-internet-angel"[\s\S]{0,120}"preset-internet-angel-default"/,
+    `${platform} renderer must use the same exact bundled theme IDs as its injector`);
+  assert.match(renderer, /setAttribute\("data-dream-theme", isInternetAngelTheme \? "internet-angel" : "standard"\)/,
+    `${platform} renderer must satisfy the shared extension CSS theme gate`);
+  assert.match(renderer, /removeAttribute\("data-dream-theme"\)/,
+    `${platform} renderer cleanup must remove the shared extension CSS theme gate`);
+}
+
 for (const predicate of [usesWindowsExtension, usesMacosExtension, usesLinuxExtension]) {
   assert.equal(predicate({ id: "preset-internet-angel" }), true);
   assert.equal(predicate({ id: "preset-internet-angel-default" }), true);

@@ -363,6 +363,7 @@ class FixtureNode {
   constructor({ className = "", rect = {}, text = "" } = {}) {
     this.attributes = new Map();
     this.className = className;
+    this.isConnected = true;
     this.parentElement = null;
     this.queries = new Map();
     this.closestNodes = new Map();
@@ -495,33 +496,36 @@ function makeOverlayFixture() {
   );
   workspace.parentElement = workspaceOuter;
 
+  const makeSidebarControls = () => {
+    const mode = makeNode();
+    mode.setAttribute("aria-label", "Switch mode, current mode: Codex");
+    const search = makeNode();
+    search.setAttribute("aria-label", "Search");
+    const newTask = makeNode({ text: "New chat" });
+    const section = makeNode({ className: "group/section-toggle", text: "Projects" });
+    const row = makeNode({ text: "Codex-Dream-Skin" });
+    row.setAttribute("aria-current", "page");
+    const footer = makeNode();
+    const profile = makeNode({ text: "OpenAI" });
+    profile.setAttribute("aria-label", "Open profile menu");
+    const help = makeNode();
+    help.setAttribute("aria-label", "Open help menu");
+    profile.parentElement = footer;
+    help.parentElement = footer;
+    const buttons = [mode, search, newTask, section, row, profile, help];
+    return { buttons, footer, help, mode, newTask, nodes: [footer, ...buttons], profile, row, search, section };
+  };
+
   const sidebar = makeNode({ className: "app-shell-left-panel" });
+  const sidebarControls = makeSidebarControls();
+  sidebar.addQuery("button, [role=button]", sidebarControls.buttons);
   const floatingSidebar = makeNode({ className: "flex h-full min-h-0 flex-col overflow-hidden" });
   floatingSidebar.setAttribute("data-testid", "app-shell-floating-left-panel");
-  const sidebarMode = makeNode();
-  sidebarMode.setAttribute("aria-label", "Switch mode, current mode: Codex");
-  const sidebarSearch = makeNode();
-  sidebarSearch.setAttribute("aria-label", "Search");
-  const sidebarNewTask = makeNode({ text: "New chat" });
-  const sidebarSection = makeNode({ className: "group/section-toggle", text: "Projects" });
-  const sidebarRow = makeNode({ text: "Codex-Dream-Skin" });
-  sidebarRow.setAttribute("aria-current", "page");
-  const sidebarFooter = makeNode();
-  const sidebarProfile = makeNode({ text: "OpenAI" });
-  sidebarProfile.setAttribute("aria-label", "Open profile menu");
-  const sidebarHelp = makeNode();
-  sidebarHelp.setAttribute("aria-label", "Open help menu");
-  sidebarProfile.parentElement = sidebarFooter;
-  sidebarHelp.parentElement = sidebarFooter;
-  sidebar.addQuery("button, [role=button]", [
-    sidebarMode,
-    sidebarSearch,
-    sidebarNewTask,
-    sidebarSection,
-    sidebarRow,
-    sidebarProfile,
-    sidebarHelp,
-  ]);
+  const floatingSidebarControls = makeSidebarControls();
+  floatingSidebar.addQuery("button, [role=button]", floatingSidebarControls.buttons);
+  const fixedSidebarNodes = [sidebar, ...sidebarControls.nodes];
+  const floatingSidebarNodes = [floatingSidebar, ...floatingSidebarControls.nodes];
+  for (const node of floatingSidebarNodes) node.isConnected = false;
 
   const palette = makeNode({ className: "border-token-border bg-token-dropdown-background/90 relative overflow-hidden rounded-2xl p-1" });
   const paletteScroll = makeNode({ className: "vertical-scroll-fade-mask overflow-y-auto" });
@@ -636,6 +640,8 @@ function makeOverlayFixture() {
 
   const shell = makeNode();
   const body = makeNode();
+  sidebar.parentElement = body;
+  const sidebarSelector = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
   const documentQueries = new Map([
     [".composer-surface-chrome", [composer]],
     [".composer-surface-chrome button", [send, goalMode]],
@@ -661,7 +667,7 @@ function makeOverlayFixture() {
     ['[class*="group/activity-header"]', [activityHeader, streamingActivityHeader]],
     ['[class*="group/turn-diff-header"]', [editedHeader]],
     ['button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])', [changesPill]],
-    ['aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]', [sidebar]],
+    [sidebarSelector, [sidebar]],
     ['div.vertical-scroll-fade-mask[class~="overflow-y-auto"]', [paletteScroll]],
     ['button[class*="navigation-row"]', [turnRow]],
   ]);
@@ -673,9 +679,9 @@ function makeOverlayFixture() {
     },
     querySelectorAll(selector) {
       if (selector === "[data-angel-component]") {
-        return nodes.filter((node) => node.attributes.has("data-angel-component"));
+        return nodes.filter((node) => node.isConnected && node.attributes.has("data-angel-component"));
       }
-      return documentQueries.get(selector) || [];
+      return (documentQueries.get(selector) || []).filter((node) => node.isConnected);
     },
   };
   const observers = [];
@@ -696,6 +702,11 @@ function makeOverlayFixture() {
     addEventListener(type, callback) { listeners.set(type, callback); },
     removeEventListener(type) { listeners.delete(type); },
   };
+  const notifyBodyMutation = (record) => {
+    const observer = observers.find((candidate) => candidate.target === body);
+    if (!observer) throw new Error("Body mutation observer was not installed");
+    observer.callback([record]);
+  };
   return {
     composer,
     context: {
@@ -713,6 +724,14 @@ function makeOverlayFixture() {
     environmentHeader,
     environmentSection,
     floatingSidebar,
+    floatingSidebarFooter: floatingSidebarControls.footer,
+    floatingSidebarHelp: floatingSidebarControls.help,
+    floatingSidebarMode: floatingSidebarControls.mode,
+    floatingSidebarNewTask: floatingSidebarControls.newTask,
+    floatingSidebarProfile: floatingSidebarControls.profile,
+    floatingSidebarRow: floatingSidebarControls.row,
+    floatingSidebarSearch: floatingSidebarControls.search,
+    floatingSidebarSection: floatingSidebarControls.section,
     radixEnvironment,
     radixEnvironmentAction,
     radixEnvironmentHeader,
@@ -756,14 +775,14 @@ function makeOverlayFixture() {
     observers,
     send,
     sidebar,
-    sidebarFooter,
-    sidebarHelp,
-    sidebarMode,
-    sidebarNewTask,
-    sidebarProfile,
-    sidebarRow,
-    sidebarSearch,
-    sidebarSection,
+    sidebarFooter: sidebarControls.footer,
+    sidebarHelp: sidebarControls.help,
+    sidebarMode: sidebarControls.mode,
+    sidebarNewTask: sidebarControls.newTask,
+    sidebarProfile: sidebarControls.profile,
+    sidebarRow: sidebarControls.row,
+    sidebarSearch: sidebarControls.search,
+    sidebarSection: sidebarControls.section,
     summaryPanel,
     streamingActivity,
     streamingActivityHeader,
@@ -782,11 +801,23 @@ function makeOverlayFixture() {
       timers.clear();
       for (const callback of queued) callback();
     },
-    showFloatingSidebar() {
-      documentQueries.set(
-        'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]',
-        [floatingSidebar],
-      );
+    removeFixedSidebar() {
+      documentQueries.set(sidebarSelector, []);
+      for (const node of fixedSidebarNodes) node.isConnected = false;
+      sidebar.parentElement = null;
+      notifyBodyMutation({ type: "childList", target: body, addedNodes: [], removedNodes: [sidebar] });
+    },
+    mountFloatingSidebar() {
+      for (const node of floatingSidebarNodes) node.isConnected = true;
+      floatingSidebar.parentElement = body;
+      documentQueries.set(sidebarSelector, [floatingSidebar]);
+      notifyBodyMutation({ type: "childList", target: body, addedNodes: [floatingSidebar], removedNodes: [] });
+    },
+    mountFloatingSidebarAlongsideFixed() {
+      for (const node of floatingSidebarNodes) node.isConnected = true;
+      floatingSidebar.parentElement = body;
+      documentQueries.set(sidebarSelector, [sidebar, floatingSidebar]);
+      notifyBodyMutation({ type: "childList", target: body, addedNodes: [floatingSidebar], removedNodes: [] });
     },
     window,
     workspace,
@@ -839,11 +870,35 @@ assert.equal(component(fixture.sidebarRow), "sidebar-row");
 assert.equal(component(fixture.sidebarFooter), "sidebar-footer");
 assert.equal(component(fixture.sidebarProfile), "sidebar-profile");
 assert.equal(component(fixture.sidebarHelp), "sidebar-help");
-fixture.showFloatingSidebar();
-fixture.observers.find((observer) => observer.target === fixture.context.document.body).callback([]);
+fixture.removeFixedSidebar();
 fixture.flushTimers();
-assert.equal(component(fixture.sidebar), null, "The removed fixed sidebar mark must be cleared.");
+assert.equal(
+  fixture.context.document.querySelector('aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]'),
+  null,
+  "The classifier must tolerate the empty interval after the fixed sidebar is removed.",
+);
+assert.equal(component(fixture.floatingSidebar), null, "The floating sidebar must not exist before its portal mounts.");
+fixture.mountFloatingSidebar();
+fixture.flushTimers();
 assert.equal(component(fixture.floatingSidebar), "sidebar");
+assert.equal(component(fixture.floatingSidebarMode), "sidebar-control");
+assert.equal(component(fixture.floatingSidebarSearch), "sidebar-control");
+assert.equal(component(fixture.floatingSidebarNewTask), "sidebar-new-task");
+assert.equal(component(fixture.floatingSidebarSection), "sidebar-section");
+assert.equal(component(fixture.floatingSidebarRow), "sidebar-row");
+assert.equal(component(fixture.floatingSidebarFooter), "sidebar-footer");
+assert.equal(component(fixture.floatingSidebarProfile), "sidebar-profile");
+assert.equal(component(fixture.floatingSidebarHelp), "sidebar-help");
+
+const overlappingSidebars = makeOverlayFixture();
+vm.runInNewContext(
+  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "true"),
+  overlappingSidebars.context,
+);
+overlappingSidebars.mountFloatingSidebarAlongsideFixed();
+overlappingSidebars.flushTimers();
+assert.equal(component(overlappingSidebars.floatingSidebar), "sidebar",
+  "The floating portal must be classified when the fixed sidebar still exists during transition");
 assert.equal(component(fixture.palette), "composer-palette");
 assert.equal(component(fixture.paletteScroll), "composer-palette-scroll");
 assert.equal(component(fixture.paletteHeading), "composer-palette-heading");
@@ -893,7 +948,11 @@ vm.runInNewContext(
   overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "false"),
   fixture.context,
 );
-assert.equal(fixture.nodes.some((node) => component(node)), false, "Theme switch cleanup must remove all marks.");
+assert.equal(
+  fixture.nodes.some((node) => node.isConnected && component(node)),
+  false,
+  "Theme switch cleanup must remove marks from the connected document.",
+);
 assert.ok(fixture.observers.every((observer) => observer.disconnected === true));
 assert.equal(fixture.timers.size, 0);
 assert.equal(fixture.listeners.has("click"), false);

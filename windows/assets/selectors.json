@@ -28,6 +28,7 @@
   "selectors": [
     { "key": "shell-main", "selector": "main.main-surface", "tier": "L1", "scope": "all", "required": true, "notes": "全局主表面。mac 设置页缺失（win 存在），缺失时整页仅 L0" },
     { "key": "left-panel", "selector": "aside.app-shell-left-panel", "tier": "L1", "scope": "all", "required": true, "notes": "左侧栏；收起/重建时会移除节点，勿在其消失时清皮" },
+    { "key": "floating-left-panel", "selector": "[data-testid=\"app-shell-floating-left-panel\"]", "tier": "L2", "scope": "all", "required": false, "notes": "收起固定栏后按需挂载的悬浮侧栏；与 left-panel 共享公开 sidebar 主题部件，不参与 L1 shell 判定" },
     { "key": "header-tint", "selector": "header.app-header-tint", "tier": "L1", "scope": "all", "required": true, "notes": "顶栏；皮肤不得覆盖其 position/z-index（既有回归约束）" },
     { "key": "home-icon", "selector": "[data-testid=\"home-icon\"]", "tier": "L1", "scope": "home", "required": true, "notes": "首页判定信号，双端一致" },
     { "key": "home-route", "selector": "[role=\"main\"]:has([data-testid=\"home-icon\"])", "tier": "L1", "scope": "home", "required": true, "notes": "首页容器。实测 [role=main] 仅存在于首页——它不是通用路由锚点，thread 页没有" },
@@ -50,7 +51,7 @@
   "removed": [
     { "key": "suggestion-item", "selector": ".group\\/home-suggestion-list-item", "reason": "双端全部 22 个实测状态命中 0 次——当前 Codex 版本已无此类；CSS 中引用它的规则为化石，待清理" }
   ],
-  "stableTestids": ["app-shell-header-context-menu-surface", "home-icon", "theme-preview"],
+  "stableTestids": ["app-shell-floating-left-panel", "app-shell-header-context-menu-surface", "home-icon", "theme-preview"],
   "notes": [
     "锚点优先级：data-testid > role/语义标签 > 稳定类名 > CSS Modules 前缀；禁止精确 hash 与纯结构路径",
     "首页渐进渲染：L2 home 锚点必须容忍晚到，找不到 = 暂不精修，不得阻断 L0/L1",

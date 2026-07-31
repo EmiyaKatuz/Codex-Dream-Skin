@@ -64,26 +64,26 @@
   };
 
   const classifySidebar = () => {
-    const sidebar = document.querySelector(selectors.sidebar);
-    if (!sidebar) return;
-    mark(sidebar, "sidebar");
-    const controls = [...(sidebar.querySelectorAll?.("button, [role=button]") || [])];
-    const profile = controls.find((node) => /open profile menu|profile menu|account menu|\u4e2a\u4eba\u8d44\u6599|\u8d26\u6237\u83dc\u5355/i.test(labelOf(node)));
-    const help = controls.find((node) => /open help menu|help menu|\u5e2e\u52a9\u83dc\u5355/i.test(labelOf(node)));
-    const footer = commonAncestor(profile, help, sidebar);
-    if (footer && footer !== sidebar) mark(footer, "sidebar-footer");
-    for (const control of controls) {
-      const label = labelOf(control);
-      const classes = classText(control);
-      if (control === profile) mark(control, "sidebar-profile");
-      else if (control === help) mark(control, "sidebar-help");
-      else if (classes.includes("group/section-toggle")) mark(control, "sidebar-section");
-      else if (/^(?:new (?:chat|task)|\u65b0\u5efa(?:\u804a\u5929|\u4efb\u52a1))$/i.test(textOf(control))) {
-        mark(control, "sidebar-new-task");
-      } else if (/switch mode|current mode|search|\u5207\u6362\u6a21\u5f0f|\u641c\u7d22/i.test(label)) {
-        mark(control, "sidebar-control");
-      } else {
-        mark(control, "sidebar-row");
+    for (const sidebar of document.querySelectorAll(selectors.sidebar)) {
+      mark(sidebar, "sidebar");
+      const controls = [...(sidebar.querySelectorAll?.("button, [role=button]") || [])];
+      const profile = controls.find((node) => /open profile menu|profile menu|account menu|\u4e2a\u4eba\u8d44\u6599|\u8d26\u6237\u83dc\u5355/i.test(labelOf(node)));
+      const help = controls.find((node) => /open help menu|help menu|\u5e2e\u52a9\u83dc\u5355/i.test(labelOf(node)));
+      const footer = commonAncestor(profile, help, sidebar);
+      if (footer && footer !== sidebar) mark(footer, "sidebar-footer");
+      for (const control of controls) {
+        const label = labelOf(control);
+        const classes = classText(control);
+        if (control === profile) mark(control, "sidebar-profile");
+        else if (control === help) mark(control, "sidebar-help");
+        else if (classes.includes("group/section-toggle")) mark(control, "sidebar-section");
+        else if (/^(?:new (?:chat|task)|\u65b0\u5efa(?:\u804a\u5929|\u4efb\u52a1))$/i.test(textOf(control))) {
+          mark(control, "sidebar-new-task");
+        } else if (/switch mode|current mode|search|\u5207\u6362\u6a21\u5f0f|\u641c\u7d22/i.test(label)) {
+          mark(control, "sidebar-control");
+        } else {
+          mark(control, "sidebar-row");
+        }
       }
     }
   };
