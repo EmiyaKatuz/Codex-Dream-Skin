@@ -17,7 +17,7 @@ const win32WindowEvidence = {
 };
 
 const selectors = {
-  shell: "main.main-surface",
+  shell: ":is(main.main-surface, main[data-app-shell-main-surface])",
   sidebar: "aside.app-shell-left-panel",
   composer: ".composer-surface-chrome",
   home: '[role="main"]:has([data-testid="home-icon"])',

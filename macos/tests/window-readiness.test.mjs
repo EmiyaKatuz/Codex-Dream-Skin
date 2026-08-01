@@ -79,6 +79,38 @@ assert.equal(
   "Internet Angel verification must preserve the native-window gate and the overlay surface gate.",
 );
 
+const multicolorAngelHome = {
+  ...angelRenderer,
+  angelSurfacePass: true,
+  angelDeckReady: true,
+  homeRoute: true,
+  homePresent: true,
+  hero: { visible: true, width: 900, height: 620 },
+  visibleCardCount: 4,
+  suggestionLabels: Array.from({ length: 4 }, () => ({ visible: true })),
+  suggestionLabelColorsMatch: false,
+  cardLabelCoverage: [true, true, true, true],
+};
+assert.equal(
+  assessRendererVerification(
+    {
+      ...multicolorAngelHome,
+      themeId: exactPayload.expectedThemeId,
+      angelSurfacePass: false,
+      angelDeckReady: false,
+    },
+    readyNativeWindow,
+    exactPayload,
+  ).pass,
+  false,
+  "Ordinary themes must retain the existing home-card label color check.",
+);
+assert.equal(
+  assessRendererVerification(multicolorAngelHome, readyNativeWindow, angelPayload).pass,
+  true,
+  "Intentional Internet Angel accent labels must not fail otherwise complete home-card coverage.",
+);
+
 const windowCalls = [];
 assert.equal((await inspectNativeWindow({
   target: { id: "target-main" },

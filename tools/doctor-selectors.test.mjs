@@ -3,6 +3,16 @@ import fs from "node:fs/promises";
 import { gradeDoctorResult, selectorMatchesScope } from "./doctor-selectors.mjs";
 
 const contract = JSON.parse(await fs.readFile(new URL("./selectors.json", import.meta.url), "utf8"));
+assert.equal(
+  contract.selectors.find(({ key }) => key === "shell-main")?.selector,
+  ":is(main.main-surface, main[data-app-shell-main-surface])",
+  "The shell contract must cover the stable ChatGPT 26.727 main-surface attribute.",
+);
+assert.equal(
+  contract.selectors.find(({ key }) => key === "header-tint")?.selector,
+  ":is(header.app-header-tint, header[data-app-shell-application-menu-bar])",
+  "The header contract must cover the stable ChatGPT 26.727 app-shell attribute.",
+);
 const resultFor = (baseState, hits, overlay = false) => gradeDoctorResult(contract, {
   baseState,
   overlay,

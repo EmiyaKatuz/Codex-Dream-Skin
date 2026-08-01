@@ -33,8 +33,12 @@ function createFixture() {
       get body() { return body; },
       addEventListener(type, callback) { if (type === "DOMContentLoaded") domReady.push(callback); },
       querySelector(selector) {
-        if (selector === "main.main-surface") return markers.shell ? {} : null;
-        if (selector === "header.app-header-tint") return markers.header ? {} : null;
+        if (selector === ":is(main.main-surface, main[data-app-shell-main-surface])") {
+          return markers.shell ? {} : null;
+        }
+        if (selector === ":is(header.app-header-tint, header[data-app-shell-application-menu-bar])") {
+          return markers.header ? {} : null;
+        }
         if (selector === "aside.app-shell-left-panel") return markers.sidebar ? {} : null;
         if (selector === ".composer-surface-chrome") return markers.composer ? {} : null;
         if (selector.includes("[role=\"main\"]")) return markers.main ? {} : null;

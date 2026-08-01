@@ -165,7 +165,7 @@ assert.ok(
 );
 assert.ok(
   overlayCss.includes(
-    '[data-dream-art-wide="true"]:not(:has(main.main-surface [role="main"])) main.main-surface .composer-surface-chrome[data-angel-component="composer"]',
+    '[data-dream-art-wide="true"]:not(:has(:is(main.main-surface, main[data-app-shell-main-surface]) [role="main"])) :is(main.main-surface, main[data-app-shell-main-surface]) .composer-surface-chrome[data-angel-component="composer"]',
   ),
   "Task composer styling must outrank the canonical immersive reset without widening theme scope.",
 );
@@ -645,7 +645,7 @@ function makeOverlayFixture() {
   const documentQueries = new Map([
     [".composer-surface-chrome", [composer]],
     [".composer-surface-chrome button", [send, goalMode]],
-    ['main.main-surface [class~="sticky"][class~="bottom-0"]', [sticky]],
+    [':is(main.main-surface, main[data-app-shell-main-surface]) [class~="sticky"][class~="bottom-0"]', [sticky]],
     ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [
       environment,
       radixEnvironment,
@@ -674,7 +674,7 @@ function makeOverlayFixture() {
   const document = {
     body,
     querySelector(selector) {
-      if (selector === "main.main-surface") return shell;
+      if (selector === ":is(main.main-surface, main[data-app-shell-main-surface])") return shell;
       return (documentQueries.get(selector) || [])[0] || null;
     },
     querySelectorAll(selector) {

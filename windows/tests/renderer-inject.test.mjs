@@ -689,7 +689,9 @@ function createFixture({
     },
     getElementById(id) { return nodes.get(id) ?? null; },
     querySelector(selector) {
-      if (selector === "main.main-surface") return hasMain ? shellMain : null;
+      if (selector === ":is(main.main-surface, main[data-app-shell-main-surface])") {
+        return hasMain ? shellMain : null;
+      }
       if (selector === "main") return hasMain ? shellMain : null;
       if (selector === "aside.app-shell-left-panel") return hasSidebar ? shellSidebar : null;
       if (selector === '[data-testid="app-shell-floating-left-panel"]') {

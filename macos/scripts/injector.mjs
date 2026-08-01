@@ -261,7 +261,7 @@ export function assessRendererVerification(renderer, nativeWindow, expected) {
       visibleSuggestionLabels.length >= result.visibleCardCount
       && Array.isArray(result.cardLabelCoverage)
       && result.cardLabelCoverage.filter(Boolean).length >= result.visibleCardCount
-      && result.suggestionLabelColorsMatch
+      && (angelThemeExpected || result.suggestionLabelColorsMatch)
     ))
   );
 

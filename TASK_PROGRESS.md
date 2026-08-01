@@ -1,5 +1,68 @@
 # Task Progress
 
+Updated: 2026-08-02 CST (Asia/Shanghai)
+
+## macOS DMG build from MacOS-Fix
+
+- [scope] Build a local macOS DMG containing the current uncommitted ChatGPT
+  26.727 selector and injection-verification fix. Do not commit, push, tag,
+  publish, or replace a GitHub Release.
+- [complete] Ran the repository's `macos/scripts/build-dmg.sh` flow, including
+  the full macOS test suite, universal app build, ad-hoc signing, read-only DMG
+  mount, packaged-runtime checks and SHA-256 generation.
+- [target] `macos/release/CodexDreamSkin-v1.5.9.dmg` and its adjacent
+  `.dmg.sha256` checksum file.
+- [verified] The 8.4 MiB DMG passed the build script's mounted-app validation
+  and a separate `hdiutil verify`. Its independently recomputed SHA-256 matches
+  the sidecar: `926d11498a5ce450c7879cd4eb68a1fdc3af60df9378beee6572546fd8bb7608`.
+- [not published] The artifact remains local. No commit, push, PR, tag, GitHub
+  Release, or replacement of an existing public asset was performed.
+
+Updated: 2026-08-01 CST (Asia/Shanghai)
+
+## macOS ChatGPT 26.727 apply verification failure
+
+- [scope] macOS only. Preserve Windows/Linux behavior and shared runtime files
+  unless a shared-source sync check proves a generated macOS asset requires it.
+- [diagnosed] The installed 1.5.9 payload and exact Internet Angel theme revision
+  reach the visible ChatGPT renderer, the active PNG exists, and the themed home,
+  sidebar, composer and four-card deck are present. Apply still fails because the
+  outer startup verifier rejects the current ChatGPT 26.727 home DOM after
+  `main.main-surface` and `header.app-header-tint` disappeared; live evidence has
+  `scope.level=L0`, a visible home hero and sidebar, but `shell=null`.
+- [diagnosed] The apparent purple full-area mask was the flat themed surface left
+  after all artwork rules missed the renamed main shell; the operation host itself
+  is transparent outside its small status card. The image payload was valid and
+  already present as a renderer Blob URL, but no current main element matched the
+  CSS gate that paints it.
+- [complete] Extended the canonical selector contract with the stable ChatGPT
+  26.727 `data-app-shell-main-surface` and
+  `data-app-shell-application-menu-bar` attributes while retaining the legacy
+  classes. Synced the generated macOS CSS/renderer/selector assets and the shared
+  Internet Angel extension copies used by the platform packages.
+- [complete] Kept exact payload, revision, window, viewport, structure, overflow
+  and Angel surface checks, but allowed Internet Angel's intentional cyan/green/
+  yellow/pink card labels. Ordinary themes still require their existing label
+  color match.
+- [verified] Focused macOS and generated-asset regressions pass; affected Windows
+  Node compatibility tests also pass. `CODEX_DREAM_SKIN_SKIP_DOCTOR=1
+  macos/tests/run-tests.sh` passes in full, including shell syntax, runtime sync,
+  payload and preset checks, Safe CSS/ZIP/import tests, Swift build and XCTest
+  10/10. `git diff --check` passes.
+- [verified live] The fixed injector applied to the real ChatGPT 26.727.51351
+  renderer on loopback port 9341. Exact installed-engine verification reports
+  `pass=true`, `scope.level=L1`, no missing L1 selectors, matching theme revision,
+  visible composer/sidebar/environment, and no horizontal overflow. The captured
+  installed screenshot is `/tmp/dreamskin-installed-after-fix.png`; the artwork is
+  visible and the loading mask is absent.
+- [installed locally] Rebuilt and ad-hoc signed the universal menu-bar App, then
+  atomically replaced `/Applications/Codex Dream Skin.app` and the installed
+  engine without closing or restarting ChatGPT. The watcher is active and the
+  previous App/engine remain recoverable at
+  `/tmp/codex-dream-skin-before-fix.clZViv`.
+- [not published] Changes remain uncommitted on local branch `MacOS-Fix`; no push,
+  PR, merge, tag, Release, DMG publication, or user-downloadable update occurred.
+
 Updated: 2026-07-31 CST (Asia/Shanghai)
 
 ## Final payload CSS pre-PR blocker
