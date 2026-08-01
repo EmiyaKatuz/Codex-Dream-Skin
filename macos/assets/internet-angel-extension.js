@@ -3,8 +3,9 @@
   const registryKey = "__CODEX_INTERNET_ANGEL_EXTENSION_STATE__";
   const componentAttribute = "data-angel-component";
   const selectors = {
+    shell: ':is(main.main-surface, main[data-app-shell-main-surface])',
     composer: ".composer-surface-chrome",
-    stickyComposer: 'main.main-surface [class~="sticky"][class~="bottom-0"]',
+    stickyComposer: ':is(main.main-surface, main[data-app-shell-main-surface]) [class~="sticky"][class~="bottom-0"]',
     contextStrip: 'div[class~="relative"][class~="min-w-0"][class~="overflow-clip"][class~="border-x"][class~="border-t"]',
     environmentPanel: 'div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]',
     environmentToggle: 'button[class~="group/section-toggle"]',
@@ -388,7 +389,7 @@
       mark(summary, "summary-panel");
     }
 
-    for (const aside of document.querySelectorAll("main.main-surface aside")) {
+    for (const aside of document.querySelectorAll(`${selectors.shell} aside`)) {
       if (!aside.querySelector?.(".thread-scroll-container") || !aside.querySelector?.(".composer-surface-chrome")) continue;
       mark(aside.querySelector?.(':scope > [class*="contain:layout_paint"]')
         || aside.querySelector?.('[class*="contain:layout_paint"]')
@@ -571,7 +572,7 @@
 
   function installObservers() {
     observeTarget(document.body);
-    observeTarget(document.querySelector("main.main-surface"));
+    observeTarget(document.querySelector(selectors.shell));
     for (const sticky of document.querySelectorAll(selectors.stickyComposer)) observeTarget(sticky);
   }
 

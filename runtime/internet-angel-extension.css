@@ -123,7 +123,7 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-co
 
 /* Composer and the controls mounted inside its native hit-area geometry. */
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer"],
-html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main.main-surface [role="main"])) main.main-surface .composer-surface-chrome[data-angel-component="composer"] {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(:is(main.main-surface, main[data-app-shell-main-surface]) [role="main"])) :is(main.main-surface, main[data-app-shell-main-surface]) .composer-surface-chrome[data-angel-component="composer"] {
   position: relative !important;
   overflow: visible !important;
   color: var(--angel-paper) !important;
@@ -153,7 +153,7 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-co
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer"]:focus-within,
-html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main.main-surface [role="main"])) main.main-surface .composer-surface-chrome[data-angel-component="composer"]:focus-within {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(:is(main.main-surface, main[data-app-shell-main-surface]) [role="main"])) :is(main.main-surface, main[data-app-shell-main-surface]) .composer-surface-chrome[data-angel-component="composer"]:focus-within {
   border-color: var(--angel-cyan) !important;
   outline-color: var(--angel-cyan) !important;
   box-shadow:
