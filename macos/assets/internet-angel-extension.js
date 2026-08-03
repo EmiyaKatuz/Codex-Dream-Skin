@@ -18,7 +18,7 @@
     paletteItem: 'button[class~="w-full"][class~="shrink-0"][class~="rounded-lg"][class~="text-left"]',
     turnRow: 'button[class*="navigation-row"]',
     settingsNav: 'nav:has([data-settings-panel-slug])',
-    settingsContent: 'div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])',
+    settingsContent: '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]',
   };
   const previous = window[registryKey];
   previous?.cleanup?.();
@@ -143,7 +143,9 @@
     const nav = document.querySelector(selectors.settingsNav);
     if (!nav) return;
     const sidebar = nav.closest?.(selectors.sidebar) || nav.parentElement;
-    const content = document.querySelector(selectors.settingsContent);
+    const content = sidebar?.parentElement
+      ?.querySelector?.(selectors.settingsContent)
+      ?.parentElement;
     mark(sidebar, "settings-sidebar");
     mark(nav, "settings-nav");
     const search = nav.querySelector?.('[role="searchbox"]');
