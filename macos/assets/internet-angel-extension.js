@@ -406,7 +406,8 @@
     for (const summary of document.querySelectorAll(
       '[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])',
     )) {
-      if (summary.matches?.(selectors.environmentPanel)) continue;
+      if (activeMarks?.has(summary)
+        && summary.getAttribute?.(componentAttribute) === "environment") continue;
       mark(summary, "summary-panel");
     }
 
@@ -542,7 +543,8 @@
   };
 
   const classify = () => {
-    const startedAt = typeof performance?.now === "function" ? performance.now() : Date.now();
+    const startedAt = typeof globalThis.performance?.now === "function"
+      ? globalThis.performance.now() : Date.now();
     const currentMarks = new Set();
     activeMarks = currentMarks;
     try {
@@ -568,7 +570,8 @@
         node.removeAttribute(componentAttribute);
         metrics.attributeRemovals += 1;
       }
-      const finishedAt = typeof performance?.now === "function" ? performance.now() : Date.now();
+      const finishedAt = typeof globalThis.performance?.now === "function"
+        ? globalThis.performance.now() : Date.now();
       metrics.classifyRuns += 1;
       metrics.lastClassifyMs = Math.max(0, finishedAt - startedAt);
       metrics.totalClassifyMs += metrics.lastClassifyMs;

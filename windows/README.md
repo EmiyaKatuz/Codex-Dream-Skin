@@ -72,6 +72,46 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\verify-d
   -ScreenshotPath "$env:TEMP\codex-dream-skin.png"
 ```
 
+## 可选：Acrylic 窗口材质
+
+Windows 11 22621 或更高版本可以选择原生 Desktop Acrylic，替代默认的系统/Mica
+材质；系统的“透明效果”必须已开启。该设置默认不启用，并在下一次 Dream Skin
+启动时生效：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\manage-window-effects.ps1 -Set Acrylic
+```
+
+使用 `-Status` 查看当前设置，或用 `-Set System` 恢复系统材质。启动器会把材质
+监控器严格绑定到 Codex 的 PID、创建时间、Store 包、窗口类和 HWND；启动失败时
+恢复原材质，不会修改其他窗口。
+
+## 可选：接管官方快捷方式启动
+
+安装器默认不会开启自动接管。若希望从 Store 或开始菜单正常打开 Codex 后自动
+切换为 Dream Skin 会话，可以显式启用当前用户的安全监控器：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\manage-auto-launch-dream-skin.ps1 -Enable -ProtectCurrentSession
+```
+
+`-ProtectCurrentSession` 只在启用时保护已经打开的 Codex，会话结束后才允许接管
+未来的新启动；该参数不会写入登录启动项。之后，普通 Codex 会话会先保留三秒
+宽限期，再最多一次交给经过身份校验的 Dream Skin 启动器。调试/CDP、暂停、无法
+安全检查以及已经受管的会话都不会被重启。
+接管会关闭这个经过精确校验的原版会话；经过 15 秒正常关闭窗口后，仍未退出的
+同一组身份校验进程可能会被强制停止。依赖自动接管前，请先发送或保存正在输入的
+内容。
+快速用户切换或 RDP 场景下，同一 Windows 用户全局只允许一个监控器 owner。最先
+取得所有权的会话只监控自己的 Windows 会话；其他会话会安全跳过接管，直到 owner
+监控器退出或被禁用。受管 `state.json` 同样是每个用户唯一的实时会话槽，同一时间
+只能由一个 Windows 会话持有；在 owner 会话退出或完成恢复前，另一会话中的手动与
+自动启动都会安全失败，不会停止或覆盖 owner 的实时注入器/Acrylic 监控器。
+
+使用 `-Status` 查看监控状态，使用 `-Disable` 停止监控并删除受管的 Startup
+快捷方式。官方快捷方式在三秒宽限期内可能短暂显示原版窗口；专用的
+`Codex Dream Skin` 快捷方式不经过这段三秒宽限，通常能尽量减少原版画面闪现。
+
 验证脚本会自动确认：
 
 - CDP 端点只绑定本机回环地址，并且属于当前官方 Codex 包。

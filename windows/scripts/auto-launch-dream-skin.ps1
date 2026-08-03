@@ -362,9 +362,16 @@ if ($SelfTest) {
 
 $script:DreamSkinAutoLaunchInstallCache = $null
 $script:DreamSkinAutoLaunchInstallCacheAt = [DateTime]::MinValue
+$watcherProcess = Get-Process -Id $PID -ErrorAction Stop
+try { $script:DreamSkinAutoLaunchSessionId = [int]$watcherProcess.SessionId } finally {
+  $watcherProcess.Dispose()
+}
 
 function Get-DreamSkinAutoLaunchObservation {
-  param([Parameter(Mandatory = $true)][int]$DebugPort)
+  param(
+    [Parameter(Mandatory = $true)][int]$DebugPort,
+    [switch]$CaptureTargetProcesses
+  )
 
   $cacheAge = ([DateTime]::UtcNow - $script:DreamSkinAutoLaunchInstallCacheAt).TotalSeconds
   if ($null -eq $script:DreamSkinAutoLaunchInstallCache -or $cacheAge -ge 30) {
@@ -385,29 +392,38 @@ function Get-DreamSkinAutoLaunchObservation {
   }
   $installs = @($script:DreamSkinAutoLaunchInstallCache)
 
-  # Query once with terminating errors. Get-DreamSkinCodexProcesses deliberately
-  # suppresses CIM failures for interactive cleanup, but a watcher must fail
-  # closed: an unavailable inventory is never a trusted zero-process boundary.
-  $chatGptProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'ChatGPT.exe'" -ErrorAction Stop)
-  $registeredProcesses = @()
-  foreach ($process in $chatGptProcesses) {
-    $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $process
-    if (-not $processPath) {
-      throw "A ChatGPT.exe process path could not be inspected safely: PID $($process.ProcessId)"
-    }
-    $matched = $false
-    foreach ($install in $installs) {
-      if (Test-DreamSkinPathEqual -Left $processPath -Right $install.Executable) {
-        $matched = $true
-        break
+  $targetProcesses = @()
+  if ($CaptureTargetProcesses) {
+    # The one final confirmation pins every target to its PID, creation time,
+    # executable and validated Store package. Keep this stronger second read
+    # off the regular grace scans so the background watcher stays lightweight.
+    $snapshot = Get-DreamSkinRegisteredCodexProcessSnapshot -RegisteredInstalls $installs
+    $registeredProcesses = @($snapshot.Processes)
+    $targetProcesses = @($snapshot.TargetProcesses)
+  } else {
+    # Regular observations use one terminating CIM inventory. An unavailable
+    # path or a package update is still fail-closed, but no per-process identity
+    # requery is paid on every grace-period scan.
+    $chatGptProcesses = @(
+      Get-CimInstance Win32_Process -Filter "Name = 'ChatGPT.exe'" -ErrorAction Stop
+    )
+    $registeredProcesses = @()
+    foreach ($process in $chatGptProcesses) {
+      if ([int]$process.SessionId -ne $script:DreamSkinAutoLaunchSessionId) { continue }
+      $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $process
+      if (-not $processPath) {
+        throw "A ChatGPT.exe process path could not be inspected safely: PID $($process.ProcessId)"
       }
-    }
-    if ($matched) {
-      $registeredProcesses += $process
-    } elseif ($processPath -match '(?i)\\WindowsApps\\OpenAI\.Codex_') {
-      # A Store update can replace the registered path between cache refreshes.
-      # Never misread that transition as a trusted zero-process boundary.
-      throw "A Codex package process is newer than the validated install cache: PID $($process.ProcessId)"
+      $matches = @($installs | Where-Object {
+        Test-DreamSkinPathEqual -Left $processPath -Right "$($_.Executable)"
+      })
+      if ($matches.Count -eq 1) {
+        $registeredProcesses += $process
+      } elseif ($matches.Count -gt 1) {
+        throw "A Codex process matches more than one validated install: PID $($process.ProcessId)"
+      } elseif ($processPath -match '(?i)\\WindowsApps\\OpenAI\.Codex_') {
+        throw "A Codex package process is newer than the validated install cache: PID $($process.ProcessId)"
+      }
     }
   }
 
@@ -426,6 +442,7 @@ function Get-DreamSkinAutoLaunchObservation {
     ProcessCount = $registeredProcesses.Count
     HasVerifiedCdp = $hasVerifiedCdp
     HasDebugIntent = [bool]$hasDebugIntent
+    TargetProcesses = $targetProcesses
     Detail = if ($hasDebugIntent) {
       'debug-intent'
     } elseif ($registeredProcesses.Count -gt 0) {
@@ -441,6 +458,7 @@ function Get-DreamSkinAutoLaunchLightObservation {
   $processes = @(Get-Process -Name ChatGPT -ErrorAction SilentlyContinue)
   $matchedCount = 0
   foreach ($process in $processes) {
+    if ([int]$process.SessionId -ne $script:DreamSkinAutoLaunchSessionId) { continue }
     try { $processPath = $process.Path } catch { return $null }
     if (-not $processPath) { return $null }
     $matched = $false
@@ -497,7 +515,8 @@ function Write-DreamSkinAutoLaunchState {
     [AllowNull()][string]$LastObservation,
     [AllowNull()][string]$StoppedAt,
     [AllowNull()][string]$AttemptToken,
-    [AllowNull()][string]$SessionToken
+    [AllowNull()][string]$SessionToken,
+    [AllowNull()][object[]]$TargetProcesses
   )
 
   Assert-DreamSkinAutoLaunchPlainFile -Path $Path
@@ -526,6 +545,14 @@ function Write-DreamSkinAutoLaunchState {
     updatedAt = [DateTime]::UtcNow.ToString('o')
   }
   if ($StoppedAt) { $state['stoppedAt'] = $StoppedAt }
+  if ($Phase -ceq 'restart-reserved') {
+    $state['targetProcesses'] = @(
+      ConvertTo-DreamSkinAutoRestartTargetProcesses `
+        -TargetProcesses @($TargetProcesses)
+    )
+  } elseif (@($TargetProcesses).Count -gt 0) {
+    throw 'Automatic restart targets may only be persisted in restart-reserved state.'
+  }
   Write-DreamSkinUtf8FileAtomically -Path $Path -Content (($state | ConvertTo-Json -Depth 5) + "`r`n")
 }
 
@@ -538,7 +565,12 @@ $StartScript = Join-Path $PSScriptRoot 'start-dream-skin.ps1'
 $ScriptPath = [IO.Path]::GetFullPath($PSCommandPath)
 $StartedAt = (Get-Process -Id $PID -ErrorAction Stop).StartTime.ToUniversalTime().ToString('o')
 $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-$mutex = [System.Threading.Mutex]::new($false, "Local\CodexDreamSkin.$sid.AutoLaunch")
+# State, stop signals and the Startup entry are per-user rather than per
+# terminal session. Match that ownership with one cross-session mutex so two
+# Fast User Switching/RDP logons for the same SID cannot overwrite each
+# other's reservation. The first owner watches only its pinned SessionId;
+# another session exits fail-closed until that owner stops.
+$mutex = [System.Threading.Mutex]::new($false, "Global\CodexDreamSkin.$sid.AutoLaunch")
 $acquired = $false
 $machine = New-DreamSkinAutoLaunchMachine -ProtectRequested ([bool]$ProtectCurrentSession)
 $lastPublishedPhase = $null
@@ -698,8 +730,10 @@ try {
       # consumes this session's sole attempt without touching Codex.
       $confirmed = $false
       try {
-        $confirmation = Get-DreamSkinAutoLaunchObservation -DebugPort $Port
+        $confirmation = Get-DreamSkinAutoLaunchObservation -DebugPort $Port `
+          -CaptureTargetProcesses
         $confirmed = $confirmation.ProcessCount -gt 0 -and
+          @($confirmation.TargetProcesses).Count -eq $confirmation.ProcessCount -and
           -not $confirmation.HasVerifiedCdp -and -not $confirmation.HasDebugIntent
         $lastObservationDetail = $confirmation.Detail
       } catch {
@@ -727,7 +761,7 @@ try {
         Write-DreamSkinAutoLaunchState -Path $StatePath -Machine $machine -Phase 'restart-reserved' `
           -StartedAt $StartedAt -ScriptPath $ScriptPath -LastError $null `
           -LastObservation $lastObservationDetail -AttemptToken $attemptToken `
-          -SessionToken $sessionToken
+          -SessionToken $sessionToken -TargetProcesses @($confirmation.TargetProcesses)
         $powershell = (Get-Command powershell.exe -ErrorAction Stop).Source
         $previousNativePreference = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'

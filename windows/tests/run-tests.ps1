@@ -1207,9 +1207,12 @@ args = [
     '.dream-summary-panel',
     '.xterm-selection-layer',
     ':has(.dream-home-utility) .composer-surface-chrome',
-    ':is(.dream-task-ambient, .dream-task-banner):has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell))'
+    'html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)[data-dream-route]:not([data-dream-route="home"]) body'
   )) {
     if (-not $css.Contains($requiredCss)) { throw "Windows immersive CSS is missing: $requiredCss" }
+  }
+  if ($css.Contains(':is(.dream-task-ambient, .dream-task-banner):has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell))')) {
+    throw 'Windows immersive CSS reintroduced the live structural :has() route selector.'
   }
   if (-not $css.Contains('.dream-home') -or -not $css.Contains('.dream-task') -or
     -not $css.Contains('#codex-dream-skin-chrome')) {

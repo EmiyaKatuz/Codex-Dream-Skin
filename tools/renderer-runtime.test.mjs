@@ -304,8 +304,8 @@ export async function runRendererRuntimeTest(assetRoot) {
   // Home gating must stay single-level: CSS forbids :has() inside :has(),
   // and Chromium drops any rule that nests it (the v1.3.1 regression).  The
   // canonical CSS therefore gates on the :has()-free home-route-css alias.
-  assert.match(css, /:is\(main\.main-surface, main\[data-app-shell-main-surface\]\):has\(\[role="main"\]\)/);
-  assert.match(css, /:is\(main\.main-surface, main\[data-app-shell-main-surface\]\):not\(:has\(\[role="main"\]\)\)/);
+  assert.ok(css.includes(`${shellSelector}:has([role="main"])`));
+  assert.ok(css.includes(`${shellSelector}:not(:has([role="main"]))`));
   assert.doesNotMatch(css, /:has\([^()]*:has\(/);
   assert.match(css, /content:\s*var\(--dream-skin-name[\s\S]{0,180}var\(--dream-skin-brand-subtitle/);
   assert.match(css, /content:\s*var\(--dream-skin-status/);

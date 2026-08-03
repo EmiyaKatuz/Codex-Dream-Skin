@@ -208,24 +208,72 @@ if ($Disable) {
     if (-not $current.Running) { break }
     Start-Sleep -Milliseconds 250
   } while ([DateTime]::UtcNow -lt $deadline)
-  Get-DreamSkinAutoLaunchStatus | ConvertTo-Json -Depth 4
+  $current = Get-DreamSkinAutoLaunchStatus
+  if ($current.Running) {
+    throw 'Automatic Dream Skin launch was disabled, but its exact watcher did not stop within ten seconds.'
+  }
+  $current | ConvertTo-Json -Depth 4
   return
 }
 
-Remove-Item -LiteralPath $StopMarker -Force -ErrorAction SilentlyContinue
-Write-DreamSkinManagedAutoLaunchShortcut
-$arguments = '-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File ' +
-  (ConvertTo-DreamSkinProcessArgument -Value $AutoLaunchScript)
-if ($ProtectCurrentSession) { $arguments += ' -ProtectCurrentSession' }
-Start-Process -FilePath $PowerShellPath -ArgumentList $arguments -WindowStyle Hidden | Out-Null
-
-$deadline = [DateTime]::UtcNow.AddSeconds(10)
-do {
+$shortcutWasManaged = Test-DreamSkinManagedAutoLaunchShortcut
+$stopMarkerWasPresent = Test-Path -LiteralPath $StopMarker -PathType Leaf
+$watcherLaunchAttempted = $false
+try {
+  Remove-Item -LiteralPath $StopMarker -Force -ErrorAction SilentlyContinue
+  Write-DreamSkinManagedAutoLaunchShortcut
   $current = Get-DreamSkinAutoLaunchStatus
-  if ($current.Running) { break }
-  Start-Sleep -Milliseconds 250
-} while ([DateTime]::UtcNow -lt $deadline)
-if (-not $current.Running) {
-  throw 'Automatic Dream Skin launch was enabled, but its monitor did not become active.'
+  if ($current.Running -and $ProtectCurrentSession -and
+    -not $current.ProtectingCurrentSession) {
+    throw '-ProtectCurrentSession cannot arm an already-running watcher. Disable it, then enable it again with protection.'
+  }
+  if (-not $current.Running) {
+    $arguments = '-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File ' +
+      (ConvertTo-DreamSkinProcessArgument -Value $AutoLaunchScript)
+    if ($ProtectCurrentSession) { $arguments += ' -ProtectCurrentSession' }
+    $watcherLaunchAttempted = $true
+    Start-Process -FilePath $PowerShellPath -ArgumentList $arguments -WindowStyle Hidden | Out-Null
+
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    do {
+      $current = Get-DreamSkinAutoLaunchStatus
+      if ($current.Running) { break }
+      Start-Sleep -Milliseconds 250
+    } while ([DateTime]::UtcNow -lt $deadline)
+  }
+  if (-not $current.Running) {
+    throw 'Automatic Dream Skin launch was enabled, but its monitor did not become active.'
+  }
+  $current | ConvertTo-Json -Depth 4
+} catch {
+  $enableError = $_
+  $rollbackError = $null
+  try {
+    if ($watcherLaunchAttempted -or $stopMarkerWasPresent) {
+      Write-DreamSkinUtf8FileAtomically -Path $StopMarker `
+        -Content ("rollbackAt=" + [DateTime]::UtcNow.ToString('o') + "`r`n")
+    }
+    if (-not $shortcutWasManaged -and
+      (Test-Path -LiteralPath $StartupShortcut -PathType Leaf) -and
+      (Test-DreamSkinManagedAutoLaunchShortcut)) {
+      Remove-Item -LiteralPath $StartupShortcut -Force -ErrorAction Stop
+    }
+    if ($watcherLaunchAttempted) {
+      $rollbackDeadline = [DateTime]::UtcNow.AddSeconds(10)
+      do {
+        $rollbackStatus = Get-DreamSkinAutoLaunchStatus
+        if (-not $rollbackStatus.Running) { break }
+        Start-Sleep -Milliseconds 250
+      } while ([DateTime]::UtcNow -lt $rollbackDeadline)
+      if ($rollbackStatus.Running) {
+        throw 'The failed enable transaction could not stop its exact watcher.'
+      }
+    }
+  } catch {
+    $rollbackError = $_.Exception.Message
+  }
+  if ($rollbackError) {
+    throw "Automatic Dream Skin launch enable failed: $($enableError.Exception.Message) Rollback also failed: $rollbackError"
+  }
+  throw $enableError
 }
-$current | ConvertTo-Json -Depth 4

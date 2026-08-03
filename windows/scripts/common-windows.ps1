@@ -6,7 +6,7 @@ function Enter-DreamSkinOperationLock {
     [int]$TimeoutMilliseconds = 0
   )
   $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-  $mutex = [System.Threading.Mutex]::new($false, "Local\CodexDreamSkin.$sid.Operation")
+  $mutex = [System.Threading.Mutex]::new($false, "Global\CodexDreamSkin.$sid.Operation")
   $acquired = $false
   try {
     $acquired = $mutex.WaitOne($TimeoutMilliseconds)
@@ -520,6 +520,244 @@ function Get-DreamSkinCodexAnyDebugIntentStatus {
   return 'none'
 }
 
+function ConvertTo-DreamSkinAutoRestartTargetProcesses {
+  param(
+    [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$TargetProcesses,
+    [switch]$AllowEmpty
+  )
+
+  $items = @($TargetProcesses)
+  if ($items.Count -eq 0 -and -not $AllowEmpty) {
+    throw 'The automatic restart reservation has no target processes.'
+  }
+  if ($items.Count -gt 256) {
+    throw 'The automatic restart reservation has too many target processes.'
+  }
+
+  $seenProcessIds = @{}
+  $validated = @()
+  $expectedFields = @(
+    'processId', 'sessionId', 'startTimeFileTimeUtc', 'executablePath',
+    'packageFullName', 'packageFamilyName'
+  )
+  foreach ($item in $items) {
+    if ($null -eq $item -or $item -is [string] -or $item -is [array]) {
+      throw 'An automatic restart target process is not an object.'
+    }
+    $fieldNames = @($item.PSObject.Properties.Name)
+    if (@($fieldNames | Where-Object { $_ -notin $expectedFields }).Count -gt 0 -or
+      @($expectedFields | Where-Object { $_ -notin $fieldNames }).Count -gt 0) {
+      throw 'An automatic restart target process contains missing or unsupported fields.'
+    }
+
+    $processId = 0
+    $sessionId = -1
+    $startTime = 0L
+    if (-not [int]::TryParse("$($item.processId)", [ref]$processId) -or $processId -le 0 -or
+      -not [int]::TryParse("$($item.sessionId)", [ref]$sessionId) -or $sessionId -lt 0 -or
+      -not [long]::TryParse("$($item.startTimeFileTimeUtc)", [ref]$startTime) -or
+      $startTime -le 0) {
+      throw 'An automatic restart target process has an invalid PID, session, or creation time.'
+    }
+    if ($seenProcessIds.ContainsKey($processId)) {
+      throw "The automatic restart reservation repeats PID $processId."
+    }
+    $seenProcessIds[$processId] = $true
+
+    $rawExecutable = "$($item.executablePath)"
+    if (-not $rawExecutable -or -not [System.IO.Path]::IsPathRooted($rawExecutable)) {
+      throw 'An automatic restart target executable path is not absolute.'
+    }
+    try { $executable = [System.IO.Path]::GetFullPath($rawExecutable) } catch {
+      throw 'An automatic restart target executable path is invalid.'
+    }
+    if ([System.IO.Path]::GetFileName($executable) -ine 'ChatGPT.exe') {
+      throw 'An automatic restart target executable is not ChatGPT.exe.'
+    }
+
+    $packageFullName = "$($item.packageFullName)"
+    $packageFamilyName = "$($item.packageFamilyName)"
+    if ($packageFullName -cnotmatch '^[A-Za-z0-9._-]{1,256}$' -or
+      $packageFamilyName -cnotmatch '^[A-Za-z0-9._-]{1,128}$') {
+      throw 'An automatic restart target package identity is invalid.'
+    }
+
+    $validated += [pscustomobject][ordered]@{
+      processId = $processId
+      sessionId = $sessionId
+      startTimeFileTimeUtc = $startTime
+      executablePath = $executable
+      packageFullName = $packageFullName
+      packageFamilyName = $packageFamilyName
+    }
+  }
+  return @($validated | Sort-Object processId)
+}
+
+function Test-DreamSkinAutoRestartTargetProcessesEqual {
+  param(
+    [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Reserved,
+    [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Current
+  )
+
+  $expected = @(ConvertTo-DreamSkinAutoRestartTargetProcesses -TargetProcesses $Reserved)
+  $actual = @(ConvertTo-DreamSkinAutoRestartTargetProcesses -TargetProcesses $Current -AllowEmpty)
+  if ($expected.Count -ne $actual.Count) { return $false }
+  for ($index = 0; $index -lt $expected.Count; $index++) {
+    if ([int]$expected[$index].processId -ne [int]$actual[$index].processId -or
+      [int]$expected[$index].sessionId -ne [int]$actual[$index].sessionId -or
+      [long]$expected[$index].startTimeFileTimeUtc -ne
+        [long]$actual[$index].startTimeFileTimeUtc -or
+      -not (Test-DreamSkinPathEqual -Left "$($expected[$index].executablePath)" `
+        -Right "$($actual[$index].executablePath)") -or
+      "$($expected[$index].packageFullName)" -ine "$($actual[$index].packageFullName)" -or
+      "$($expected[$index].packageFamilyName)" -ine "$($actual[$index].packageFamilyName)") {
+      return $false
+    }
+  }
+  return $true
+}
+
+function Test-DreamSkinAutoRestartTargetProcessesSubset {
+  param(
+    [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Reserved,
+    [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Current
+  )
+
+  $expected = @(ConvertTo-DreamSkinAutoRestartTargetProcesses -TargetProcesses $Reserved)
+  $actual = @(ConvertTo-DreamSkinAutoRestartTargetProcesses -TargetProcesses $Current -AllowEmpty)
+  if ($actual.Count -gt $expected.Count) { return $false }
+  $expectedByProcessId = @{}
+  foreach ($target in $expected) { $expectedByProcessId[[int]$target.processId] = $target }
+  foreach ($target in $actual) {
+    $processId = [int]$target.processId
+    if (-not $expectedByProcessId.ContainsKey($processId)) { return $false }
+    $reservedTarget = $expectedByProcessId[$processId]
+    if ([int]$reservedTarget.sessionId -ne [int]$target.sessionId -or
+      [long]$reservedTarget.startTimeFileTimeUtc -ne [long]$target.startTimeFileTimeUtc -or
+      -not (Test-DreamSkinPathEqual -Left "$($reservedTarget.executablePath)" `
+        -Right "$($target.executablePath)") -or
+      "$($reservedTarget.packageFullName)" -ine "$($target.packageFullName)" -or
+      "$($reservedTarget.packageFamilyName)" -ine "$($target.packageFamilyName)") {
+      return $false
+    }
+  }
+  return $true
+}
+
+function Get-DreamSkinRegisteredCodexProcessSnapshot {
+  param(
+    [Parameter(Mandatory = $true)][object[]]$RegisteredInstalls,
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
+  )
+
+  $installs = @($RegisteredInstalls)
+  if ($installs.Count -eq 0) {
+    throw 'No validated Codex Store install is available for an automatic restart snapshot.'
+  }
+  if ($PSBoundParameters.ContainsKey('ExpectedSessionId')) {
+    $snapshotSessionId = $ExpectedSessionId
+  } else {
+    $currentProcess = Get-Process -Id $PID -ErrorAction Stop
+    try { $snapshotSessionId = [int]$currentProcess.SessionId } finally { $currentProcess.Dispose() }
+  }
+  $allProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'ChatGPT.exe'" -ErrorAction Stop)
+  $registeredProcesses = @()
+  $targets = @()
+  foreach ($process in $allProcesses) {
+    $processId = 0
+    $processSessionId = -1
+    if (-not [int]::TryParse("$($process.ProcessId)", [ref]$processId) -or $processId -le 0) {
+      throw 'A ChatGPT.exe process has an invalid PID.'
+    }
+    if (-not [int]::TryParse("$($process.SessionId)", [ref]$processSessionId) -or
+      $processSessionId -lt 0) {
+      throw "A ChatGPT.exe process has an invalid Windows session ID: PID $processId"
+    }
+    if ($processSessionId -ne $snapshotSessionId) { continue }
+    $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $process
+    if (-not $processPath) {
+      throw "A ChatGPT.exe process path could not be inspected safely: PID $processId"
+    }
+    $matches = @($installs | Where-Object {
+      Test-DreamSkinPathEqual -Left $processPath -Right "$($_.Executable)"
+    })
+    if ($matches.Count -eq 0) {
+      if ($processPath -match '(?i)\\WindowsApps\\OpenAI\.Codex_') {
+        throw "A Codex package process does not match a validated install: PID $processId"
+      }
+      continue
+    }
+    if ($matches.Count -ne 1) {
+      throw "A Codex process matches more than one validated install: PID $processId"
+    }
+    $install = $matches[0]
+
+    $processHandle = $null
+    try {
+      $processHandle = Get-Process -Id $processId -ErrorAction Stop
+      $startTime = $processHandle.StartTime.ToUniversalTime().ToFileTimeUtc()
+    } catch {
+      throw "A Codex process creation time could not be inspected safely: PID $processId"
+    } finally {
+      if ($null -ne $processHandle) { $processHandle.Dispose() }
+    }
+    $liveProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction Stop
+    if ($null -eq $liveProcess) {
+      throw "A Codex process exited while its automatic restart identity was captured: PID $processId"
+    }
+    $livePath = Get-DreamSkinProcessExecutablePath -ProcessInfo $liveProcess
+    if (-not $livePath -or
+      -not (Test-DreamSkinPathEqual -Left $livePath -Right "$($install.Executable)")) {
+      throw "A Codex process identity changed while it was captured: PID $processId"
+    }
+    $confirmHandle = $null
+    try {
+      $confirmHandle = Get-Process -Id $processId -ErrorAction Stop
+      $confirmedStartTime = $confirmHandle.StartTime.ToUniversalTime().ToFileTimeUtc()
+    } catch {
+      throw "A Codex process exited while its creation time was confirmed: PID $processId"
+    } finally {
+      if ($null -ne $confirmHandle) { $confirmHandle.Dispose() }
+    }
+    if ($confirmedStartTime -ne $startTime) {
+      throw "A Codex PID was reused while its automatic restart identity was captured: PID $processId"
+    }
+
+    $registeredProcesses += $liveProcess
+    $targets += [pscustomobject][ordered]@{
+      processId = $processId
+      sessionId = $processSessionId
+      startTimeFileTimeUtc = $startTime
+      executablePath = [System.IO.Path]::GetFullPath("$($install.Executable)")
+      packageFullName = "$($install.PackageFullName)"
+      packageFamilyName = "$($install.PackageFamilyName)"
+    }
+  }
+  return [pscustomobject]@{
+    Processes = @($registeredProcesses | Sort-Object ProcessId)
+    TargetProcesses = @(
+      ConvertTo-DreamSkinAutoRestartTargetProcesses -TargetProcesses $targets -AllowEmpty
+    )
+  }
+}
+
+function Assert-DreamSkinAutoRestartControlClear {
+  param([Parameter(Mandatory = $true)][string]$StateRoot)
+
+  $fullStateRoot = [System.IO.Path]::GetFullPath($StateRoot)
+  $stopPath = Join-Path $fullStateRoot 'auto-launch.stop'
+  $pausePath = Join-Path $fullStateRoot 'paused'
+  Assert-DreamSkinNoReparseComponents -Path $stopPath
+  Assert-DreamSkinNoReparseComponents -Path $pausePath
+  if (Test-Path -LiteralPath $stopPath) {
+    throw 'Automatic Dream Skin launch was disabled before restart authorization.'
+  }
+  if (Test-Path -LiteralPath $pausePath) {
+    throw 'Dream Skin was paused before automatic restart authorization.'
+  }
+}
+
 function Assert-DreamSkinAutoRestartReservation {
   param(
     [Parameter(Mandatory = $true)][string]$StateRoot,
@@ -531,10 +769,7 @@ function Assert-DreamSkinAutoRestartReservation {
   }
   $fullStateRoot = [System.IO.Path]::GetFullPath($StateRoot)
   $statePath = Join-Path $fullStateRoot 'auto-launch-state.json'
-  $stopPath = Join-Path $fullStateRoot 'auto-launch.stop'
-  if (Test-Path -LiteralPath $stopPath) {
-    throw 'Automatic Dream Skin launch was disabled before restart authorization.'
-  }
+  Assert-DreamSkinAutoRestartControlClear -StateRoot $fullStateRoot
   if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
     throw 'The automatic restart reservation is missing.'
   }
@@ -548,7 +783,10 @@ function Assert-DreamSkinAutoRestartReservation {
   } catch {
     throw 'The automatic restart reservation is unreadable.'
   }
-  $required = @('schemaVersion', 'platform', 'pid', 'startedAt', 'scriptPath', 'phase', 'attemptToken')
+  $required = @(
+    'schemaVersion', 'platform', 'pid', 'startedAt', 'scriptPath', 'phase',
+    'attemptToken', 'targetProcesses'
+  )
   foreach ($field in $required) {
     if ($reservation.PSObject.Properties.Name -notcontains $field -or -not "$($reservation.$field)") {
       throw "The automatic restart reservation is missing: $field"
@@ -580,7 +818,56 @@ function Assert-DreamSkinAutoRestartReservation {
     -not (Test-DreamSkinCommandLineToken -CommandLine "$($processInfo.CommandLine)" -Token $expectedScript)) {
     throw 'The automatic restart monitor process identity is not trusted.'
   }
-  return $reservation
+  $targetProcesses = @(
+    ConvertTo-DreamSkinAutoRestartTargetProcesses `
+      -TargetProcesses @($reservation.targetProcesses)
+  )
+  $targetSessionIds = @($targetProcesses | ForEach-Object { [int]$_.sessionId } |
+    Sort-Object -Unique)
+  $monitorSessionId = [int]$monitor.SessionId
+  $processInfoSessionId = -1
+  $currentProcess = Get-Process -Id $PID -ErrorAction Stop
+  try { $currentSessionId = [int]$currentProcess.SessionId } finally { $currentProcess.Dispose() }
+  if (-not [int]::TryParse("$($processInfo.SessionId)", [ref]$processInfoSessionId) -or
+    $targetSessionIds.Count -ne 1 -or
+    [int]$targetSessionIds[0] -ne $monitorSessionId -or
+    $processInfoSessionId -ne $monitorSessionId -or
+    $currentSessionId -ne $monitorSessionId) {
+    throw 'The automatic restart reservation does not belong to this Windows session.'
+  }
+  return [pscustomobject]@{
+    State = $reservation
+    TargetProcesses = $targetProcesses
+    SessionId = $monitorSessionId
+  }
+}
+
+function Invoke-DreamSkinAutoRestartStockRecovery {
+  param(
+    [Parameter(Mandatory = $true)][string]$StateRoot,
+    [Parameter(Mandatory = $true)][object]$Codex,
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId,
+    [Parameter(Mandatory = $true)][string]$FailureMessage
+  )
+
+  try {
+    Assert-DreamSkinAutoRestartControlClear -StateRoot $StateRoot
+    $snapshot = Get-DreamSkinRegisteredCodexProcessSnapshot `
+      -RegisteredInstalls @(Get-DreamSkinRegisteredCodexInstalls) `
+      -ExpectedSessionId $ExpectedSessionId
+  } catch {
+    throw "$FailureMessage Automatic stock recovery was not attempted because the reserved session could not be verified as empty: $($_.Exception.Message)"
+  }
+  if (@($snapshot.TargetProcesses).Count -ne 0) {
+    throw "$FailureMessage Automatic stock recovery preserved the newly observed same-session Codex process set."
+  }
+  try {
+    $null = Start-DreamSkinCodex -Codex $Codex
+  } catch {
+    throw "$FailureMessage Automatic stock recovery could not reopen Codex: $($_.Exception.Message)"
+  }
+  throw "$FailureMessage Codex was reopened without Dream Skin; the automatic handoff remains failed."
 }
 
 function ConvertTo-DreamSkinProcessArgument {
@@ -887,12 +1174,17 @@ function Wait-DreamSkinCodexDebugArgumentStatus {
   param(
     [Parameter(Mandatory = $true)][object]$Codex,
     [Parameter(Mandatory = $true)][int]$Port,
-    [int]$TimeoutSeconds = 5
+    [int]$TimeoutSeconds = 5,
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
   )
+  $processArguments = @{ Codex = $Codex }
+  if ($PSBoundParameters.ContainsKey('ExpectedSessionId')) {
+    $processArguments.ExpectedSessionId = $ExpectedSessionId
+  }
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   $lastStatus = 'uninspectable'
   do {
-    $processes = @(Get-DreamSkinCodexProcesses -Codex $Codex)
+    $processes = @(Get-DreamSkinCodexProcesses @processArguments)
     $lastStatus = Get-DreamSkinCodexDebugArgumentStatus -Processes $processes -Port $Port
     if ($lastStatus -in @('forwarded', 'protocol-redirected')) { return $lastStatus }
     if ((Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }
@@ -1099,13 +1391,24 @@ function Test-DreamSkinPortAvailable {
 }
 
 function Test-DreamSkinCodexPortOwner {
-  param([int]$Port, [Parameter(Mandatory = $true)][object]$Codex)
+  param(
+    [int]$Port,
+    [Parameter(Mandatory = $true)][object]$Codex,
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
+  )
+  $enforceSession = $PSBoundParameters.ContainsKey('ExpectedSessionId')
   $listeners = Get-DreamSkinPortListeners -Port $Port
   if ($listeners.Count -eq 0) { return $false }
   foreach ($listener in $listeners) {
     if ($listener.LocalAddress -notin @('127.0.0.1', '::1')) { return $false }
     $process = Get-CimInstance Win32_Process -Filter "ProcessId = $([int]$listener.OwningProcess)" -ErrorAction SilentlyContinue
     $processPath = if ($process) { Get-DreamSkinProcessExecutablePath -ProcessInfo $process } else { $null }
+    $ownerSessionId = -1
+    if ($enforceSession -and
+      (-not [int]::TryParse("$($process.SessionId)", [ref]$ownerSessionId) -or
+        $ownerSessionId -ne $ExpectedSessionId)) {
+      return $false
+    }
     if (-not $processPath -or -not (Test-DreamSkinPathEqual -Left $processPath -Right $Codex.Executable)) {
       return $false
     }
@@ -1114,13 +1417,21 @@ function Test-DreamSkinCodexPortOwner {
 }
 
 function Get-DreamSkinVerifiedCdpIdentity {
-  param([int]$Port, [Parameter(Mandatory = $true)][object]$Codex)
-  if (-not (Test-DreamSkinCodexPortOwner -Port $Port -Codex $Codex)) { return $null }
+  param(
+    [int]$Port,
+    [Parameter(Mandatory = $true)][object]$Codex,
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
+  )
+  $ownerArguments = @{ Port = $Port; Codex = $Codex }
+  if ($PSBoundParameters.ContainsKey('ExpectedSessionId')) {
+    $ownerArguments.ExpectedSessionId = $ExpectedSessionId
+  }
+  if (-not (Test-DreamSkinCodexPortOwner @ownerArguments)) { return $null }
   $browser = Get-DreamSkinCdpBrowserIdentity -Port $Port
   if ($null -eq $browser) { return $null }
   $targets = Get-DreamSkinCdpTargets -Port $Port
   if ($targets.Count -eq 0) { return $null }
-  if (-not (Test-DreamSkinCodexPortOwner -Port $Port -Codex $Codex)) { return $null }
+  if (-not (Test-DreamSkinCodexPortOwner @ownerArguments)) { return $null }
   return [pscustomobject]@{
     BrowserId = $browser.BrowserId
     BrowserWebSocketDebuggerUrl = $browser.WebSocketDebuggerUrl
@@ -1130,8 +1441,16 @@ function Get-DreamSkinVerifiedCdpIdentity {
 }
 
 function Test-DreamSkinCodexCdpEndpoint {
-  param([int]$Port, [Parameter(Mandatory = $true)][object]$Codex)
-  return $null -ne (Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $Codex)
+  param(
+    [int]$Port,
+    [Parameter(Mandatory = $true)][object]$Codex,
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
+  )
+  $identityArguments = @{ Port = $Port; Codex = $Codex }
+  if ($PSBoundParameters.ContainsKey('ExpectedSessionId')) {
+    $identityArguments.ExpectedSessionId = $ExpectedSessionId
+  }
+  return $null -ne (Get-DreamSkinVerifiedCdpIdentity @identityArguments)
 }
 
 function Get-DreamSkinVerifiedCdpIdentityForAnyRegistered {
@@ -1140,9 +1459,16 @@ function Get-DreamSkinVerifiedCdpIdentityForAnyRegistered {
   # any registered OpenAI.Codex install keeps the strict owner validation
   # (every candidate passed the same package identity checks) without
   # restarting a healthy skinned Codex just because the Store updated.
-  param([int]$Port)
+  param(
+    [int]$Port,
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
+  )
+  $identityArguments = @{ Port = $Port }
+  if ($PSBoundParameters.ContainsKey('ExpectedSessionId')) {
+    $identityArguments.ExpectedSessionId = $ExpectedSessionId
+  }
   foreach ($install in @(Get-DreamSkinRegisteredCodexInstalls)) {
-    $identity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $install
+    $identity = Get-DreamSkinVerifiedCdpIdentity -Codex $install @identityArguments
     if ($null -ne $identity) {
       return [pscustomobject]@{
         Identity = $identity
@@ -1214,6 +1540,26 @@ function Read-DreamSkinState {
       -not (Test-DreamSkinBrowserId -Value "$($state.browserId)")) {
       throw 'State browser ID is invalid.'
     }
+    if ($properties -contains 'codexSessionId' -and $null -ne $state.codexSessionId) {
+      $stateSessionId = -1
+      if (-not [int]::TryParse("$($state.codexSessionId)", [ref]$stateSessionId) -or
+        $stateSessionId -lt 0) {
+        throw 'State Codex Windows session ID is invalid.'
+      }
+    }
+    if ($properties -contains 'codexPid' -or
+      $properties -contains 'codexStartTimeFileTimeUtc') {
+      $stateCodexPid = 0
+      $stateCodexStart = 0L
+      if ($properties -notcontains 'codexPid' -or
+        $properties -notcontains 'codexStartTimeFileTimeUtc' -or
+        -not [int]::TryParse("$($state.codexPid)", [ref]$stateCodexPid) -or
+        $stateCodexPid -le 0 -or
+        -not [long]::TryParse("$($state.codexStartTimeFileTimeUtc)",
+          [ref]$stateCodexStart) -or $stateCodexStart -le 0) {
+        throw 'State Codex process identity is invalid.'
+      }
+    }
     return $state
   } catch {
     throw "Dream Skin state is unreadable; it was preserved for inspection: $Path"
@@ -1224,6 +1570,253 @@ function Write-DreamSkinState {
   param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][object]$State)
   $json = $State | ConvertTo-Json -Depth 6
   Write-DreamSkinUtf8FileAtomically -Path $Path -Content ($json + "`r`n")
+}
+
+function Get-DreamSkinRecordedProcessSessionEvidence {
+  param(
+    [Parameter(Mandatory = $true)][int]$ProcessId,
+    [AllowNull()][string]$ExpectedStartedAt,
+    [long]$ExpectedStartTimeFileTimeUtc = 0,
+    [AllowNull()][string]$ExpectedExecutablePath,
+    [AllowEmptyCollection()][string[]]$RequiredCommandLineTokens = @(),
+    [Parameter(Mandatory = $true)][string]$Description
+  )
+
+  $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" `
+    -ErrorAction Stop
+  if ($null -eq $processInfo) { return $null }
+  if (-not $ExpectedStartedAt -and $ExpectedStartTimeFileTimeUtc -le 0) {
+    throw "The live recorded $Description has no creation-time identity; state was preserved."
+  }
+  $process = Get-Process -Id $ProcessId -ErrorAction Stop
+  try {
+    $actualStartedAt = $process.StartTime.ToUniversalTime().ToString('o')
+    $actualStartFileTime = $process.StartTime.ToUniversalTime().ToFileTimeUtc()
+  } finally {
+    $process.Dispose()
+  }
+  if (($ExpectedStartedAt -and $actualStartedAt -cne $ExpectedStartedAt) -or
+    ($ExpectedStartTimeFileTimeUtc -gt 0 -and
+      $actualStartFileTime -ne $ExpectedStartTimeFileTimeUtc)) {
+    return $null
+  }
+  $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $processInfo
+  if (-not $ExpectedExecutablePath -or -not $processPath -or
+    -not (Test-DreamSkinPathEqual -Left $processPath -Right $ExpectedExecutablePath)) {
+    throw "The live recorded $Description executable identity is not trusted; state was preserved."
+  }
+  if (@($RequiredCommandLineTokens).Count -gt 0) {
+    $commandLine = "$($processInfo.CommandLine)"
+    if (-not $commandLine) {
+      throw "The live recorded $Description command line is unreadable; state was preserved."
+    }
+    foreach ($token in @($RequiredCommandLineTokens)) {
+      if (-not $token -or
+        -not (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token $token)) {
+        throw "The live recorded $Description command identity is not trusted; state was preserved."
+      }
+    }
+  }
+  $sessionId = -1
+  if (-not [int]::TryParse("$($processInfo.SessionId)", [ref]$sessionId) -or
+    $sessionId -lt 0) {
+    throw "The live recorded $Description Windows session cannot be verified; state was preserved."
+  }
+  return [pscustomobject]@{
+    ProcessId = $ProcessId
+    SessionId = $sessionId
+    Description = $Description
+  }
+}
+
+function Get-DreamSkinRecordedLegacyCdpSessionEvidence {
+  param([Parameter(Mandatory = $true)][object]$State)
+
+  if (-not $State.port -or -not $State.browserId -or -not $State.codexExe) {
+    return $null
+  }
+  $port = 0
+  if (-not [int]::TryParse("$($State.port)", [ref]$port)) { return $null }
+  Assert-DreamSkinPort -Port $port
+  $codex = Get-DreamSkinCodexStatePathCandidate -State $State
+  if ($null -eq $codex) {
+    throw 'The recorded Codex executable cannot be validated for session ownership.'
+  }
+  $firstIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $port -Codex $codex
+  if ($null -eq $firstIdentity -or
+    "$($firstIdentity.BrowserId)" -cne "$($State.browserId)") {
+    return $null
+  }
+
+  $listeners = @(Get-DreamSkinPortListeners -Port $port)
+  if ($listeners.Count -eq 0) {
+    throw 'The recorded Codex CDP owner disappeared during session ownership verification.'
+  }
+  $sessionIds = @()
+  $processIds = @()
+  foreach ($listener in $listeners) {
+    if ($listener.LocalAddress -notin @('127.0.0.1', '::1')) {
+      throw 'The recorded Codex CDP owner is not loopback-only.'
+    }
+    $processId = [int]$listener.OwningProcess
+    $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" `
+      -ErrorAction Stop
+    $processPath = if ($processInfo) {
+      Get-DreamSkinProcessExecutablePath -ProcessInfo $processInfo
+    } else {
+      $null
+    }
+    $sessionId = -1
+    if (-not $processPath -or
+      -not (Test-DreamSkinPathEqual -Left $processPath -Right $codex.Executable) -or
+      -not [int]::TryParse("$($processInfo.SessionId)", [ref]$sessionId) -or
+      $sessionId -lt 0) {
+      throw 'The recorded Codex CDP owner identity changed during session ownership verification.'
+    }
+    $processIds += $processId
+    $sessionIds += $sessionId
+  }
+  $uniqueSessionIds = @($sessionIds | Sort-Object -Unique)
+  $secondIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $port -Codex $codex
+  if ($uniqueSessionIds.Count -ne 1 -or $null -eq $secondIdentity -or
+    "$($secondIdentity.BrowserId)" -cne "$($firstIdentity.BrowserId)") {
+    throw 'The recorded Codex CDP owner was not stable within one Windows session.'
+  }
+  return [pscustomobject]@{
+    ProcessId = [int]$processIds[0]
+    SessionId = [int]$uniqueSessionIds[0]
+    Description = 'Dream Skin recorded CDP owner'
+  }
+}
+
+function Get-DreamSkinRecordedStateSessionOwnership {
+  param(
+    [AllowNull()][object]$State,
+    [string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'CodexDreamSkin')
+  )
+  if ($null -eq $State) {
+    return [pscustomobject]@{ IsLive = $false; SessionId = $null; Sources = @() }
+  }
+
+  $recordedSessionId = $null
+  $sessionProperty = $State.PSObject.Properties['codexSessionId']
+  if ($null -ne $sessionProperty -and $null -ne $sessionProperty.Value) {
+    $parsedSessionId = -1
+    if (-not [int]::TryParse("$($sessionProperty.Value)", [ref]$parsedSessionId) -or
+      $parsedSessionId -lt 0) {
+      throw 'The recorded Codex Windows session ID is invalid; state was preserved.'
+    }
+    $recordedSessionId = $parsedSessionId
+  }
+
+  $evidence = @()
+  $codexPidProperty = $State.PSObject.Properties['codexPid']
+  if ($null -ne $codexPidProperty -and $codexPidProperty.Value) {
+    $codexPid = 0
+    $codexStart = 0L
+    if (-not [int]::TryParse("$($codexPidProperty.Value)", [ref]$codexPid) -or
+      $codexPid -le 0 -or
+      -not [long]::TryParse("$($State.codexStartTimeFileTimeUtc)",
+        [ref]$codexStart) -or $codexStart -le 0) {
+      throw 'The recorded Codex process identity is invalid; state was preserved.'
+    }
+    $evidence += @(Get-DreamSkinRecordedProcessSessionEvidence -ProcessId $codexPid `
+      -ExpectedStartTimeFileTimeUtc $codexStart `
+      -ExpectedExecutablePath "$($State.codexExe)" `
+      -Description 'Dream Skin Codex window')
+  }
+  if ($State.injectorPid) {
+    $injectorPid = 0
+    if (-not [int]::TryParse("$($State.injectorPid)", [ref]$injectorPid) -or
+      $injectorPid -le 0) {
+      throw 'The recorded injector PID is invalid; state was preserved.'
+    }
+    $evidence += @(Get-DreamSkinRecordedProcessSessionEvidence -ProcessId $injectorPid `
+      -ExpectedStartedAt "$($State.injectorStartedAt)" `
+      -ExpectedExecutablePath "$($State.nodePath)" `
+      -RequiredCommandLineTokens @(
+        "$($State.injectorPath)", '--watch', "$($State.port)", "$($State.browserId)"
+      ) -Description 'Dream Skin injector')
+  }
+
+  $monitorProperty = $State.PSObject.Properties['acrylicMonitorPid']
+  if ($null -ne $monitorProperty -and $monitorProperty.Value) {
+    $monitorPid = 0
+    if (-not [int]::TryParse("$($monitorProperty.Value)", [ref]$monitorPid) -or
+      $monitorPid -le 0) {
+      throw 'The recorded Acrylic monitor PID is invalid; state was preserved.'
+    }
+    $powershellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $evidence += @(Get-DreamSkinRecordedProcessSessionEvidence -ProcessId $monitorPid `
+      -ExpectedStartedAt "$($State.acrylicMonitorStartedAt)" `
+      -ExpectedExecutablePath $powershellPath `
+      -RequiredCommandLineTokens @(
+        "$($State.acrylicMonitorPath)", 'Monitor', "$($State.acrylicTargetPid)",
+        "$($State.acrylicTargetStartTimeFileTimeUtc)",
+        "$($State.acrylicTargetWindowHandle)", "$($State.acrylicMonitorStopFile)",
+        "$($State.acrylicMonitorArmFile)", '-ConfirmTargetIdentity'
+      ) -Description 'Dream Skin Acrylic monitor')
+  }
+
+  $targetProperty = $State.PSObject.Properties['acrylicTargetPid']
+  if ($null -ne $targetProperty -and $targetProperty.Value) {
+    $targetPid = 0
+    $targetStart = 0L
+    if (-not [int]::TryParse("$($targetProperty.Value)", [ref]$targetPid) -or
+      $targetPid -le 0 -or
+      -not [long]::TryParse("$($State.acrylicTargetStartTimeFileTimeUtc)",
+        [ref]$targetStart) -or $targetStart -le 0) {
+      throw 'The recorded Acrylic target identity is invalid; state was preserved.'
+    }
+    $evidence += @(Get-DreamSkinRecordedProcessSessionEvidence -ProcessId $targetPid `
+      -ExpectedStartTimeFileTimeUtc $targetStart `
+      -ExpectedExecutablePath "$($State.acrylicTargetExecutablePath)" `
+      -Description 'Dream Skin Acrylic target')
+  }
+
+  $liveEvidence = @($evidence | Where-Object { $null -ne $_ })
+  if ($null -eq $codexPidProperty) {
+    $legacyCdpEvidence = Get-DreamSkinRecordedLegacyCdpSessionEvidence -State $State
+    if ($null -ne $legacyCdpEvidence) {
+      $liveEvidence += $legacyCdpEvidence
+    }
+  }
+  if ($liveEvidence.Count -eq 0) {
+    $codex = Get-DreamSkinCodexStatePathCandidate -State $State
+    if ($null -ne $codex) {
+      $matchingCodexProcesses = @()
+      foreach ($processInfo in @(Get-CimInstance Win32_Process `
+          -Filter "Name = 'ChatGPT.exe'" -ErrorAction Stop)) {
+        $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $processInfo
+        if (-not $processPath) {
+          throw 'A live ChatGPT.exe path is unreadable while recorded state ownership is unresolved.'
+        }
+        if (Test-DreamSkinPathEqual -Left $processPath -Right $codex.Executable) {
+          $matchingCodexProcesses += $processInfo
+        }
+      }
+      if ($matchingCodexProcesses.Count -gt 0) {
+        throw 'A matching Codex process is still live, but its recorded state session ownership cannot be proven.'
+      }
+    }
+    return [pscustomobject]@{
+      IsLive = $false
+      SessionId = $recordedSessionId
+      Sources = @()
+    }
+  }
+  $liveSessionIds = @($liveEvidence | ForEach-Object { [int]$_.SessionId } |
+    Sort-Object -Unique)
+  if ($liveSessionIds.Count -ne 1 -or
+    ($null -ne $recordedSessionId -and
+      [int]$recordedSessionId -ne [int]$liveSessionIds[0])) {
+    throw 'The live Dream Skin state has conflicting Windows session ownership; state was preserved.'
+  }
+  return [pscustomobject]@{
+    IsLive = $true
+    SessionId = [int]$liveSessionIds[0]
+    Sources = @($liveEvidence | ForEach-Object { "$($_.Description):$($_.ProcessId)" })
+  }
 }
 
 function Archive-DreamSkinStateFile {
@@ -1571,11 +2164,20 @@ function Stop-DreamSkinRecordedAcrylicMonitor {
 }
 
 function Get-DreamSkinCodexProcesses {
-  param([Parameter(Mandatory = $true)][object]$Codex)
+  param(
+    [Parameter(Mandatory = $true)][object]$Codex,
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
+  )
+  $enforceSession = $PSBoundParameters.ContainsKey('ExpectedSessionId')
   return @(Get-CimInstance Win32_Process -Filter "Name = 'ChatGPT.exe'" -ErrorAction SilentlyContinue |
     Where-Object {
+      $processSessionId = -1
+      $sessionMatches = -not $enforceSession -or
+        ([int]::TryParse("$($_.SessionId)", [ref]$processSessionId) -and
+          $processSessionId -eq $ExpectedSessionId)
       $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $_
-      Test-DreamSkinPathEqual -Left $processPath -Right $Codex.Executable
+      $sessionMatches -and
+        (Test-DreamSkinPathEqual -Left $processPath -Right $Codex.Executable)
     })
 }
 
@@ -1679,9 +2281,15 @@ namespace CodexDreamSkin {
 }
 
 function Get-DreamSkinWin32WindowEvidence {
-  param([Parameter(Mandatory = $true)][object]$Codex)
+  param(
+    [Parameter(Mandatory = $true)][object]$Codex,
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
+  )
   Initialize-DreamSkinWin32WindowProbe
-  $processes = @(Get-DreamSkinCodexProcesses -Codex $Codex)
+  $processArguments = @{ Codex = $Codex }
+  $enforceSession = $PSBoundParameters.ContainsKey('ExpectedSessionId')
+  if ($enforceSession) { $processArguments.ExpectedSessionId = $ExpectedSessionId }
+  $processes = @(Get-DreamSkinCodexProcesses @processArguments)
   $processIds = @($processes | ForEach-Object { [uint32]$_.ProcessId })
   if ($processIds.Count -eq 0) { return $null }
 
@@ -1691,10 +2299,29 @@ function Get-DreamSkinWin32WindowEvidence {
     $current = Get-CimInstance Win32_Process -Filter "ProcessId = $([int]$candidate.ProcessId)" `
       -ErrorAction SilentlyContinue
     $currentPath = if ($current) { Get-DreamSkinProcessExecutablePath -ProcessInfo $current } else { $null }
-    if ($currentPath -and (Test-DreamSkinPathEqual -Left $currentPath -Right $Codex.Executable)) {
+    $currentSessionId = -1
+    $sessionRead = [int]::TryParse("$($current.SessionId)", [ref]$currentSessionId)
+    $sessionMatches = $sessionRead -and
+      (-not $enforceSession -or $currentSessionId -eq $ExpectedSessionId)
+    $currentStartTime = 0L
+    $currentProcess = Get-Process -Id ([int]$candidate.ProcessId) -ErrorAction SilentlyContinue
+    if ($null -ne $currentProcess) {
+      try {
+        $currentStartTime = $currentProcess.StartTime.ToUniversalTime().ToFileTimeUtc()
+      } catch {
+        $currentStartTime = 0L
+      } finally {
+        $currentProcess.Dispose()
+      }
+    }
+    if ($sessionMatches -and $currentPath -and
+      $currentStartTime -gt 0 -and
+      (Test-DreamSkinPathEqual -Left $currentPath -Right $Codex.Executable)) {
       return [pscustomobject]@{
         Source = 'win32-hwnd'
         ProcessId = [int]$candidate.ProcessId
+        SessionId = [int]$currentSessionId
+        StartTimeFileTimeUtc = $currentStartTime
         Handle = "$($candidate.Handle)"
         Width = [int]$candidate.Width
         Height = [int]$candidate.Height
@@ -1707,11 +2334,16 @@ function Get-DreamSkinWin32WindowEvidence {
 function Wait-DreamSkinWin32WindowEvidence {
   param(
     [Parameter(Mandatory = $true)][object]$Codex,
-    [ValidateRange(250, 120000)][int]$TimeoutMilliseconds = 30000
+    [ValidateRange(250, 120000)][int]$TimeoutMilliseconds = 30000,
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
   )
+  $windowArguments = @{ Codex = $Codex }
+  if ($PSBoundParameters.ContainsKey('ExpectedSessionId')) {
+    $windowArguments.ExpectedSessionId = $ExpectedSessionId
+  }
   $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
   do {
-    $evidence = Get-DreamSkinWin32WindowEvidence -Codex $Codex
+    $evidence = Get-DreamSkinWin32WindowEvidence @windowArguments
     if ($null -ne $evidence) { return $evidence }
     Start-Sleep -Milliseconds 200
   } while ([DateTime]::UtcNow -lt $deadline)
@@ -1738,8 +2370,206 @@ function Stop-DreamSkinCodex {
   param(
     [Parameter(Mandatory = $true)][object]$Codex,
     [AllowEmptyCollection()][int[]]$PreserveProcessIds = @(),
+    [AllowNull()][object[]]$ExpectedAutoRestartTargets,
+    [AllowNull()][string]$AutoRestartStateRoot,
     [switch]$AllowForce
   )
+  if ($PSBoundParameters.ContainsKey('ExpectedAutoRestartTargets')) {
+    if (@($PreserveProcessIds).Count -gt 0) {
+      throw 'An identity-bound automatic restart cannot preserve an unrelated PID set.'
+    }
+    if (-not $AutoRestartStateRoot) {
+      throw 'An identity-bound automatic restart requires its managed state root.'
+    }
+    $expectedTargets = @(
+      ConvertTo-DreamSkinAutoRestartTargetProcesses `
+        -TargetProcesses @($ExpectedAutoRestartTargets)
+    )
+    $expectedSessionIds = @($expectedTargets | ForEach-Object { [int]$_.sessionId } |
+      Sort-Object -Unique)
+    if ($expectedSessionIds.Count -ne 1) {
+      throw 'An identity-bound automatic restart must target exactly one Windows session.'
+    }
+    $expectedSessionId = [int]$expectedSessionIds[0]
+    foreach ($target in $expectedTargets) {
+      if (-not (Test-DreamSkinPathEqual -Left "$($target.executablePath)" `
+          -Right "$($Codex.Executable)") -or
+        "$($target.packageFullName)" -ine "$($Codex.PackageFullName)" -or
+        "$($target.packageFamilyName)" -ine "$($Codex.PackageFamilyName)") {
+        throw 'The automatic restart target set does not belong to the exact Codex install selected for shutdown.'
+      }
+    }
+
+    $registeredInstalls = @(Get-DreamSkinRegisteredCodexInstalls)
+    $snapshot = Get-DreamSkinRegisteredCodexProcessSnapshot `
+      -RegisteredInstalls $registeredInstalls -ExpectedSessionId $expectedSessionId
+    if (-not (Test-DreamSkinAutoRestartTargetProcessesEqual `
+        -Reserved $expectedTargets -Current @($snapshot.TargetProcesses))) {
+      throw 'The automatic restart target process set changed before Codex shutdown; no window was closed.'
+    }
+    Assert-DreamSkinAutoRestartControlClear -StateRoot $AutoRestartStateRoot
+
+    $expectedByProcessId = @{}
+    foreach ($target in $expectedTargets) {
+      $expectedByProcessId[[int]$target.processId] = $target
+    }
+    $closeTargets = @()
+    $gracefulCloseSignalled = $false
+    try {
+      # Acquire and validate every Process object before sending any window
+      # close. Closing the browser process can make renderer/GPU siblings exit
+      # immediately, which is an allowed subset only after this exact gate.
+      foreach ($item in @($snapshot.Processes)) {
+        Assert-DreamSkinAutoRestartControlClear -StateRoot $AutoRestartStateRoot
+        $processId = [int]$item.ProcessId
+        $target = $expectedByProcessId[$processId]
+        $processObject = Get-Process -Id $processId -ErrorAction Stop
+        if ($processObject.StartTime.ToUniversalTime().ToFileTimeUtc() -ne
+          [long]$target.startTimeFileTimeUtc) {
+          $processObject.Dispose()
+          throw "The automatic restart target PID was reused before close: $processId"
+        }
+        $closeTargets += [pscustomobject]@{
+          Process = $processObject
+          Target = $target
+        }
+      }
+      $preCloseSnapshot = Get-DreamSkinRegisteredCodexProcessSnapshot `
+        -RegisteredInstalls $registeredInstalls -ExpectedSessionId $expectedSessionId
+      if (-not (Test-DreamSkinAutoRestartTargetProcessesEqual `
+          -Reserved $expectedTargets -Current @($preCloseSnapshot.TargetProcesses))) {
+        throw 'The automatic restart target process set changed at the final close boundary; no window was closed.'
+      }
+
+      # Processes without a main window are attempted first. The browser/window
+      # process is last, so its successful close may take all siblings down
+      # without turning their expected exit into a false startup failure.
+      $orderedCloseTargets = @($closeTargets | Sort-Object `
+        @{ Expression = { if ([long]$_.Process.MainWindowHandle -eq 0) { 0 } else { 1 } } }, `
+        @{ Expression = { [int]$_.Target.processId } })
+      foreach ($closeTarget in $orderedCloseTargets) {
+        Assert-DreamSkinAutoRestartControlClear -StateRoot $AutoRestartStateRoot
+        $processObject = $closeTarget.Process
+        if ($processObject.HasExited) {
+          if ($gracefulCloseSignalled) { continue }
+          throw 'An automatic restart target exited before any verified window close was sent.'
+        }
+        if ($processObject.StartTime.ToUniversalTime().ToFileTimeUtc() -ne
+          [long]$closeTarget.Target.startTimeFileTimeUtc) {
+          throw "The automatic restart target PID was reused before close: $($closeTarget.Target.processId)"
+        }
+        try {
+          $signalled = [bool]$processObject.CloseMainWindow()
+          $gracefulCloseSignalled = $gracefulCloseSignalled -or $signalled
+        } catch {
+          if ($processObject.HasExited -and $gracefulCloseSignalled) { continue }
+          throw
+        }
+      }
+    } finally {
+      foreach ($closeTarget in $closeTargets) {
+        if ($null -ne $closeTarget.Process) { $closeTarget.Process.Dispose() }
+      }
+    }
+
+    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    $remainingSnapshot = $null
+    do {
+      Assert-DreamSkinAutoRestartControlClear -StateRoot $AutoRestartStateRoot
+      try {
+        $remainingSnapshot = Get-DreamSkinRegisteredCodexProcessSnapshot `
+          -RegisteredInstalls $registeredInstalls -ExpectedSessionId $expectedSessionId
+      } catch {
+        # A reserved process may disappear between the inventory and identity
+        # reads during normal shutdown. Retry, but never treat the failed read
+        # as authorization to broaden the target set.
+        $remainingSnapshot = $null
+        Start-Sleep -Milliseconds 100
+        continue
+      }
+      if (-not (Test-DreamSkinAutoRestartTargetProcessesSubset `
+          -Reserved $expectedTargets -Current @($remainingSnapshot.TargetProcesses))) {
+        throw 'The Codex process set was replaced or expanded during automatic shutdown; replacement processes were preserved.'
+      }
+      if (@($remainingSnapshot.TargetProcesses).Count -eq 0) {
+        if (-not $gracefulCloseSignalled) {
+          throw 'The reserved Codex session exited before a verified graceful close; no replacement was launched.'
+        }
+        return
+      }
+      Start-Sleep -Milliseconds 250
+    } while ([DateTime]::UtcNow -lt $deadline)
+
+    $forceSnapshotDeadline = [DateTime]::UtcNow.AddSeconds(2)
+    $remainingSnapshot = $null
+    do {
+      Assert-DreamSkinAutoRestartControlClear -StateRoot $AutoRestartStateRoot
+      try {
+        $remainingSnapshot = Get-DreamSkinRegisteredCodexProcessSnapshot `
+          -RegisteredInstalls $registeredInstalls -ExpectedSessionId $expectedSessionId
+        break
+      } catch {
+        $remainingSnapshot = $null
+        Start-Sleep -Milliseconds 100
+      }
+    } while ([DateTime]::UtcNow -lt $forceSnapshotDeadline)
+    if ($null -eq $remainingSnapshot) {
+      throw 'The Codex process set could not be revalidated before the automatic force-stop boundary.'
+    }
+    if (-not (Test-DreamSkinAutoRestartTargetProcessesSubset `
+        -Reserved $expectedTargets -Current @($remainingSnapshot.TargetProcesses))) {
+      throw 'The Codex process set was replaced or expanded during automatic shutdown; replacement processes were preserved.'
+    }
+    if (@($remainingSnapshot.TargetProcesses).Count -eq 0) {
+      if (-not $gracefulCloseSignalled) {
+        throw 'The reserved Codex session exited before a verified graceful close; no replacement was launched.'
+      }
+      return
+    }
+    if (-not $AllowForce) {
+      throw 'Codex did not close within 15 seconds. Close it manually or explicitly authorize a forced restart.'
+    }
+
+    foreach ($target in @($remainingSnapshot.TargetProcesses)) {
+      Assert-DreamSkinAutoRestartControlClear -StateRoot $AutoRestartStateRoot
+      $processObject = $null
+      try {
+        $processObject = Get-Process -Id ([int]$target.processId) -ErrorAction SilentlyContinue
+        if ($null -eq $processObject) { continue }
+        if ($processObject.StartTime.ToUniversalTime().ToFileTimeUtc() -ne
+          [long]$target.startTimeFileTimeUtc) {
+          throw "The automatic restart target PID was reused before force-stop: $($target.processId)"
+        }
+        Stop-Process -InputObject $processObject -Force -ErrorAction Stop
+        [void]$processObject.WaitForExit(5000)
+      } finally {
+        if ($null -ne $processObject) { $processObject.Dispose() }
+      }
+    }
+
+    $finalDeadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+      Assert-DreamSkinAutoRestartControlClear -StateRoot $AutoRestartStateRoot
+      try {
+        $finalSnapshot = Get-DreamSkinRegisteredCodexProcessSnapshot `
+          -RegisteredInstalls $registeredInstalls -ExpectedSessionId $expectedSessionId
+      } catch {
+        Start-Sleep -Milliseconds 100
+        continue
+      }
+      if (-not (Test-DreamSkinAutoRestartTargetProcessesSubset `
+          -Reserved $expectedTargets -Current @($finalSnapshot.TargetProcesses))) {
+        throw 'A replacement Codex process appeared after the bound shutdown; it was preserved.'
+      }
+      if (@($finalSnapshot.TargetProcesses).Count -eq 0) { return }
+      Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $finalDeadline)
+    throw 'The identity-bound automatic restart targets could not be stopped safely.'
+  }
+  if ($PSBoundParameters.ContainsKey('AutoRestartStateRoot')) {
+    throw '-AutoRestartStateRoot is only valid with identity-bound automatic restart targets.'
+  }
+
   $processes = Get-DreamSkinCodexProcessesExcept -Codex $Codex -PreserveProcessIds $PreserveProcessIds
   if ($processes.Count -eq 0) { return }
   foreach ($item in $processes) {

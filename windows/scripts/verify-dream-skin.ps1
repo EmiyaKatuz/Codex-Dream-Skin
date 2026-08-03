@@ -61,6 +61,18 @@ try {
   if ($null -eq $win32Window) {
     throw 'No visible Win32 HWND owned by the verified Codex executable is available.'
   }
+  if ($null -ne $state -and
+    $null -ne $state.PSObject.Properties['codexSessionId'] -and
+    [int]$state.codexSessionId -ne [int]$win32Window.SessionId) {
+    throw 'The verified Codex window belongs to a different Windows session than the saved state.'
+  }
+  if ($null -ne $state -and
+    $null -ne $state.PSObject.Properties['codexPid'] -and
+    ([int]$state.codexPid -ne [int]$win32Window.ProcessId -or
+      [long]$state.codexStartTimeFileTimeUtc -ne
+        [long]$win32Window.StartTimeFileTimeUtc)) {
+    throw 'The verified Codex window does not match the saved process identity.'
+  }
   if ($windowMaterial -ceq 'acrylic') {
     $acrylicHelper = Join-Path $PSScriptRoot 'acrylic-window.ps1'
     if ($null -eq $state) { throw 'Desktop Acrylic has no recorded active-session state.' }
