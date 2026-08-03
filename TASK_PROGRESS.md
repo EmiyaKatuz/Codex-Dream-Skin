@@ -14,6 +14,21 @@ Updated: 2026-08-03 CST
   regressions and payload validation pass. On the affected machine the stale
   `9335` listener resolves to the next free port `9336`.
 
+## In-place runtime patch
+
+- [complete] Added `windows/scripts/patch-dream-skin.ps1` so existing
+  installations can be fixed without uninstalling or reinstalling. It stages
+  and hash-verifies the affected launcher scripts plus the patch script
+  itself, backs up the originals, replaces them in the installed engine,
+  verifies the result, and preserves themes, config backups, tray settings,
+  and the running Codex session.
+- [verified] The patch ran against the real installed engine on this machine:
+  installed launcher files and the patch script now match the source hashes,
+  active theme and config backup remain present, Codex stayed running, and no
+  patch transaction directories remain.
+- [verified] Runtime-patch regression, stale-listener regression, installer
+  static checks, and the full Windows PowerShell suite pass.
+
 Updated: 2026-08-02 CST (Asia/Shanghai)
 
 ## macOS DMG build from MacOS-Fix
