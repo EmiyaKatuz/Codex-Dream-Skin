@@ -1,5 +1,19 @@
 # Task Progress
 
+Updated: 2026-08-03 CST
+
+## Windows stale CDP listener recovery
+
+- [diagnosed] Codex auto-restart can leave the old CDP listener on `9335`
+  owned by a process that no longer exists, so the next reapply fails and
+  Codex is reopened without the debug endpoint.
+- [complete] The launcher now detects stale dead-owner listeners and scans to
+  the next free loopback port even when `-Port` was explicit; live unverified
+  listeners still fail closed.
+- [verified] The Windows PowerShell suite, installer static checks, Node
+  regressions and payload validation pass. On the affected machine the stale
+  `9335` listener resolves to the next free port `9336`.
+
 Updated: 2026-08-02 CST (Asia/Shanghai)
 
 ## macOS DMG build from MacOS-Fix

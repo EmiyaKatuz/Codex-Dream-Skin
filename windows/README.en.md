@@ -190,7 +190,7 @@ Older tray shortcuts combined hidden PowerShell with `ExecutionPolicy Bypass`, w
 
 ### The port is occupied
 
-When `-Port` is omitted, the launcher searches for a free port beginning at `9335`. If another process owns an explicitly requested port, choose a different port rather than stopping an unknown listener.
+When `-Port` is omitted, the launcher searches for a free port beginning at `9335`. If an explicitly requested port is held by a live unverified listener, choose a different port rather than stopping an unknown process. A listener whose owning process no longer exists is treated as stale: the launcher warns and automatically selects the next free loopback port.
 
 ### Verification cannot find a CDP endpoint
 

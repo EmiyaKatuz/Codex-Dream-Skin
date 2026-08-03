@@ -1367,6 +1367,11 @@ args = [
   if (-not $startSource.Contains('Get-DreamSkinVerifiedCdpIdentityForAnyRegistered')) {
     throw 'Start lost the any-registered endpoint fallback for Store auto-updates.'
   }
+  if (-not $commonSource.Contains('Test-DreamSkinListenerOwnerAlive') -or
+    -not $commonSource.Contains('Resolve-DreamSkinStartPort') -or
+    -not $startSource.Contains('Resolve-DreamSkinStartPort -Port $Port')) {
+    throw 'Start lost stale-listener port recovery after a Codex restart.'
+  }
   $verifyScriptSource = Read-DreamSkinUtf8File -Path (Join-Path $Root 'scripts\verify-dream-skin.ps1')
   if (-not $verifyScriptSource.Contains('Get-DreamSkinVerifiedCdpIdentityForAnyRegistered')) {
     throw 'Verify lost the any-registered endpoint fallback for Store auto-updates.'
@@ -1415,6 +1420,7 @@ args = [
   & (Join-Path $PSScriptRoot 'theme-zip-import.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'start-renderer-readiness.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'start-verified-skin-preserved.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'port-stale-listener.tests.ps1') -Root $Root
   $projectRoot = Split-Path -Parent $Root
   $syncToolPath = Join-Path $projectRoot 'tools\sync-runtime-assets.mjs'
   $syncToolResult = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @($syncToolPath, '--check')

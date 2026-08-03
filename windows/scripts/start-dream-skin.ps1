@@ -133,8 +133,7 @@ try {
         Write-Warning "Could not sync Codex appearanceTheme to the active theme: $($_.Exception.Message)"
       }
       if (-not (Test-DreamSkinPortAvailable -Port $Port)) {
-        if ($PortExplicit) { throw "Port $Port is already occupied by an unverified listener. Choose another port." }
-        $Port = Select-DreamSkinPort -PreferredPort $Port
+        $Port = Resolve-DreamSkinStartPort -Port $Port -PortExplicit $PortExplicit
       }
       $arguments = @('--remote-debugging-address=127.0.0.1', "--remote-debugging-port=$Port")
       if ($ProfilePath) {
