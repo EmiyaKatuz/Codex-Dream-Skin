@@ -68,7 +68,118 @@ function Get-DreamSkinRuntimeEnginePaths {
     Start = Join-Path $scripts 'start-dream-skin.ps1'
     Restore = Join-Path $scripts 'restore-dream-skin.ps1'
     Tray = Join-Path $scripts 'tray-dream-skin.ps1'
+    AutoLaunch = Join-Path $scripts 'auto-launch-dream-skin.ps1'
+    AutoLaunchManager = Join-Path $scripts 'manage-auto-launch-dream-skin.ps1'
+    AcrylicHelper = Join-Path $scripts 'acrylic-window.ps1'
+    WindowEffectsManager = Join-Path $scripts 'manage-window-effects.ps1'
     CheckUpdate = Join-Path $scripts 'check-update.ps1'
+  }
+}
+
+function Get-DreamSkinWindowEffectsPath {
+  param([string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'))
+  return Join-Path ([System.IO.Path]::GetFullPath($StateRoot)) 'window-effects.json'
+}
+
+function Read-DreamSkinWindowEffects {
+  param([string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'))
+  $path = Get-DreamSkinWindowEffectsPath -StateRoot $StateRoot
+  if (-not (Test-Path -LiteralPath $path)) {
+    return [pscustomobject]@{
+      SchemaVersion = 1
+      Platform = 'windows'
+      WindowMaterial = 'system'
+      Path = $path
+      Exists = $false
+    }
+  }
+  Assert-DreamSkinNoReparseComponents -Path $path
+  $item = Get-Item -LiteralPath $path -Force -ErrorAction Stop
+  if ($item.PSIsContainer -or ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+    $item.Length -lt 2 -or $item.Length -gt 4096) {
+    throw "Dream Skin window-effects settings are not a small regular file: $path"
+  }
+  try {
+    $settings = (Read-DreamSkinUtf8File -Path $path) | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    throw "Dream Skin window-effects settings are unreadable; no native window material was changed: $path"
+  }
+  if ($null -eq $settings -or $settings -is [string] -or $settings -is [array]) {
+    throw 'Dream Skin window-effects settings must be a JSON object.'
+  }
+  $names = @($settings.PSObject.Properties.Name)
+  $expectedNames = @('schemaVersion', 'platform', 'windowMaterial')
+  if (@($names | Where-Object { $_ -notin $expectedNames }).Count -gt 0 -or
+    @($expectedNames | Where-Object { $_ -notin $names }).Count -gt 0) {
+    throw 'Dream Skin window-effects settings contain missing or unsupported fields.'
+  }
+  $schemaVersion = 0
+  if (-not [int]::TryParse("$($settings.schemaVersion)", [ref]$schemaVersion) -or
+    $schemaVersion -ne 1 -or "$($settings.platform)" -cne 'windows') {
+    throw 'Dream Skin window-effects settings have an unsupported schema or platform.'
+  }
+  $material = "$($settings.windowMaterial)".ToLowerInvariant()
+  if ($material -notin @('system', 'acrylic')) {
+    throw 'Dream Skin window-effects windowMaterial must be system or acrylic.'
+  }
+  return [pscustomobject]@{
+    SchemaVersion = 1
+    Platform = 'windows'
+    WindowMaterial = $material
+    Path = $path
+    Exists = $true
+  }
+}
+
+function Write-DreamSkinWindowEffects {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet('system', 'acrylic')][string]$WindowMaterial,
+    [string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'CodexDreamSkin')
+  )
+  $fullStateRoot = [System.IO.Path]::GetFullPath($StateRoot)
+  Ensure-DreamSkinManagedDirectory -Path $fullStateRoot -Root $fullStateRoot
+  $path = Get-DreamSkinWindowEffectsPath -StateRoot $fullStateRoot
+  if (Test-Path -LiteralPath $path) {
+    $null = Read-DreamSkinWindowEffects -StateRoot $fullStateRoot
+  } else {
+    Assert-DreamSkinNoReparseComponents -Path $path
+  }
+  $settings = [ordered]@{
+    schemaVersion = 1
+    platform = 'windows'
+    windowMaterial = $WindowMaterial.ToLowerInvariant()
+  }
+  Write-DreamSkinUtf8FileAtomically -Path $path `
+    -Content (($settings | ConvertTo-Json -Depth 3) + "`r`n")
+  return Read-DreamSkinWindowEffects -StateRoot $fullStateRoot
+}
+
+function Get-DreamSkinAcrylicEnvironment {
+  $build = 0
+  try {
+    $currentVersion = Get-ItemProperty `
+      -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+    [void][int]::TryParse("$($currentVersion.CurrentBuildNumber)", [ref]$build)
+  } catch {
+    $build = 0
+  }
+  $transparencyEnabled = $false
+  try {
+    $personalize = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(
+      'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+    )
+    try {
+      $transparencyEnabled = [int]$personalize.GetValue('EnableTransparency', 1) -ne 0
+    } finally {
+      if ($null -ne $personalize) { $personalize.Dispose() }
+    }
+  } catch {
+    $transparencyEnabled = $false
+  }
+  return [pscustomobject]@{
+    Build = $build
+    TransparencyEnabled = $transparencyEnabled
+    Supported = [bool]($build -ge 22621 -and $transparencyEnabled)
   }
 }
 
@@ -185,6 +296,9 @@ function Install-DreamSkinRuntimeEngine {
     'VERSION',
     'assets\dream-reference.jpg',
     'assets\dream-skin.css',
+    'assets\internet-angel-acrylic.css',
+    'assets\internet-angel-extension.css',
+    'assets\internet-angel-extension.js',
     'assets\renderer-inject.js',
     'assets\safe-css-policy.json',
     'assets\safe-css-validator.mjs',
@@ -194,12 +308,16 @@ function Install-DreamSkinRuntimeEngine {
     'presets\preset-gothic-void-crusade\background.jpg',
     'presets\preset-gothic-void-crusade\theme.json',
     'scripts\apply-community-theme.ps1',
+    'scripts\acrylic-window.ps1',
+    'scripts\auto-launch-dream-skin.ps1',
     'scripts\common-windows.ps1',
     'scripts\check-update.ps1',
     'scripts\config-utf8.ps1',
     'scripts\image-metadata.mjs',
     'scripts\injector.mjs',
     'scripts\install-dream-skin.ps1',
+    'scripts\manage-auto-launch-dream-skin.ps1',
+    'scripts\manage-window-effects.ps1',
     'scripts\restore-dream-skin.ps1',
     'scripts\start-dream-skin.ps1',
     'scripts\theme-windows.ps1',
@@ -375,6 +493,94 @@ function Get-DreamSkinCodexDebugArgumentStatus {
   if ($sawProtocolRedirect) { return 'protocol-redirected' }
   if ($sawReadableCommandLine) { return 'not-forwarded' }
   return 'uninspectable'
+}
+
+function Get-DreamSkinCodexAnyDebugIntentStatus {
+  param([Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Processes)
+  if ($Processes.Count -eq 0) { return 'none' }
+  # Treat a decoded flag anywhere in the command line (including inside a
+  # codex:// query value) as intent. False positives only suppress automation.
+  $pattern = '(?i)--(?:remote-debugging-(?:address|port|pipe)|inspect(?:-brk|-port)?|' +
+    'auto-open-devtools-for-tabs|devtools)(?:=|\s|$)'
+  foreach ($process in $Processes) {
+    $commandLine = "$($process.CommandLine)"
+    if (-not $commandLine) { return 'uninspectable' }
+    $candidate = $commandLine
+    for ($decodePass = 0; $decodePass -lt 3; $decodePass++) {
+      if ([regex]::IsMatch($candidate, $pattern)) { return 'debug-intent' }
+      try {
+        $decoded = [Uri]::UnescapeDataString($candidate)
+      } catch {
+        return 'uninspectable'
+      }
+      if ($decoded -ceq $candidate) { break }
+      $candidate = $decoded
+    }
+  }
+  return 'none'
+}
+
+function Assert-DreamSkinAutoRestartReservation {
+  param(
+    [Parameter(Mandatory = $true)][string]$StateRoot,
+    [Parameter(Mandatory = $true)][string]$Token,
+    [Parameter(Mandatory = $true)][string]$ExpectedScriptPath
+  )
+  if ($Token -cnotmatch '^[0-9a-f]{32}$') {
+    throw 'The automatic restart reservation token is invalid.'
+  }
+  $fullStateRoot = [System.IO.Path]::GetFullPath($StateRoot)
+  $statePath = Join-Path $fullStateRoot 'auto-launch-state.json'
+  $stopPath = Join-Path $fullStateRoot 'auto-launch.stop'
+  if (Test-Path -LiteralPath $stopPath) {
+    throw 'Automatic Dream Skin launch was disabled before restart authorization.'
+  }
+  if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
+    throw 'The automatic restart reservation is missing.'
+  }
+  $stateItem = Get-Item -LiteralPath $statePath -Force -ErrorAction Stop
+  if (($stateItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+    $stateItem.Length -le 0 -or $stateItem.Length -gt 65536) {
+    throw 'The automatic restart reservation file is unsafe or invalid.'
+  }
+  try {
+    $reservation = (Read-DreamSkinUtf8File -Path $statePath) | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    throw 'The automatic restart reservation is unreadable.'
+  }
+  $required = @('schemaVersion', 'platform', 'pid', 'startedAt', 'scriptPath', 'phase', 'attemptToken')
+  foreach ($field in $required) {
+    if ($reservation.PSObject.Properties.Name -notcontains $field -or -not "$($reservation.$field)") {
+      throw "The automatic restart reservation is missing: $field"
+    }
+  }
+  if ([int]$reservation.schemaVersion -ne 1 -or "$($reservation.platform)" -cne 'windows' -or
+    "$($reservation.phase)" -cne 'restart-reserved' -or
+    "$($reservation.attemptToken)" -cne $Token) {
+    throw 'The automatic restart reservation is stale or has the wrong state.'
+  }
+  $expectedScript = [System.IO.Path]::GetFullPath($ExpectedScriptPath)
+  if (-not (Test-DreamSkinPathEqual -Left "$($reservation.scriptPath)" -Right $expectedScript)) {
+    throw 'The automatic restart reservation points to an unexpected monitor script.'
+  }
+  $monitorPid = 0
+  if (-not [int]::TryParse("$($reservation.pid)", [ref]$monitorPid) -or $monitorPid -le 0) {
+    throw 'The automatic restart monitor PID is invalid.'
+  }
+  $monitor = Get-Process -Id $monitorPid -ErrorAction SilentlyContinue
+  if ($null -eq $monitor) { throw 'The automatic restart monitor is no longer running.' }
+  $startedAt = $monitor.StartTime.ToUniversalTime().ToString('o')
+  if ($startedAt -cne "$($reservation.startedAt)") {
+    throw 'The automatic restart monitor identity no longer matches its reservation.'
+  }
+  $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $monitorPid" -ErrorAction Stop
+  $powershellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+  $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $processInfo
+  if (-not (Test-DreamSkinPathEqual -Left $processPath -Right $powershellPath) -or
+    -not (Test-DreamSkinCommandLineToken -CommandLine "$($processInfo.CommandLine)" -Token $expectedScript)) {
+    throw 'The automatic restart monitor process identity is not trusted.'
+  }
+  return $reservation
 }
 
 function ConvertTo-DreamSkinProcessArgument {
@@ -1083,10 +1289,284 @@ function Stop-DreamSkinRecordedInjector {
   }
 
   Stop-Process -Id $processId -Force -ErrorAction Stop
-  try { Wait-Process -Id $processId -Timeout 5 -ErrorAction Stop } catch {}
-  if (Get-Process -Id $processId -ErrorAction SilentlyContinue) {
+  # Chromium/Node can retain a terminating process object for slightly longer
+  # than the renderer teardown that triggered this cleanup.  Use a bounded
+  # native wait before treating the exact, already-verified PID as stuck.
+  try { Wait-Process -Id $processId -Timeout 15 -ErrorAction Stop } catch {}
+  if (Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction SilentlyContinue) {
     throw "The recorded Dream Skin injector did not stop: PID $processId"
   }
+  return $true
+}
+
+function Restore-DreamSkinRecordedAcrylicTarget {
+  param(
+    [Parameter(Mandatory = $true)][object]$State,
+    [string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'CodexDreamSkin')
+  )
+  $fullStateRoot = [System.IO.Path]::GetFullPath($StateRoot)
+  $helper = (Get-DreamSkinRuntimeEnginePaths -StateRoot $fullStateRoot).AcrylicHelper
+  if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) {
+    throw "The managed Acrylic helper is missing while restoring the native window: $helper"
+  }
+
+  $targetPid = 0
+  $targetStart = 0L
+  $targetWindow = 0L
+  if (-not [int]::TryParse("$($State.acrylicTargetPid)", [ref]$targetPid) -or $targetPid -le 0 -or
+    -not [long]::TryParse("$($State.acrylicTargetStartTimeFileTimeUtc)", [ref]$targetStart) -or $targetStart -le 0 -or
+    -not [long]::TryParse("$($State.acrylicTargetWindowHandle)", [ref]$targetWindow) -or $targetWindow -le 0) {
+    throw 'The recorded Acrylic target descriptor is invalid.'
+  }
+
+  $targetProcess = Get-Process -Id $targetPid -ErrorAction SilentlyContinue
+  if ($null -eq $targetProcess) { return $true }
+  try {
+    $liveStart = $targetProcess.StartTime.ToUniversalTime().ToFileTimeUtc()
+  } catch {
+    if ($null -eq (Get-Process -Id $targetPid -ErrorAction SilentlyContinue)) { return $true }
+    throw 'The recorded Acrylic target creation time could not be revalidated.'
+  } finally {
+    if ($null -ne $targetProcess) { $targetProcess.Dispose() }
+  }
+  # A different process now owns the PID, so the recorded HWND died with the old
+  # process and must never be written through the stale descriptor.
+  if ($liveStart -ne $targetStart) { return $true }
+
+  $restoreArguments = @{
+    Action = 'Restore'
+    TargetProcessId = $targetPid
+    ExpectedStartTimeFileTimeUtc = $targetStart
+    ExpectedExecutablePath = "$($State.acrylicTargetExecutablePath)"
+    ExpectedPackageFamilyName = "$($State.acrylicTargetPackageFamilyName)"
+    ExpectedWindowClass = "$($State.acrylicTargetWindowClass)"
+    ExpectedWindowHandle = $targetWindow
+    AllowHiddenTarget = $true
+    ConfirmTargetIdentity = $true
+  }
+  $restore = @(& $helper @restoreArguments)
+  if ($restore.Count -ne 1) {
+    throw 'The recorded Acrylic target restore did not return one exact result.'
+  }
+  if ([bool]$restore[0].TargetMissing) { return $true }
+  $restoreArguments.Action = 'Probe'
+  $restoreArguments.Remove('ConfirmTargetIdentity')
+  $probe = @(& $helper @restoreArguments)
+  if ($probe.Count -eq 1 -and [bool]$probe[0].TargetMissing) { return $true }
+  if ($probe.Count -ne 1 -or [int]$probe[0].CurrentBackdrop -ne 2 -or
+    [long]$probe[0].WindowHandleValue -ne $targetWindow) {
+    throw 'The recorded Codex HWND did not verify as Mica after Acrylic restoration.'
+  }
+  return $true
+}
+
+function Wait-DreamSkinAcrylicMonitorMutexAvailable {
+  param(
+    [Parameter(Mandatory = $true)][int]$TargetProcessId,
+    [Parameter(Mandatory = $true)][long]$TargetStartTimeFileTimeUtc,
+    [int]$TimeoutMilliseconds = 5000,
+    [int]$StableMilliseconds = 1000
+  )
+  $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  $name = 'Local\CodexDreamSkin.Acrylic.{0}.{1}.{2}' -f `
+    $sid, $TargetProcessId, $TargetStartTimeFileTimeUtc
+  $mutex = [System.Threading.Mutex]::new($false, $name)
+  $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
+  $availableSince = $null
+  try {
+    do {
+      $acquired = $false
+      try {
+        try { $acquired = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] {
+          $acquired = $true
+        }
+        if ($acquired) {
+          if ($null -eq $availableSince) { $availableSince = [DateTime]::UtcNow }
+          if (([DateTime]::UtcNow - $availableSince).TotalMilliseconds -ge $StableMilliseconds) {
+            return $true
+          }
+        } else {
+          $availableSince = $null
+        }
+      } finally {
+        if ($acquired) { $mutex.ReleaseMutex() }
+      }
+      Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    return $false
+  } finally {
+    $mutex.Dispose()
+  }
+}
+
+function Stop-DreamSkinRecordedAcrylicMonitor {
+  param(
+    [AllowNull()][object]$State,
+    [string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'CodexDreamSkin')
+  )
+  if ($null -eq $State) { return $true }
+  $monitorPidProperty = $State.PSObject.Properties['acrylicMonitorPid']
+  $monitorPidRecorded = if ($null -ne $monitorPidProperty) { $monitorPidProperty.Value } else { $null }
+  $monitorControlRecorded = $false
+  foreach ($controlName in @(
+    'acrylicMonitorPath', 'acrylicMonitorStopFile', 'acrylicMonitorArmFile'
+  )) {
+    $controlProperty = $State.PSObject.Properties[$controlName]
+    if ($null -ne $controlProperty -and $controlProperty.Value) {
+      $monitorControlRecorded = $true
+      break
+    }
+  }
+  if (-not $monitorPidRecorded -and -not $monitorControlRecorded) { return $true }
+  foreach ($required in @(
+    'acrylicMonitorPath', 'acrylicMonitorStopFile', 'acrylicMonitorArmFile',
+    'acrylicTargetPid', 'acrylicTargetStartTimeFileTimeUtc',
+    'acrylicTargetExecutablePath', 'acrylicTargetPackageFamilyName',
+    'acrylicTargetWindowClass', 'acrylicTargetWindowHandle'
+  )) {
+    if ($State.PSObject.Properties.Name -notcontains $required -or -not "$($State.$required)") {
+      throw "Recorded Acrylic monitor state is missing: $required"
+    }
+  }
+
+  $fullStateRoot = [System.IO.Path]::GetFullPath($StateRoot)
+  $expectedHelper = (Get-DreamSkinRuntimeEnginePaths -StateRoot $fullStateRoot).AcrylicHelper
+  if (-not (Test-DreamSkinPathEqual -Left "$($State.acrylicMonitorPath)" -Right $expectedHelper)) {
+    throw 'The recorded Acrylic monitor script is outside the current managed engine.'
+  }
+  $stopFile = [System.IO.Path]::GetFullPath("$($State.acrylicMonitorStopFile)")
+  $stopParent = [System.IO.Path]::GetDirectoryName($stopFile)
+  $stopName = [System.IO.Path]::GetFileName($stopFile)
+  if (-not (Test-DreamSkinPathEqual -Left $stopParent -Right $fullStateRoot) -or
+    $stopName -cnotmatch '^acrylic-monitor-[a-f0-9]{32}\.stop$') {
+    throw 'The recorded Acrylic monitor stop path is not a managed per-session signal.'
+  }
+  Assert-DreamSkinNoReparseComponents -Path $stopFile
+  $armFile = [System.IO.Path]::GetFullPath("$($State.acrylicMonitorArmFile)")
+  $armParent = [System.IO.Path]::GetDirectoryName($armFile)
+  $armName = [System.IO.Path]::GetFileName($armFile)
+  if (-not (Test-DreamSkinPathEqual -Left $armParent -Right $fullStateRoot) -or
+    $armName -cnotmatch '^acrylic-monitor-[a-f0-9]{32}\.arm$') {
+    throw 'The recorded Acrylic monitor arm path is not a managed per-session signal.'
+  }
+  Assert-DreamSkinNoReparseComponents -Path $armFile
+
+  $targetPidValue = 0
+  $targetStartValue = 0L
+  if (-not [int]::TryParse("$($State.acrylicTargetPid)", [ref]$targetPidValue) -or
+    $targetPidValue -le 0 -or
+    -not [long]::TryParse("$($State.acrylicTargetStartTimeFileTimeUtc)", [ref]$targetStartValue) -or
+    $targetStartValue -le 0) {
+    throw 'The recorded Acrylic target process identity is invalid.'
+  }
+
+  if (-not $monitorPidRecorded) {
+    $startupPhaseProperty = $State.PSObject.Properties['startupPhase']
+    if ($null -eq $startupPhaseProperty -or
+      "$($startupPhaseProperty.Value)" -cne 'acrylic-monitor-spawning') {
+      throw 'A PID-less Acrylic monitor record is outside the guarded spawning handoff.'
+    }
+    # The parent can terminate after spawning the unarmed monitor but before its
+    # PID is persisted. Signal that exact pending monitor through the already-
+    # recorded stop file and wait until its per-target mutex is stably free.
+    if (-not (Test-Path -LiteralPath $stopFile)) {
+      Write-DreamSkinUtf8FileAtomically -Path $stopFile `
+        -Content ("stopRequestedAt=" + [DateTime]::UtcNow.ToString('o') + "`r`n")
+    }
+    if (-not (Wait-DreamSkinAcrylicMonitorMutexAvailable `
+        -TargetProcessId $targetPidValue `
+        -TargetStartTimeFileTimeUtc $targetStartValue)) {
+      throw 'An unarmed Acrylic monitor did not release its exact target mutex; recovery signals were preserved.'
+    }
+    $null = Restore-DreamSkinRecordedAcrylicTarget -State $State -StateRoot $fullStateRoot
+    # Keep the unique stop signal: a child already created by Start-Process may
+    # still be cold-starting before Add-Type/mutex acquisition. Its eventual
+    # first action must continue to be an immediate, non-mutating exit.
+    Remove-Item -LiteralPath $armFile -Force -ErrorAction SilentlyContinue
+    return $true
+  }
+
+  foreach ($required in @('acrylicMonitorPid', 'acrylicMonitorStartedAt')) {
+    if ($State.PSObject.Properties.Name -notcontains $required -or -not "$($State.$required)") {
+      throw "Recorded Acrylic monitor state is missing: $required"
+    }
+  }
+
+  $monitorPid = 0
+  if (-not [int]::TryParse("$monitorPidRecorded", [ref]$monitorPid) -or $monitorPid -le 0) {
+    throw 'The recorded Acrylic monitor PID is invalid.'
+  }
+  $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $monitorPid" -ErrorAction SilentlyContinue
+  if ($null -eq $processInfo) {
+    $null = Restore-DreamSkinRecordedAcrylicTarget -State $State -StateRoot $fullStateRoot
+    Remove-Item -LiteralPath $stopFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $armFile -Force -ErrorAction SilentlyContinue
+    return $true
+  }
+  $powershellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+  $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $processInfo
+  $commandLine = "$($processInfo.CommandLine)"
+  $monitorStartedAt = Get-DreamSkinProcessStartedAt -ProcessId $monitorPid
+  if ($monitorStartedAt -cne "$($State.acrylicMonitorStartedAt)") {
+    # The recorded monitor has exited and this PID belongs to a later process.
+    # Never stop the replacement; only reconcile the exact saved Codex HWND.
+    $null = Restore-DreamSkinRecordedAcrylicTarget -State $State -StateRoot $fullStateRoot
+    Remove-Item -LiteralPath $stopFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $armFile -Force -ErrorAction SilentlyContinue
+    return $true
+  }
+  $targetPid = "$($State.acrylicTargetPid)"
+  $targetStart = "$($State.acrylicTargetStartTimeFileTimeUtc)"
+  $targetWindowHandle = 0L
+  if (-not [long]::TryParse("$($State.acrylicTargetWindowHandle)", [ref]$targetWindowHandle) -or
+    $targetWindowHandle -le 0) {
+    throw 'The recorded Acrylic target HWND is invalid.'
+  }
+  $targetWindow = "$targetWindowHandle"
+  $identityMatches = $processPath -and $commandLine -and
+    (Test-DreamSkinPathEqual -Left $processPath -Right $powershellPath) -and
+    (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token $expectedHelper) -and
+    (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token 'Monitor') -and
+    (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token $targetPid) -and
+    (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token $targetStart) -and
+    (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token '-ExpectedWindowHandle') -and
+    (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token $targetWindow) -and
+    (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token $stopFile) -and
+    (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token $armFile) -and
+    (Test-DreamSkinCommandLineToken -CommandLine $commandLine -Token '-ConfirmTargetIdentity')
+  if (-not $identityMatches) {
+    throw "The recorded Acrylic monitor PID $monitorPid does not match its saved managed identity."
+  }
+
+  if (-not (Test-Path -LiteralPath $stopFile)) {
+    Write-DreamSkinUtf8FileAtomically -Path $stopFile `
+      -Content ("stopRequestedAt=" + [DateTime]::UtcNow.ToString('o') + "`r`n")
+  }
+  $deadline = [DateTime]::UtcNow.AddSeconds(15)
+  do {
+    if ($null -eq (Get-Process -Id $monitorPid -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Milliseconds 200
+  } while ([DateTime]::UtcNow -lt $deadline)
+  $remainingMonitor = Get-Process -Id $monitorPid -ErrorAction SilentlyContinue
+  if ($null -ne $remainingMonitor) {
+    try {
+      if ($remainingMonitor.StartTime.ToUniversalTime().ToString('o') -cne "$($State.acrylicMonitorStartedAt)") {
+        $remainingMonitor.Dispose()
+        $remainingMonitor = $null
+      } else {
+        Stop-Process -InputObject $remainingMonitor -Force -ErrorAction Stop
+        [void]$remainingMonitor.WaitForExit(5000)
+        if (-not $remainingMonitor.HasExited) {
+          throw "The recorded Acrylic monitor did not stop: PID $monitorPid"
+        }
+      }
+    } finally {
+      if ($null -ne $remainingMonitor) { $remainingMonitor.Dispose() }
+    }
+  }
+  $null = Restore-DreamSkinRecordedAcrylicTarget -State $State -StateRoot $fullStateRoot
+  Remove-Item -LiteralPath $stopFile -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $armFile -Force -ErrorAction SilentlyContinue
   return $true
 }
 

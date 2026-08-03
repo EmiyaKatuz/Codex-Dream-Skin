@@ -12,6 +12,19 @@ const linuxTemplate = await fs.readFile(
   "utf8",
 );
 const css = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
+const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
+const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
+assert.ok(template.includes(`const SHELL_MAIN_SELECTOR = '${shellSelector}'`)
+  && template.includes(`const HEADER_TINT_SELECTOR = '${headerSelector}'`),
+"The Windows renderer must use the same Codex 26.727 shell/header unions as its CSS.");
+assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
+  && css.includes("data-app-shell-main-content-top-fade")
+  && css.includes("data-local-conversation-user-anchor")
+  && css.includes("data-local-conversation-final-assistant")
+  && css.includes('data-settings-panel-slug="general-settings"'),
+"The Windows overlay must cover every observed Codex 26.727 surface marker.");
+assert.doesNotMatch(css, /main\.main-surface|header\.app-header-tint/,
+  "No Windows CSS rule may remain locked to the removed pre-26.727 shell classes.");
 const buildPayloadFrom = (rendererTemplate, config = {}) => rendererTemplate
   .replace("__DREAM_CSS_JSON__", JSON.stringify(".fixture { color: blue; }"))
   .replace("__DREAM_ART_JSON__", JSON.stringify("data:image/png;base64,AA=="))
@@ -36,7 +49,7 @@ assert.ok(template.includes('const FALLBACK_PRESETS_ID = "codex-dream-skin-prese
   && template.includes('deck.removeAttribute?.("hidden")')
   && template.includes('const primedFallbackDeck = document.getElementById(FALLBACK_PRESETS_ID)')
   && template.includes("if (isPresetRendered(button)) matchedNativePresets.add(button)")
-  && css.includes('.dream-home:has(#codex-dream-skin-presets[data-dream-ready="true"]) .group\\/home-suggestions'),
+  && css.includes('.dream-presets-ready .dream-home .group\\/home-suggestions'),
   "Home must retain a primed fallback and show it whenever the complete visible native preset set is unavailable.");
 assert.ok(template.includes('.ProseMirror[contenteditable="true"]')
   && template.includes('document.execCommand?.("insertText", false, prompt)')
@@ -90,36 +103,40 @@ assert.match(goalStepRule, /padding-box[\s\S]*?border-box\s*!important/,
   "The goal progress pill must paint its surface and cyan-to-pink outline as separate layers.");
 assert.doesNotMatch(goalStepRule, /inset\s+4px\s+0/,
   "The goal progress pill must not recreate the clipped duplicate block on its left edge.");
-assert.match(css, /\[class~="overflow-hidden"\]\[class~="rounded-3xl"\]:has\(\.dream-goal-step\)\s*\{[^}]*overflow:\s*visible\s*!important[^}]*clip-path:\s*none\s*!important/s,
-  "The native short progress shell must not clip the upper and lower arcs of the goal pill.");
+assert.match(css, /\.dream-goal-progress-group\s*\{[^}]*overflow:\s*visible\s*!important[^}]*clip-path:\s*none\s*!important/s,
+  "The classified progress host must not clip the upper and lower arcs of the goal pill.");
 assert.ok(template.includes('div.vertical-scroll-fade-mask[class~="overflow-y-auto"]')
   && template.includes('button[class~="w-full"][class~="shrink-0"][class~="rounded-lg"][class~="text-left"]'),
   "Add and slash-command panels must use their language-independent structural palette selector.");
-assert.match(css, /dream-composer-palette,[\s\S]*?vertical-scroll-fade-mask[\s\S]*?\)\s*\{[^}]*border:\s*2px solid var\(--angel-blue\)[^}]*background:/s,
-  "Composer palettes must replace the native olive surface on the first frame.");
+assert.match(css, /\.dream-composer-palette\s*\{[^}]*border:\s*2px solid var\(--angel-blue\)[^}]*background:/s,
+  "Composer palettes must use their mutation-batch class without a relational fallback.");
 assert.match(css, /dream-composer-context-strip,[\s\S]*?sticky[\s\S]*?border-x[\s\S]*?\)\s*\{[^}]*min-height:\s*42px[^}]*border:\s*1\.5px solid var\(--angel-blue\)/s,
   "Conversation context and goal strips must receive the themed rail before classification.");
 assert.ok(template.includes('deck.setAttribute("data-dream-ready", "false")')
   && template.includes('deck.setAttribute("data-dream-ready", String(ready))')
+  && template.includes('classList?.toggle?.("dream-presets-ready", ready)')
   && template.includes('else deck.setAttribute("hidden", "")')
-  && css.includes('#codex-dream-skin-presets[data-dream-ready="true"]'),
+  && css.includes('.dream-presets-ready .dream-home'),
   "Fallback presets must stay primed in the Home DOM and reveal without a two-frame blank transition.");
 for (const panelClass of ["dream-terminal-panel", "dream-side-workspace", "dream-side-chat-panel", "dream-summary-panel"]) {
   assert.match(template, new RegExp(panelClass), `The renderer must classify ${panelClass}.`);
   if (panelClass === "dream-terminal-panel") {
     assert.ok(
-      css.includes(':where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"]))'),
-      "The terminal must receive its component skin before xterm mount and after renderer classification.",
+      css.includes("html.codex-dream-skin .dream-terminal-panel")
+        && !css.includes(':where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)'),
+      "The terminal must use its renderer class without a repeated structural :has() fallback.",
     );
   } else if (panelClass === "dream-side-chat-panel") {
     assert.ok(
-      css.includes('main.main-surface aside > [class*="contain:layout_paint"]:has(.thread-scroll-container):has(.composer-surface-chrome)'),
-      "A newly mounted side conversation must receive its background before renderer classification.",
+      css.includes("html.codex-dream-skin .dream-side-chat-panel")
+        && !css.includes(`${shellSelector} aside > [class*="contain:layout_paint"]:has(.thread-scroll-container):has(.composer-surface-chrome)`),
+      "A side conversation must use its mutation-batch class without a deep :has() fallback.",
     );
   } else if (panelClass === "dream-summary-panel") {
     assert.ok(
-      css.includes('[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])'),
-      "The pinned summary must receive its component skin on its first mounted frame.",
+      css.includes("html.codex-dream-skin .dream-summary-panel")
+        && !css.includes('[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])'),
+      "The pinned summary must use its mutation-batch class without a deep relational fallback.",
     );
   } else {
     assert.match(css, new RegExp(`\\.${panelClass}\\s*\\{`), `${panelClass} must receive a dedicated component skin.`);
@@ -199,8 +216,8 @@ assert.match(template, /\^\(\?:\\u64a4\\u9500\|undo\)\$/i,
   "Edited resource card classification must recognize Undo in Chinese and English.");
 assert.match(template, /\^\(\?:\\u5ba1\\u6838\|review\)\$/i,
   "Edited resource card classification must recognize Review in Chinese and English.");
-assert.match(css, /\[class\*="contain:layout_paint"\]:has\(\.xterm\)\)\s+\.xterm-selection-layer/,
-  "The terminal selection layer must use the Internet Angel palette before the classifier runs.");
+assert.match(css, /\.dream-terminal-panel\s+\.xterm-selection-layer/,
+  "The terminal selection layer must use the Internet Angel palette through its durable class.");
 assert.ok(
   css.includes('[role="tablist"] [role="button"]:has(> [role="tab"])'),
   "The terminal skin must theme the native outer tab shell instead of leaving its token fallback exposed.",
@@ -228,13 +245,11 @@ assert.match(css, /\.dream-changes-shell\s*\{[^}]*z-index:\s*2[^}]*margin-bottom
   "The changed-files shell must keep a dedicated optical gap above the composer.");
 assert.match(css, /\.dream-changes-shell\s*\{[^}]*border:\s*0[^}]*box-shadow:\s*none/s,
   "The changed-files layout shell must not compete with the pill for the visible frame.");
-assert.match(css, /\.dream-changes-clip-host,[\s\S]*?overflow-hidden[\s\S]*?rounded-3xl[\s\S]*?\)\s*\{[^}]*overflow:\s*visible[^}]*border-radius:\s*0[^}]*clip-path:\s*none/s,
+assert.match(css, /\.dream-changes-clip-host\s*\{[^}]*overflow:\s*visible[^}]*border-radius:\s*0[^}]*clip-path:\s*none/s,
   "The changed-files host must release the larger overflow mask that clips both upper corners.");
-assert.ok(
-  css.includes('button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])'),
-  "The changed-files pill must receive its skin before runtime classification.",
-);
-assert.match(css, /\.dream-changes-pill,[\s\S]*?\)\s*\{[^}]*overflow:\s*visible[^}]*border:\s*2\.5px solid transparent[^}]*border-radius:\s*12\.5px[^}]*padding-box,[^}]*border-box[^}]*background-clip:\s*padding-box, border-box/s,
+assert.doesNotMatch(css, /button:has\(\[class\*="git-decoration-added"\]\):has\(\[class\*="git-decoration-deleted"\]\)/,
+  "The changed-files hot path must not retain its structural relational fallback.");
+assert.match(css, /\.dream-changes-pill\s*\{[^}]*overflow:\s*visible[^}]*border:\s*2\.5px solid transparent[^}]*border-radius:\s*12\.5px[^}]*padding-box,[^}]*border-box[^}]*background-clip:\s*padding-box, border-box/s,
   "The changed-files pill must paint its complete scaled frame with a two-layer opaque background.");
 assert.ok(template.includes('const CHANGES_CLIP_HOST_CLASS = "dream-changes-clip-host"'),
   "The renderer must classify the changed-files overflow host for durable corner repair.");
@@ -275,14 +290,19 @@ assert.match(css, /\.dream-sidebar-packet\s*\{[^}]*writing-mode:\s*vertical-rl/s
   "Sidebar affection telemetry must use the reserved edge rail instead of overlapping the new-task row.");
 assert.ok(template.includes('const withoutManagedClasses = (value)')
   && template.includes('const DOM_REFRESH_DEBOUNCE_MS = 1500')
+  && template.includes('const INTERACTION_QUIET_MS = 320')
   && template.includes('const FALLBACK_REFRESH_MS = 60000')
   && template.includes('scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)')
-  && template.includes('if (scheduler.dueAt <= dueAt) return;')
+  && template.includes('scheduler.running = true')
+  && template.includes('scheduler.lastRunAt = finishedAt')
+  && template.includes('const dueAt = Math.max(now + Math.max(0, settleMs), quietUntil)')
   && template.includes('window.requestAnimationFrame(runEnsure)')
   && template.includes('attributeOldValue: true')
   && template.includes('window.addEventListener("resize", resizeHandler')
-  && template.includes('document.addEventListener("click", navigationHandler, true)'),
-  "Shell and route changes must use bounded scheduling without observing streamed descendants.");
+  && template.includes('document.addEventListener("click", navigationHandler, true)')
+  && template.includes('document.addEventListener("compositionstart", interactionHandler, true)')
+  && template.includes('document.addEventListener("scroll", interactionHandler'),
+  "Shell and route changes must use trailing scheduling and respect active input/scroll windows.");
 assert.ok(template.includes("const observeRendererStructure = () =>")
   && template.includes("observer.observe(body, { ...attributeOptions, childList: true })")
   && template.includes("observer.observe(shellMain, { childList: true })")
@@ -293,7 +313,7 @@ assert.ok(template.includes("const classifyRuntimeSurfaces = (records)")
   && template.includes("dream-composer-palette")
   && template.includes("dream-settings-menu"),
   "New portal surfaces must receive local first-frame classification without a full DOM scan.");
-assert.ok(template.includes('const STYLE_REVISION = "8"')
+assert.ok(template.includes('const STYLE_REVISION = "9"')
   && template.includes('existingStyle.dataset.dreamVersion = STYLE_REVISION')
   && !template.includes('existingStyle.dataset.dreamVersion = "3"'),
   "Reinjection must not parse and apply the full stylesheet twice for one refresh.");
@@ -304,7 +324,7 @@ assert.ok(template.indexOf('.filter(({ text }) => pattern.test(text))')
   "Portal fallback labels must be matched by text before any layout/style measurement.");
 assert.ok(template.includes('const runEnsureSafely = () =>')
   && template.includes('observer?.disconnect()')
-  && template.includes('setInterval(runEnsureSafely, FALLBACK_REFRESH_MS)')
+  && template.includes('setInterval(() => scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS), FALLBACK_REFRESH_MS)')
   && template.includes('ensure: runEnsureSafely'),
   "Observer, interval, and external renderer refreshes must share an exception boundary.");
 assert.ok(template.includes('const resizeTargetSizes = new WeakMap()')
@@ -344,9 +364,10 @@ assert.ok(
   "The subagent classifier must use the language-independent tabpanel/list structure.",
 );
 assert.ok(
-  css.includes('[role="tabpanel"] > [class~="h-full"][class~="min-h-0"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]')
-    && css.includes('button[class~="items-start"][class~="w-full"]'),
-  "The collaboration panel must lose its native olive surface on the first mounted frame.",
+  css.includes("html.codex-dream-skin .dream-subagent-panel")
+    && css.includes("html.codex-dream-skin .dream-subagent-scroller")
+    && !css.includes('[role="tabpanel"]:has('),
+  "The collaboration panel must use its durable classes without a deep relational fallback.",
 );
 assert.match(css, /.dream-subagent-row,[\s\S]*?button\[class~="items-start"\][\s\S]*?\) > svg:first-child\s*\{[^}]*width:\s*30px[^}]*border:[^}]*background:\s*linear-gradient/s,
   "Agent avatars must become framed Internet Angel channel icons.");
@@ -438,9 +459,9 @@ assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.dream-ange
   "The character blink must become a static, invisible layer for reduced-motion users.");
 assert.match(css, /dream-reduced-motion[\s\S]*?\.dream-angel-blink[\s\S]*?animation:\s*none\s*!important[\s\S]*?opacity:\s*0\s*!important/s,
   "The renderer's live reduced-motion class must provide the same no-animation fallback.");
-assert.match(css, /:has\(\.dream-system-toast\)[\s\S]*?dream-angel-dose-strip[\s\S]*?dream-angel-now-playing[\s\S]*?display:\s*none\s*!important/s,
+assert.match(css, /\.dream-system-toast-active[\s\S]*?dream-angel-dose-strip[\s\S]*?dream-angel-now-playing[\s\S]*?display:\s*none\s*!important/s,
   "Transient system notices must reserve a quiet band instead of competing with lower Home ornaments.");
-assert.match(css, /:has\(#codex-dream-skin-presets\[data-dream-ready="true"\]\)[\s\S]*?dream-angel-webcam-card[\s\S]*?dream-angel-heartbeat[\s\S]*?display:\s*none\s*!important/s,
+assert.match(css, /\.dream-presets-ready[\s\S]*?dream-angel-webcam-card[\s\S]*?dream-angel-heartbeat[\s\S]*?display:\s*none\s*!important/s,
   "The richer fallback deck must retire overlapping legacy ornaments in the same band.");
 assert.match(css, /@container angel-stage \(max-width: 900px\)[\s\S]*?dream-angel-webcam-card[\s\S]*?display:\s*none/s,
   "Large ornaments must collapse before compact Codex layouts become crowded.");
@@ -472,24 +493,25 @@ assert.doesNotMatch(css, /button\[aria-label="(?:滚动到底部|Scroll to botto
   "The scroll-to-bottom skin must not override the native centering transform.");
 assert.match(
   css,
-  /\.dream-summary-panel,[\s\S]*?\)\s*\{[^}]*overflow:\s*clip[^}]*border:\s*2px solid color-mix[^}]*border-radius:\s*12px[^}]*background-clip:\s*padding-box/s,
+  /\.dream-summary-panel\s*\{[^}]*overflow:\s*clip[^}]*border:\s*2px solid color-mix[^}]*border-radius:\s*12px[^}]*background-clip:\s*padding-box/s,
   "The pinned summary must use one opaque clipped frame instead of a transparent gradient with scaled-corner gaps.",
 );
-assert.match(css, /\.dream-summary-panel,[\s\S]*?\) > \[class\*="overflow-y-auto"\]\s*\{[^}]*scrollbar-gutter:\s*stable/s,
+assert.match(css, /\.dream-summary-panel > \[class\*="overflow-y-auto"\]\s*\{[^}]*scrollbar-gutter:\s*stable/s,
   "The pinned summary must reserve its scrollbar gutter so expanded sections cannot jitter the right edge.");
 assert.ok(
-  css.includes('[class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"])')
-    && css.includes('[class~="font-medium"][class*="text-token-foreground"]')
-    && css.includes('.turn-diff-default-subtitle')
-    && css.includes('[class*="pointer-events-auto"]:has(> button + button) > button'),
-  "Edited resource card shells, titles, statistics, and actions must all have first-frame structural skins.",
+  css.includes(".dream-edited-card-title")
+    && css.includes(".dream-edited-card-stats")
+    && css.includes(".dream-edited-card-actions")
+    && css.includes(".dream-edited-card-review")
+    && !css.includes('[class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"])'),
+  "Edited resource card shells, titles, statistics, and actions must use durable classes only.",
 );
-assert.match(css, /\.dream-edited-card,[\s\S]*?\)\s*\{[^}]*overflow:\s*clip[^}]*border:\s*2px solid color-mix[^}]*border-radius:\s*12px[^}]*background-clip:\s*padding-box/s,
+assert.match(css, /\.dream-edited-card\s*\{[^}]*overflow:\s*clip[^}]*border:\s*2px solid color-mix[^}]*border-radius:\s*12px[^}]*background-clip:\s*padding-box/s,
   "Edited resource cards must use one uniform opaque clipped frame.");
 
 assert.doesNotMatch(
   css,
-  /main\.main-surface\s*>\s*header\.app-header-tint\s*\{[^}]*\b(?:position|z-index)\s*:/,
+  new RegExp(`${shellSelector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*>\\s*${headerSelector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{[^}]*\\b(?:position|z-index)\\s*:`),
   "The skin must preserve Codex's native fixed header so the side-panel toggle remains reachable.",
 );
 
@@ -689,9 +711,7 @@ function createFixture({
     },
     getElementById(id) { return nodes.get(id) ?? null; },
     querySelector(selector) {
-      if (selector === ":is(main.main-surface, main[data-app-shell-main-surface])") {
-        return hasMain ? shellMain : null;
-      }
+      if (selector === shellSelector) return hasMain ? shellMain : null;
       if (selector === "main") return hasMain ? shellMain : null;
       if (selector === "aside.app-shell-left-panel") return hasSidebar ? shellSidebar : null;
       if (selector === '[data-testid="app-shell-floating-left-panel"]') {
@@ -827,6 +847,7 @@ function createFixture({
     routeClasses,
     utilityClasses,
     getTimeoutCalls() { return timeoutCalls; },
+    getPendingTimeoutCount() { return timeouts.size; },
     runTimeout(id) {
       const timer = timeouts.get(id);
       timeouts.delete(id);
@@ -944,14 +965,22 @@ const mutationObserver = mutationBurst.observers[0];
 const applicationMutation = [{
   type: "childList",
   target: mutationBurst.context.document.body,
-  addedNodes: [{ nodeType: 1, id: "native-surface" }],
+  addedNodes: [{
+    nodeType: 1,
+    id: "native-surface",
+    matches: (selector) => selector.includes("aside"),
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  }],
   removedNodes: [],
 }];
 mutationObserver.callback(applicationMutation);
 mutationObserver.callback(applicationMutation);
 mutationObserver.callback(applicationMutation);
-assert.equal(mutationBurst.getTimeoutCalls(), 1,
-  "A burst of renderer mutations must queue one throttled refresh instead of one refresh per record batch.");
+assert.equal(mutationBurst.getTimeoutCalls(), 3,
+  "Trailing debounce must move the due time after every structural mutation batch.");
+assert.equal(mutationBurst.getPendingTimeoutCount(), 1,
+  "A burst of renderer mutations must retain only one pending full refresh.");
 
 const injectedMutation = createFixture({ shellPresent: true });
 vm.runInNewContext(payload, injectedMutation.context);
@@ -973,7 +1002,7 @@ const previewSurface = {
   id: "native-preview",
   classList: { add(...values) { values.forEach((value) => previewClasses.add(value)); } },
   matches(selector) {
-    return selector === '[role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]';
+    return selector.includes('[role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]');
   },
   querySelectorAll() { return []; },
   querySelector() { return null; },

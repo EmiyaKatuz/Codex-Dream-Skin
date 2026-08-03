@@ -3,9 +3,9 @@
   const registryKey = "__CODEX_INTERNET_ANGEL_EXTENSION_STATE__";
   const componentAttribute = "data-angel-component";
   const selectors = {
-    shell: ':is(main.main-surface, main[data-app-shell-main-surface])',
+    shell: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])',
     composer: ".composer-surface-chrome",
-    stickyComposer: ':is(main.main-surface, main[data-app-shell-main-surface]) [class~="sticky"][class~="bottom-0"]',
+    stickyComposer: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [class~="sticky"][class~="bottom-0"]',
     contextStrip: 'div[class~="relative"][class~="min-w-0"][class~="overflow-clip"][class~="border-x"][class~="border-t"]',
     environmentPanel: 'div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]',
     environmentToggle: 'button[class~="group/section-toggle"]',
@@ -18,6 +18,7 @@
     paletteItem: 'button[class~="w-full"][class~="shrink-0"][class~="rounded-lg"][class~="text-left"]',
     turnRow: 'button[class*="navigation-row"]',
     settingsNav: 'nav:has([data-settings-panel-slug])',
+    settingsPanel: '[data-settings-panel-slug="general-settings"]',
     settingsContent: 'div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])',
   };
   const previous = window[registryKey];
@@ -38,9 +39,28 @@
   let refreshTimer = null;
   let resizeFrame = null;
   let state = null;
+  let activeMarks = null;
+  let compositionDepth = 0;
+  let refreshPendingAfterComposition = false;
+  const metrics = {
+    classifyRuns: 0,
+    scheduleRequests: 0,
+    suppressedDuringComposition: 0,
+    markVisits: 0,
+    attributeWrites: 0,
+    attributeRemovals: 0,
+    totalClassifyMs: 0,
+    lastClassifyMs: 0,
+  };
 
   const mark = (node, component) => {
-    if (node?.setAttribute) node.setAttribute(componentAttribute, component);
+    if (!node?.setAttribute) return node;
+    activeMarks?.add(node);
+    metrics.markVisits += 1;
+    if (node.getAttribute?.(componentAttribute) !== component) {
+      node.setAttribute(componentAttribute, component);
+      metrics.attributeWrites += 1;
+    }
     return node;
   };
 
@@ -143,7 +163,8 @@
     const nav = document.querySelector(selectors.settingsNav);
     if (!nav) return;
     const sidebar = nav.closest?.(selectors.sidebar) || nav.parentElement;
-    const content = document.querySelector(selectors.settingsContent);
+    const content = document.querySelector(selectors.settingsContent)
+      || document.querySelector(selectors.settingsPanel);
     mark(sidebar, "settings-sidebar");
     mark(nav, "settings-nav");
     const search = nav.querySelector?.('[role="searchbox"]');
@@ -222,7 +243,7 @@
       }
       const labels = [...(sticky.querySelectorAll?.("span") || [])];
       const activeGoalLabel = labels.find((node) => activeGoalPattern.test((node.textContent || "").trim()));
-      const activeGoalStrip = activeGoalLabel?.closest?.(`[${componentAttribute}="context-strip"]`);
+      const activeGoalStrip = activeGoalLabel?.closest?.(selectors.contextStrip);
       if (activeGoalStrip) mark(activeGoalStrip, "active-goal-strip");
       const stepLabel = labels.find((node) => goalStepPattern.test((node.textContent || "").trim()));
       const step = stepLabel?.closest?.('span[class~="inline-flex"]') || stepLabel?.parentElement || null;
@@ -385,7 +406,7 @@
     for (const summary of document.querySelectorAll(
       '[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])',
     )) {
-      if (summary.getAttribute?.(componentAttribute) === "environment") continue;
+      if (summary.matches?.(selectors.environmentPanel)) continue;
       mark(summary, "summary-panel");
     }
 
@@ -521,31 +542,75 @@
   };
 
   const classify = () => {
-    clearMarks();
-    classifySidebar();
-    classifyComposer();
-    classifyComposerPalette();
-    classifyComposerContext();
-    classifyEnvironment();
-    classifyChanges();
-    classifyWorkspaces();
-    classifyPermissions();
-    classifyConversation();
-    classifyTurnNavigation();
-    classifySettings();
-    classifyAuxiliarySurfaces();
-    classifySelectionAndDiffs();
-    classifySubagents();
-    classifySystemToasts();
+    const startedAt = typeof performance?.now === "function" ? performance.now() : Date.now();
+    const currentMarks = new Set();
+    activeMarks = currentMarks;
+    try {
+      classifySidebar();
+      classifyComposer();
+      classifyComposerPalette();
+      classifyComposerContext();
+      classifyEnvironment();
+      classifyChanges();
+      classifyWorkspaces();
+      classifyPermissions();
+      classifyConversation();
+      classifyTurnNavigation();
+      classifySettings();
+      classifyAuxiliarySurfaces();
+      classifySelectionAndDiffs();
+      classifySubagents();
+      classifySystemToasts();
+    } finally {
+      activeMarks = null;
+      for (const node of document.querySelectorAll(`[${componentAttribute}]`)) {
+        if (currentMarks.has(node)) continue;
+        node.removeAttribute(componentAttribute);
+        metrics.attributeRemovals += 1;
+      }
+      const finishedAt = typeof performance?.now === "function" ? performance.now() : Date.now();
+      metrics.classifyRuns += 1;
+      metrics.lastClassifyMs = Math.max(0, finishedAt - startedAt);
+      metrics.totalClassifyMs += metrics.lastClassifyMs;
+    }
   };
 
   const scheduleRefresh = () => {
+    metrics.scheduleRequests += 1;
+    if (compositionDepth > 0) {
+      refreshPendingAfterComposition = true;
+      metrics.suppressedDuringComposition += 1;
+      return;
+    }
     if (refreshTimer !== null) return;
     refreshTimer = setTimeout(() => {
       refreshTimer = null;
       classify();
       installObservers();
-    }, 60);
+    }, 120);
+  };
+
+  const compositionStarted = () => {
+    compositionDepth += 1;
+    if (refreshTimer === null) return;
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+    refreshPendingAfterComposition = true;
+  };
+
+  const compositionEnded = () => {
+    compositionDepth = Math.max(0, compositionDepth - 1);
+    if (compositionDepth !== 0 || !refreshPendingAfterComposition) return;
+    refreshPendingAfterComposition = false;
+    scheduleRefresh();
+  };
+
+  const refreshAfterClick = (event) => {
+    const target = event?.target?.closest?.(
+      'a[href], button, [role="button"], [role="menuitem"], [role="tab"], ' +
+      '[data-settings-panel-slug], [aria-expanded], [aria-haspopup]',
+    );
+    if (target) scheduleRefresh();
   };
 
   const refreshAfterResize = () => {
@@ -587,6 +652,9 @@
     refreshTimer = null;
     if (resizeFrame !== null) window.cancelAnimationFrame?.(resizeFrame);
     resizeFrame = null;
+    compositionDepth = 0;
+    refreshPendingAfterComposition = false;
+    activeMarks = null;
     for (const observer of observers) observer.disconnect();
     observers.length = 0;
     observedTargets.clear();
@@ -596,14 +664,15 @@
     if (window[registryKey] === state) delete window[registryKey];
   };
 
-  state = { cleanup, observers, refresh: classify };
+  state = { cleanup, observers, refresh: classify, metrics };
   window[registryKey] = state;
   classify();
   installObservers();
   addListener(window.navigation, "navigate");
   addListener(window, "popstate");
   addListener(window, "hashchange");
-  addListener(window, "click");
+  addListener(window, "click", refreshAfterClick);
   addListener(window, "resize", refreshAfterResize);
-  addListener(window, "transitionend");
+  addListener(window, "compositionstart", compositionStarted);
+  addListener(window, "compositionend", compositionEnded);
 })();

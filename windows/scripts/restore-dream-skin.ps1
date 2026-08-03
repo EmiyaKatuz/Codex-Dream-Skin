@@ -101,6 +101,16 @@ try {
 
   $restoreError = $null
   try {
+    # Ask the native material monitor to restore Mica while its fully pinned
+    # target identity is still available. This never discovers or closes Codex.
+    $null = Stop-DreamSkinRecordedAcrylicMonitor -State $state -StateRoot $StateRoot
+    # A normal relaunch after restore must not be immediately converted back
+    # into an automatic Dream Skin session. The manager only signals its own
+    # watcher and removes its Startup entry; it never stops Codex.
+    $autoLaunchManager = Join-Path $PSScriptRoot 'manage-auto-launch-dream-skin.ps1'
+    if (Test-Path -LiteralPath $autoLaunchManager -PathType Leaf) {
+      & $autoLaunchManager -Disable | Out-Null
+    }
     Stop-DreamSkinTrayProcess
     if ($shouldCloseCodex) {
       Stop-DreamSkinCodex -Codex $codex -AllowForce:$forceAuthorized
@@ -133,6 +143,11 @@ try {
     Remove-Item -LiteralPath $StatePath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath (Join-Path $StateRoot 'paused') -Force -ErrorAction SilentlyContinue
     if ($Uninstall) {
+      $windowEffectsPath = Get-DreamSkinWindowEffectsPath -StateRoot $StateRoot
+      if (Test-Path -LiteralPath $windowEffectsPath) {
+        $null = Read-DreamSkinWindowEffects -StateRoot $StateRoot
+        Remove-Item -LiteralPath $windowEffectsPath -Force -ErrorAction Stop
+      }
       $desktop = [Environment]::GetFolderPath('Desktop')
       $startMenu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
       @(

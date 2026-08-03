@@ -32,13 +32,14 @@ await new Promise((resolve, reject) => {
 });
 port = server.address().port;
 
-const runMode = (mode) => new Promise((resolve, reject) => {
+const runMode = (mode, extraArgs = []) => new Promise((resolve, reject) => {
   const child = spawn(process.execPath, [
     injectorPath,
     mode,
     "--port", String(port),
     "--browser-id", "test-browser",
     "--timeout-ms", "250",
+    ...extraArgs,
   ], { stdio: ["ignore", "pipe", "pipe"] });
   let stdout = "";
   let stderr = "";
@@ -60,6 +61,35 @@ try {
     assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /options is not defined/,
       `${mode} must not reference a CLI options binding outside its lexical scope.`);
   }
+
+  const missingEvidence = await runMode("--verify", ["--allow-hidden-document"]);
+  assert.notEqual(missingEvidence.code, 0);
+  assert.match(`${missingEvidence.stdout}\n${missingEvidence.stderr}`,
+    /--allow-hidden-document requires complete Win32 window evidence/);
+
+  const requestsBeforeHiddenVerify = versionRequests;
+  const hiddenVerify = await runMode("--verify", [
+    "--allow-hidden-document",
+    "--win32-window-pid", "4120",
+    "--win32-window-hwnd", "918273645",
+    "--win32-window-width", "1280",
+    "--win32-window-height", "800",
+  ]);
+  assert.notEqual(hiddenVerify.code, 0,
+    "The complete hidden-document verify fixture still has no page target.");
+  assert.ok(versionRequests > requestsBeforeHiddenVerify,
+    "Complete Win32 evidence must pass argument validation and reach target discovery.");
+
+  const wrongMode = await runMode("--once", [
+    "--allow-hidden-document",
+    "--win32-window-pid", "4120",
+    "--win32-window-hwnd", "918273645",
+    "--win32-window-width", "1280",
+    "--win32-window-height", "800",
+  ]);
+  assert.notEqual(wrongMode.code, 0);
+  assert.match(`${wrongMode.stdout}\n${wrongMode.stderr}`,
+    /--allow-hidden-document is only valid in verify mode/);
 } finally {
   await new Promise((resolve) => server.close(resolve));
 }

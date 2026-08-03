@@ -14,6 +14,10 @@ $source = $source.Replace(
   '$Injector = ''mock-injector.mjs'''
 )
 $source = $source.Replace(
+  '$acrylicHelper = Join-Path $PSScriptRoot ''acrylic-window.ps1''',
+  '$acrylicHelper = ''mock-acrylic-window.ps1'''
+)
+$source = $source.Replace(
   '(Split-Path -Parent $PSScriptRoot)',
   '''mock-skill-root'''
 )
@@ -28,6 +32,7 @@ $script:daemon | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value {
 }
 $script:dateCall = 0
 $script:verifyCalls = 0
+$script:verifyAllowedHidden = $false
 $script:removeCalls = 0
 $script:stateWritten = $false
 $script:stateRemoved = $false
@@ -64,6 +69,10 @@ function Get-DreamSkinThemePaths {
     PauseFile = (Join-Path $StateRoot 'paused')
   }
 }
+function Read-DreamSkinWindowEffects {
+  param([string]$StateRoot)
+  return [pscustomobject]@{ WindowMaterial = 'system' }
+}
 function Ensure-DreamSkinManagedDirectory { param([string]$Path, [string]$Root) }
 function Initialize-DreamSkinThemeStore {
   param([string]$SkillRoot, [string]$StateRoot)
@@ -89,6 +98,10 @@ function Wait-DreamSkinWin32WindowEvidence {
   }
 }
 function Stop-DreamSkinRecordedInjector { param([object]$State); return $true }
+function Stop-DreamSkinRecordedAcrylicMonitor {
+  param([object]$State, [string]$StateRoot)
+  return $true
+}
 function Set-DreamSkinPaused { param([bool]$Paused, [string]$StateRoot); return $true }
 function ConvertTo-DreamSkinProcessArgument { param([string]$Value); return $Value }
 function Start-Process {
@@ -112,6 +125,7 @@ function Invoke-DreamSkinNative {
   param([string]$FilePath, [object[]]$ArgumentList, [switch]$DiscardStderr)
   if ($ArgumentList -contains '--verify') {
     $script:verifyCalls += 1
+    $script:verifyAllowedHidden = $ArgumentList -contains '--allow-hidden-document'
     return [pscustomobject]@{ ExitCode = 2; Output = @('{"pass":false}') }
   }
   if ($ArgumentList -contains '--remove') {
@@ -161,7 +175,8 @@ try {
 $announcedActive = @($script:hostMessages | Where-Object {
   $_ -like 'Codex Dream Skin is active*'
 }).Count -gt 0
-if (-not $failed -or $script:verifyCalls -ne 1 -or $script:removeCalls -ne 1 -or
+if (-not $failed -or $script:verifyCalls -ne 1 -or -not $script:verifyAllowedHidden -or
+  $script:removeCalls -ne 1 -or
   -not $script:stateWritten -or -not $script:stateRemoved -or
   -not $script:daemonStopped -or -not $script:daemon.HasExited -or
   -not $script:lockExited -or $announcedActive) {

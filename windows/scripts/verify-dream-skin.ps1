@@ -15,6 +15,16 @@ $verifyExitCode = 1
 try {
   $StatePath = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin\state.json'
   $state = Read-DreamSkinState -Path $StatePath
+  $windowMaterial = if ($null -ne $state -and $state.windowMaterial) {
+    "$($state.windowMaterial)".ToLowerInvariant()
+  } else {
+    # A preference describes the next launch, not an already-running legacy
+    # session. States created before this feature are therefore System/Mica.
+    'system'
+  }
+  if ($windowMaterial -notin @('system', 'acrylic')) {
+    throw 'The recorded Dream Skin window material is invalid.'
+  }
   if (-not $PortExplicit -and $null -ne $state -and $state.port) { $Port = [int]$state.port }
   Assert-DreamSkinPort -Port $Port
   $node = Get-DreamSkinNodeRuntime
@@ -51,6 +61,70 @@ try {
   if ($null -eq $win32Window) {
     throw 'No visible Win32 HWND owned by the verified Codex executable is available.'
   }
+  if ($windowMaterial -ceq 'acrylic') {
+    $acrylicHelper = Join-Path $PSScriptRoot 'acrylic-window.ps1'
+    if ($null -eq $state) { throw 'Desktop Acrylic has no recorded active-session state.' }
+    foreach ($field in @(
+      'acrylicMonitorPid', 'acrylicMonitorStartedAt', 'acrylicMonitorPath',
+      'acrylicMonitorStopFile', 'acrylicMonitorArmFile',
+      'acrylicTargetPid', 'acrylicTargetStartTimeFileTimeUtc',
+      'acrylicTargetExecutablePath', 'acrylicTargetPackageFamilyName',
+      'acrylicTargetWindowClass', 'acrylicTargetWindowHandle', 'startupPhase'
+    )) {
+      if ($state.PSObject.Properties.Name -notcontains $field -or -not "$($state.$field)") {
+        throw "Desktop Acrylic active state is missing: $field"
+      }
+    }
+    if ("$($state.startupPhase)" -cne 'active') {
+      throw 'Desktop Acrylic startup has not reached its verified active phase.'
+    }
+    $monitorPid = 0
+    if (-not [int]::TryParse("$($state.acrylicMonitorPid)", [ref]$monitorPid) -or $monitorPid -le 0) {
+      throw 'Desktop Acrylic monitor PID is invalid.'
+    }
+    $monitorInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $monitorPid" `
+      -ErrorAction SilentlyContinue
+    $monitorProcess = Get-Process -Id $monitorPid -ErrorAction SilentlyContinue
+    if ($null -eq $monitorInfo -or $null -eq $monitorProcess) {
+      throw 'The recorded Desktop Acrylic monitor is not running.'
+    }
+    try {
+      $monitorStartedAt = $monitorProcess.StartTime.ToUniversalTime().ToString('o')
+    } finally {
+      $monitorProcess.Dispose()
+    }
+    $monitorCommandLine = "$($monitorInfo.CommandLine)"
+    $monitorPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $monitorInfo
+    $powershellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $monitorIdentityMatches = $monitorPath -and $monitorCommandLine -and
+      (Test-DreamSkinPathEqual -Left $monitorPath -Right $powershellPath) -and
+      (Test-DreamSkinPathEqual -Left "$($state.acrylicMonitorPath)" -Right $acrylicHelper) -and
+      (Test-DreamSkinCommandLineToken -CommandLine $monitorCommandLine -Token $acrylicHelper) -and
+      (Test-DreamSkinCommandLineToken -CommandLine $monitorCommandLine -Token 'Monitor') -and
+      (Test-DreamSkinCommandLineToken -CommandLine $monitorCommandLine -Token '-ExpectedWindowHandle') -and
+      (Test-DreamSkinCommandLineToken -CommandLine $monitorCommandLine -Token "$($state.acrylicTargetWindowHandle)") -and
+      (Test-DreamSkinCommandLineToken -CommandLine $monitorCommandLine -Token "$($state.acrylicMonitorArmFile)") -and
+      $monitorStartedAt -ceq "$($state.acrylicMonitorStartedAt)" -and
+      -not (Test-Path -LiteralPath "$($state.acrylicMonitorStopFile)")
+    if (-not $monitorIdentityMatches) {
+      throw 'The recorded Desktop Acrylic monitor identity is not live or exact.'
+    }
+    $descriptors = @(& $acrylicHelper -Action Describe `
+      -TargetProcessId $win32Window.ProcessId `
+      -ExpectedWindowHandle ([long]$win32Window.Handle))
+    if ($descriptors.Count -ne 1 -or [int]$descriptors[0].CurrentBackdrop -ne 3 -or
+      [long]$descriptors[0].WindowHandleValue -ne [long]$win32Window.Handle -or
+      [int]$state.acrylicTargetPid -ne [int]$descriptors[0].ProcessId -or
+      [long]$state.acrylicTargetStartTimeFileTimeUtc -ne [long]$descriptors[0].StartTimeFileTimeUtc -or
+      [long]$state.acrylicTargetWindowHandle -ne [long]$descriptors[0].WindowHandleValue -or
+      "$($state.acrylicTargetExecutablePath)" -ine "$($descriptors[0].ExecutablePath)" -or
+      "$($state.acrylicTargetPackageFamilyName)" -cne "$($descriptors[0].PackageFamilyName)" -or
+      "$($state.acrylicTargetWindowClass)" -cne "$($descriptors[0].WindowClass)" -or
+      "$($descriptors[0].ExecutablePath)" -ine "$($codex.Executable)" -or
+      "$($descriptors[0].PackageFamilyName)" -cne "$($codex.PackageFamilyName)") {
+      throw 'The verified Codex window is not currently using Desktop Acrylic.'
+    }
+  }
 
   # Without an explicit --theme-dir the injector falls back to the engine's
   # bundled assets theme, so verification compares the live skin against the
@@ -62,7 +136,8 @@ try {
     '--win32-window-pid', "$($win32Window.ProcessId)",
     '--win32-window-hwnd', "$($win32Window.Handle)",
     '--win32-window-width', "$($win32Window.Width)",
-    '--win32-window-height', "$($win32Window.Height)")
+    '--win32-window-height', "$($win32Window.Height)",
+    '--window-material', $windowMaterial)
   if ($ScreenshotPath) { $arguments += @('--screenshot', $ScreenshotPath) }
   & $node.Path @arguments
   $verifyExitCode = $LASTEXITCODE

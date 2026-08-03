@@ -2,6 +2,8 @@
 param(
   [int]$Port = 9335,
   [switch]$RestartExisting,
+  [switch]$AutoRestartStock,
+  [string]$AutoRestartReservationToken,
   [switch]$PromptRestart,
   [string]$ProfilePath,
   [switch]$ForegroundInjector,
@@ -18,22 +20,61 @@ $Injector = Join-Path $PSScriptRoot 'injector.mjs'
 $operationLock = Enter-DreamSkinOperationLock `
   -TimeoutMilliseconds $OperationLockTimeoutMilliseconds
 try {
+  if ($AutoRestartStock -and ($RestartExisting -or $PromptRestart)) {
+    throw '-AutoRestartStock cannot be combined with -RestartExisting or -PromptRestart.'
+  }
+  if ($AutoRestartStock -and -not $AutoRestartReservationToken) {
+    throw '-AutoRestartStock requires a live auto-launch reservation token.'
+  }
+  if (-not $AutoRestartStock -and $AutoRestartReservationToken) {
+    throw '-AutoRestartReservationToken is only valid with -AutoRestartStock.'
+  }
   Assert-DreamSkinPort -Port $Port
   if ($ProfilePath) { $ProfilePath = [System.IO.Path]::GetFullPath($ProfilePath) }
   $node = Get-DreamSkinNodeRuntime
   $currentCodex = Get-DreamSkinCodexInstall
   $codex = $currentCodex
   $StateRoot = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'
+  $windowEffects = Read-DreamSkinWindowEffects -StateRoot $StateRoot
+  $windowMaterial = $windowEffects.WindowMaterial
+  $acrylicTransparencyReady = $false
+  $acrylicHelper = Join-Path $PSScriptRoot 'acrylic-window.ps1'
+  if ($windowMaterial -ceq 'acrylic') {
+    $acrylicEnvironment = Get-DreamSkinAcrylicEnvironment
+    if (-not $acrylicEnvironment.Supported) {
+      throw "Desktop Acrylic requires Windows 11 build 22621 or newer with Transparency effects enabled. Current build: $($acrylicEnvironment.Build)."
+    }
+    if (-not (Test-Path -LiteralPath $acrylicHelper -PathType Leaf)) {
+      throw "The managed Desktop Acrylic helper is missing: $acrylicHelper"
+    }
+    $codexConfigPath = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex\config.toml'
+    $acrylicTransparencyReady = Test-DreamSkinAcrylicTransparencyConfig `
+      -ConfigPath $codexConfigPath
+    if (-not (Test-DreamSkinAcrylicTransparencyConfigManageable -ConfigPath $codexConfigPath)) {
+      throw 'Desktop Acrylic cannot safely manage opaqueWindows = false in the active Codex light chrome theme; no app process or native window was changed.'
+    }
+    if ($ForegroundInjector) {
+      throw 'Desktop Acrylic currently requires the managed background injector; remove -ForegroundInjector or set window effects to System.'
+    }
+  }
   $themePaths = Get-DreamSkinThemePaths -StateRoot $StateRoot
   Ensure-DreamSkinManagedDirectory -Path $themePaths.Root -Root $themePaths.Root
   $StatePath = Join-Path $StateRoot 'state.json'
   $StdoutPath = Join-Path $StateRoot 'injector.log'
   $StderrPath = Join-Path $StateRoot 'injector-error.log'
   $VerifyPath = Join-Path $StateRoot 'verify.log'
+  $AcrylicStdoutPath = Join-Path $StateRoot 'acrylic-monitor.log'
+  $AcrylicStderrPath = Join-Path $StateRoot 'acrylic-monitor-error.log'
   $themePaths = Initialize-DreamSkinThemeStore -SkillRoot (Split-Path -Parent $PSScriptRoot) -StateRoot $StateRoot
   $pauseWasSet = Test-DreamSkinPaused -StateRoot $StateRoot
   if ($RequireUnpaused -and $pauseWasSet) {
     throw 'A newer pause request superseded this theme apply before renderer verification.'
+  }
+  $autoLaunchScript = $null
+  if ($AutoRestartStock) {
+    $autoLaunchScript = Join-Path (Split-Path -Parent $Injector) 'auto-launch-dream-skin.ps1'
+    $null = Assert-DreamSkinAutoRestartReservation -StateRoot $StateRoot `
+      -Token $AutoRestartReservationToken -ExpectedScriptPath $autoLaunchScript
   }
 
   $previousState = Read-DreamSkinState -Path $StatePath
@@ -93,6 +134,14 @@ try {
       }
     }
   }
+  if ($windowMaterial -ceq 'acrylic' -and $null -ne $cdpIdentity -and
+    -not $acrylicTransparencyReady) {
+    # A live System/Mica session cannot be made renderer-transparent safely
+    # while Codex owns config.toml. Route through the existing explicit restart
+    # authorization so the closed-app transaction can set opaqueWindows=false.
+    $cdpIdentity = $null
+    Write-Warning 'Desktop Acrylic requires a one-time Codex restart to enable transparent window rendering.'
+  }
   $debugReady = $null -ne $cdpIdentity
   $codexProcesses = if (Test-DreamSkinPathEqual -Left $codexToStop.Executable -Right $currentCodex.Executable) {
     $currentProcesses
@@ -101,7 +150,24 @@ try {
   }
   $closedExistingCodex = $false
   if (-not $debugReady -and $codexProcesses.Count -gt 0) {
-    $restartAuthorized = [bool]$RestartExisting
+    $restartAuthorized = [bool]($RestartExisting -or $AutoRestartStock)
+    if ($AutoRestartStock) {
+      # The background auto-launcher observes process creation after the fact.
+      # Re-read the complete package-owned process set here so a concurrent
+      # Dream Skin/debug launch always wins and is never torn down.
+      $codexProcesses = @(Get-DreamSkinCodexProcesses -Codex $codexToStop)
+      $debugIntent = Get-DreamSkinCodexAnyDebugIntentStatus -Processes $codexProcesses
+      if ($debugIntent -ne 'none') {
+        Write-Host "Automatic Dream Skin restart skipped: Codex debug intent is $debugIntent."
+        return
+      }
+      if (Test-DreamSkinPaused -StateRoot $StateRoot) {
+        Write-Host 'Automatic Dream Skin restart skipped: the skin was paused.'
+        return
+      }
+      $null = Assert-DreamSkinAutoRestartReservation -StateRoot $StateRoot `
+        -Token $AutoRestartReservationToken -ExpectedScriptPath $autoLaunchScript
+    }
     if (-not $restartAuthorized -and $PromptRestart) {
       $restartAuthorized = Confirm-DreamSkinRestart -Message 'Codex must restart once to enable Dream Skin. Unsaved input may be lost. Restart now?'
       if (-not $restartAuthorized) {
@@ -121,6 +187,7 @@ try {
   $debugLaunchAttempted = $false
   $debugLaunch = $null
   $debugLaunchBaselineProcessIds = @()
+  $acrylicDescriptor = $null
   try {
     if ($null -eq (Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex)) {
       # Codex is closed on this path; sync the appearanceTheme pin to the
@@ -128,9 +195,14 @@ try {
       try {
         Install-DreamSkinBaseTheme -ConfigPath (Join-Path $HOME '.codex\config.toml') `
           -BackupPath (Join-Path $StateRoot 'config.before-dream-skin.toml') `
-          -AppearanceTheme (Get-DreamSkinActiveThemeAppearance -ThemeDirectory $themePaths.Active)
+          -AppearanceTheme (Get-DreamSkinActiveThemeAppearance -ThemeDirectory $themePaths.Active) `
+          -TransparentWindows:($windowMaterial -ceq 'acrylic')
       } catch {
         Write-Warning "Could not sync Codex appearanceTheme to the active theme: $($_.Exception.Message)"
+      }
+      if ($windowMaterial -ceq 'acrylic' -and
+        -not (Test-DreamSkinAcrylicTransparencyConfig -ConfigPath $codexConfigPath)) {
+        throw 'The Codex theme sync did not preserve opaqueWindows = false for Desktop Acrylic.'
       }
       if (-not (Test-DreamSkinPortAvailable -Port $Port)) {
         if ($PortExplicit) { throw "Port $Port is already occupied by an unverified listener. Choose another port." }
@@ -180,6 +252,23 @@ try {
       '--win32-window-width', "$($win32Window.Width)",
       '--win32-window-height', "$($win32Window.Height)"
     )
+    if ($windowMaterial -ceq 'acrylic') {
+      $descriptors = @(& $acrylicHelper -Action Describe `
+        -TargetProcessId $win32Window.ProcessId `
+        -ExpectedWindowHandle ([long]$win32Window.Handle))
+      if ($descriptors.Count -ne 1) {
+        throw 'The Desktop Acrylic helper did not return exactly one pinned Codex window descriptor.'
+      }
+      $acrylicDescriptor = $descriptors[0]
+      if ([int]$acrylicDescriptor.ProcessId -ne [int]$win32Window.ProcessId -or
+        "$($acrylicDescriptor.ExecutablePath)" -ine "$($codex.Executable)" -or
+        "$($acrylicDescriptor.PackageFamilyName)" -cne "$($codex.PackageFamilyName)" -or
+        [long]$acrylicDescriptor.WindowHandleValue -ne [long]$win32Window.Handle -or
+        [int]$acrylicDescriptor.CurrentBackdrop -notin @(2, 3)) {
+        throw 'The Desktop Acrylic descriptor does not match the exact verified Store Codex HWND or a supported native backdrop.'
+      }
+    }
+    $injectorWindowArgs = $win32WindowArgs + @('--window-material', $windowMaterial)
   } catch {
     $launchError = $_
     if ($debugLaunchAttempted) {
@@ -203,6 +292,22 @@ try {
   }
 
   try {
+    $null = Stop-DreamSkinRecordedAcrylicMonitor -State $previousState -StateRoot $StateRoot
+    if ($windowMaterial -ceq 'acrylic') {
+      $restoredDescriptors = @(& $acrylicHelper -Action Describe `
+        -TargetProcessId $win32Window.ProcessId `
+        -ExpectedWindowHandle ([long]$win32Window.Handle))
+      if ($restoredDescriptors.Count -ne 1 -or
+        [int]$restoredDescriptors[0].ProcessId -ne [int]$acrylicDescriptor.ProcessId -or
+        [long]$restoredDescriptors[0].StartTimeFileTimeUtc -ne [long]$acrylicDescriptor.StartTimeFileTimeUtc -or
+        [long]$restoredDescriptors[0].WindowHandleValue -ne [long]$acrylicDescriptor.WindowHandleValue -or
+        "$($restoredDescriptors[0].ExecutablePath)" -ine "$($acrylicDescriptor.ExecutablePath)" -or
+        "$($restoredDescriptors[0].PackageFamilyName)" -cne "$($acrylicDescriptor.PackageFamilyName)" -or
+        [int]$restoredDescriptors[0].CurrentBackdrop -ne 2) {
+        throw 'The exact Codex HWND did not return to its verified Mica baseline before Acrylic handoff.'
+      }
+      $acrylicDescriptor = $restoredDescriptors[0]
+    }
     $recordedInjectorStopped = Stop-DreamSkinRecordedInjector -State $previousState
     if (-not $recordedInjectorStopped) {
       $staleStatePath = Archive-DreamSkinStateFile -Path $StatePath
@@ -231,7 +336,7 @@ try {
       Exit-DreamSkinOperationLock -Mutex $operationLock
       $operationLock = $null
       & $node.Path $Injector --watch --port $Port --browser-id $cdpIdentity.BrowserId `
-        --theme-dir $themePaths.Active --pause-file $themePaths.PauseFile @win32WindowArgs
+        --theme-dir $themePaths.Active --pause-file $themePaths.PauseFile @injectorWindowArgs
       $foregroundExitCode = $LASTEXITCODE
       if ($foregroundExitCode -ne 0 -and $pauseWasSet) {
         Set-DreamSkinPaused -Paused $true -StateRoot $StateRoot | Out-Null
@@ -249,11 +354,15 @@ try {
 
   $state = $null
   $daemon = $null
+  $acrylicMonitor = $null
+  $acrylicMonitorStartedAt = $null
+  $acrylicStopFile = $null
+  $acrylicArmFile = $null
   try {
     $injectorArgs = @((ConvertTo-DreamSkinProcessArgument -Value $Injector), '--watch', '--port', "$Port",
       '--browser-id', $cdpIdentity.BrowserId, '--theme-dir',
       (ConvertTo-DreamSkinProcessArgument -Value $themePaths.Active), '--pause-file',
-      (ConvertTo-DreamSkinProcessArgument -Value $themePaths.PauseFile)) + $win32WindowArgs
+      (ConvertTo-DreamSkinProcessArgument -Value $themePaths.PauseFile)) + $injectorWindowArgs
     $daemon = Start-Process -FilePath $node.Path -ArgumentList $injectorArgs -WindowStyle Hidden -PassThru `
       -RedirectStandardOutput $StdoutPath -RedirectStandardError $StderrPath
     Start-Sleep -Milliseconds 500
@@ -261,6 +370,18 @@ try {
 
     $injectorStartedAt = Get-DreamSkinProcessStartedAt -ProcessId $daemon.Id
     if (-not $injectorStartedAt) { throw 'The injector process identity could not be recorded safely.' }
+    if ($windowMaterial -ceq 'acrylic') {
+      $acrylicStopFile = Join-Path $StateRoot `
+        ('acrylic-monitor-' + [guid]::NewGuid().ToString('N') + '.stop')
+      $acrylicArmFile = Join-Path $StateRoot `
+        ('acrylic-monitor-' + [guid]::NewGuid().ToString('N') + '.arm')
+      Assert-DreamSkinNoReparseComponents -Path $acrylicStopFile
+      Assert-DreamSkinNoReparseComponents -Path $acrylicArmFile
+      if ((Test-Path -LiteralPath $acrylicStopFile) -or
+        (Test-Path -LiteralPath $acrylicArmFile)) {
+        throw 'A new Acrylic monitor control path already exists.'
+      }
+    }
     $state = [pscustomobject]@{
       schemaVersion = 3
       platform = 'windows'
@@ -279,9 +400,88 @@ try {
       profilePath = $ProfilePath
       themeDir = $themePaths.Active
       pauseFile = $themePaths.PauseFile
+      windowMaterial = $windowMaterial
+      nativeBackdropBefore = if ($null -ne $acrylicDescriptor) { [int]$acrylicDescriptor.CurrentBackdrop } else { $null }
+      acrylicMonitorPid = $null
+      acrylicMonitorStartedAt = $null
+      acrylicMonitorPath = if ($null -ne $acrylicDescriptor) { $acrylicHelper } else { $null }
+      acrylicMonitorStopFile = $acrylicStopFile
+      acrylicMonitorArmFile = $acrylicArmFile
+      acrylicTargetPid = if ($null -ne $acrylicDescriptor) { [int]$acrylicDescriptor.ProcessId } else { $null }
+      acrylicTargetStartTimeFileTimeUtc = if ($null -ne $acrylicDescriptor) { [long]$acrylicDescriptor.StartTimeFileTimeUtc } else { $null }
+      acrylicTargetExecutablePath = if ($null -ne $acrylicDescriptor) { "$($acrylicDescriptor.ExecutablePath)" } else { $null }
+      acrylicTargetPackageFamilyName = if ($null -ne $acrylicDescriptor) { "$($acrylicDescriptor.PackageFamilyName)" } else { $null }
+      acrylicTargetWindowClass = if ($null -ne $acrylicDescriptor) { "$($acrylicDescriptor.WindowClass)" } else { $null }
+      acrylicTargetWindowHandle = if ($null -ne $acrylicDescriptor) { [long]$acrylicDescriptor.WindowHandleValue } else { $null }
+      startupPhase = if ($null -ne $acrylicDescriptor) { 'acrylic-monitor-spawning' } else { 'verifying' }
       createdAt = (Get-Date).ToUniversalTime().ToString('o')
     }
+    # Persist the target and control files before an unarmed monitor exists.
+    # A hard crash can therefore leave no unrecorded native Acrylic write.
     Write-DreamSkinState -Path $StatePath -State $state
+    if ($windowMaterial -ceq 'acrylic') {
+      $powershellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+      $monitorTokens = @(
+        '-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'RemoteSigned',
+        '-File', $acrylicHelper,
+        '-Action', 'Monitor',
+        '-TargetProcessId', "$($acrylicDescriptor.ProcessId)",
+        '-ExpectedStartTimeFileTimeUtc', "$($acrylicDescriptor.StartTimeFileTimeUtc)",
+        '-ExpectedExecutablePath', "$($acrylicDescriptor.ExecutablePath)",
+        '-ExpectedPackageFamilyName', "$($acrylicDescriptor.PackageFamilyName)",
+        '-ExpectedWindowClass', "$($acrylicDescriptor.WindowClass)",
+        '-ExpectedWindowHandle', "$($acrylicDescriptor.WindowHandleValue)",
+        '-StopFile', $acrylicStopFile,
+        '-ArmFile', $acrylicArmFile,
+        '-ConfirmTargetIdentity'
+      )
+      $monitorArgumentLine = ($monitorTokens | ForEach-Object {
+        ConvertTo-DreamSkinProcessArgument -Value "$_"
+      }) -join ' '
+      $acrylicMonitor = Start-Process -FilePath $powershellPath -ArgumentList $monitorArgumentLine `
+        -WindowStyle Hidden -PassThru -RedirectStandardOutput $AcrylicStdoutPath `
+        -RedirectStandardError $AcrylicStderrPath
+      Start-Sleep -Milliseconds 300
+      if ($acrylicMonitor.HasExited) {
+        throw "The Desktop Acrylic monitor exited during startup. See $AcrylicStderrPath"
+      }
+      $acrylicMonitorStartedAt = Get-DreamSkinProcessStartedAt -ProcessId $acrylicMonitor.Id
+      if (-not $acrylicMonitorStartedAt) {
+        throw 'The Desktop Acrylic monitor process identity could not be recorded safely.'
+      }
+      $state.acrylicMonitorPid = $acrylicMonitor.Id
+      $state.acrylicMonitorStartedAt = $acrylicMonitorStartedAt
+      $state.startupPhase = 'acrylic-monitor-recorded'
+      Write-DreamSkinState -Path $StatePath -State $state
+      Write-DreamSkinUtf8FileAtomically -Path $acrylicArmFile `
+        -Content ("armedAt=" + [DateTime]::UtcNow.ToString('o') + "`r`n")
+      $acrylicDeadline = [DateTime]::UtcNow.AddSeconds(8)
+      $acrylicApplied = $false
+      do {
+        if ($acrylicMonitor.HasExited) {
+          throw "The Desktop Acrylic monitor exited before applying the material. See $AcrylicStderrPath"
+        }
+        try {
+          $probes = @(& $acrylicHelper -Action Probe `
+            -TargetProcessId $acrylicDescriptor.ProcessId `
+            -ExpectedStartTimeFileTimeUtc $acrylicDescriptor.StartTimeFileTimeUtc `
+            -ExpectedExecutablePath $acrylicDescriptor.ExecutablePath `
+            -ExpectedPackageFamilyName $acrylicDescriptor.PackageFamilyName `
+            -ExpectedWindowClass $acrylicDescriptor.WindowClass `
+            -ExpectedWindowHandle $acrylicDescriptor.WindowHandleValue)
+          $acrylicApplied = $probes.Count -eq 1 -and [int]$probes[0].CurrentBackdrop -eq 3
+        } catch {
+          $acrylicApplied = $false
+        }
+        if (-not $acrylicApplied) { Start-Sleep -Milliseconds 200 }
+      } while (-not $acrylicApplied -and [DateTime]::UtcNow -lt $acrylicDeadline)
+      if (-not $acrylicApplied) {
+        throw 'Windows did not retain Desktop Acrylic on the verified Codex window.'
+      }
+      Remove-Item -LiteralPath $acrylicArmFile -Force -ErrorAction SilentlyContinue
+      $state.startupPhase = 'verifying'
+      Write-DreamSkinState -Path $StatePath -State $state
+    }
 
     # The one-shot verify races Codex's first paint: on a slow machine the
     # shell markers are not rendered yet when the daemon has barely started,
@@ -292,8 +492,8 @@ try {
       $verifyArguments = @(
         $Injector, '--verify', '--port', "$Port",
         '--browser-id', $cdpIdentity.BrowserId, '--theme-dir', $themePaths.Active,
-        '--timeout-ms', '30000'
-      ) + $win32WindowArgs
+        '--timeout-ms', '30000', '--allow-hidden-document'
+      ) + $injectorWindowArgs
       $verify = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList $verifyArguments
       Write-DreamSkinUtf8FileAtomically -Path $VerifyPath -Content (($verify.Output -join "`r`n") + "`r`n")
       if ($verify.ExitCode -eq 0) { break }
@@ -301,8 +501,52 @@ try {
       if ((Get-Date) -ge $verifyDeadline) { throw "Dream Skin verification failed. See $VerifyPath" }
       Start-Sleep -Seconds 3
     }
+    $state.startupPhase = 'active'
+    Write-DreamSkinState -Path $StatePath -State $state
   } catch {
     $startupError = $_
+    $acrylicStopped = $true
+    if ($null -ne $acrylicMonitor) {
+      try {
+        if (-not $acrylicMonitor.HasExited -and $acrylicStopFile) {
+          if (-not (Test-Path -LiteralPath $acrylicStopFile)) {
+            Write-DreamSkinUtf8FileAtomically -Path $acrylicStopFile `
+              -Content ("stopRequestedAt=" + [DateTime]::UtcNow.ToString('o') + "`r`n")
+          }
+          [void]$acrylicMonitor.WaitForExit(15000)
+        }
+        if (-not $acrylicMonitor.HasExited) {
+          # Stop the loop before restoring; otherwise it can race the rollback
+          # and immediately reapply Acrylic after a successful Mica write.
+          Stop-Process -InputObject $acrylicMonitor -Force -ErrorAction Stop
+          [void]$acrylicMonitor.WaitForExit(5000)
+        }
+        if ($null -ne $acrylicDescriptor) {
+          [void](& $acrylicHelper -Action Restore `
+            -TargetProcessId $acrylicDescriptor.ProcessId `
+            -ExpectedStartTimeFileTimeUtc $acrylicDescriptor.StartTimeFileTimeUtc `
+            -ExpectedExecutablePath $acrylicDescriptor.ExecutablePath `
+            -ExpectedPackageFamilyName $acrylicDescriptor.PackageFamilyName `
+            -ExpectedWindowClass $acrylicDescriptor.WindowClass `
+            -ExpectedWindowHandle $acrylicDescriptor.WindowHandleValue `
+            -ConfirmTargetIdentity)
+        }
+        $acrylicStopped = $acrylicMonitor.HasExited
+      } catch {
+        $acrylicStopped = $false
+        Write-Warning 'Startup rollback could not fully stop the newly created Desktop Acrylic monitor.'
+      } finally {
+        if ($acrylicStopFile -and $acrylicStopped) {
+          Remove-Item -LiteralPath $acrylicStopFile -Force -ErrorAction SilentlyContinue
+        }
+      }
+    }
+    if ($acrylicArmFile -and $acrylicStopped) {
+      Remove-Item -LiteralPath $acrylicArmFile -Force -ErrorAction SilentlyContinue
+    }
+    if ($acrylicStopFile -and $acrylicStopped) {
+      Remove-Item -LiteralPath $acrylicStopFile -Force -ErrorAction SilentlyContinue
+    }
     # We own the daemon Process object, so stop it directly: the object is
     # immune to PID reuse, and identity re-validation cannot spuriously
     # refuse.  Slow machines also need more than a moment for teardown; a
@@ -335,7 +579,9 @@ try {
         Write-Warning 'Startup rollback could not remove the partially applied live skin; reload or close Codex to clear it.'
       }
     }
-    if ($injectorStopped) { Remove-Item -LiteralPath $StatePath -Force -ErrorAction SilentlyContinue }
+    if ($injectorStopped -and $acrylicStopped) {
+      Remove-Item -LiteralPath $StatePath -Force -ErrorAction SilentlyContinue
+    }
     if ($launchedWithCdp) {
       try {
         Stop-DreamSkinCodex -Codex $codex -AllowForce

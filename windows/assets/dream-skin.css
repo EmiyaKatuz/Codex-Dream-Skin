@@ -111,7 +111,7 @@ html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-fl
   color: currentColor;
 }
 
-html.codex-dream-skin main.main-surface {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) {
   position: relative;
   isolation: isolate;
   overflow: hidden !important;
@@ -121,7 +121,7 @@ html.codex-dream-skin main.main-surface {
   box-shadow: inset 0 1px color-mix(in oklab, var(--dream-surface-raised) 72%, transparent) !important;
 }
 
-html.codex-dream-skin main.main-surface > header.app-header-tint {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]) {
   /* Preserve Codex's native fixed header geometry and side-panel controls. */
   color: var(--dream-text) !important;
   background: color-mix(in oklab, var(--dream-surface) 94%, transparent) !important;
@@ -221,13 +221,13 @@ html.codex-dream-skin.dream-task-off .dream-task::before {
   display: none;
 }
 
-html.codex-dream-skin .dream-task > :not(header.app-header-tint) {
+html.codex-dream-skin .dream-task > :not(header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])) {
   position: relative;
   z-index: 1;
 }
 
 html.codex-dream-skin .dream-task article,
-html.codex-dream-skin .dream-task [data-message-author-role] {
+html.codex-dream-skin .dream-task :is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant]) {
   color: var(--dream-text);
 }
 
@@ -450,7 +450,7 @@ html.codex-dream-skin button[class~="bg-token-foreground"] {
   box-shadow: none !important;
 }
 
-html.codex-dream-skin [data-message-author-role],
+html.codex-dream-skin :is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant]),
 html.codex-dream-skin article {
   color: var(--dream-text);
 }
@@ -458,8 +458,8 @@ html.codex-dream-skin article {
 /* A 16:9 or wider image is painted once on the native window. The sidebar,
    title bar and route surface become coordinated readability layers instead
    of repeating or cropping the image inside individual panels. */
-html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell) body,
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell)) body {
+html.codex-dream-skin.dream-art-wide[data-dream-route="home"] body,
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)[data-dream-route]:not([data-dream-route="home"]) body {
   background-color: var(--dream-canvas) !important;
   background-image: var(--dream-art) !important;
   background-position: var(--dream-art-position) !important;
@@ -468,9 +468,9 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
   background-attachment: fixed !important;
 }
 
-html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell)
+html.codex-dream-skin.dream-art-wide[data-dream-route="home"]
   aside.app-shell-left-panel,
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell))
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)[data-dream-route]:not([data-dream-route="home"])
   aside.app-shell-left-panel {
   background: linear-gradient(90deg,
     var(--dream-immersive-sidebar),
@@ -481,22 +481,22 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
   backdrop-filter: none !important;
 }
 
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell))
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)[data-dream-route]:not([data-dream-route="home"])
   aside.app-shell-left-panel {
   background: linear-gradient(90deg,
     var(--dream-task-immersive-sidebar),
     var(--dream-task-immersive-edge)) !important;
 }
 
-html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell)
+html.codex-dream-skin.dream-art-wide[data-dream-route="home"]
   aside.app-shell-left-panel::after,
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell))
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)[data-dream-route]:not([data-dream-route="home"])
   aside.app-shell-left-panel::after {
   background: transparent !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell,
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner) main.main-surface:not(.dream-home-shell) {
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell,
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell) {
   background: linear-gradient(90deg,
     var(--dream-immersive-edge),
     var(--dream-immersive-mid) 64%,
@@ -506,7 +506,7 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
   box-shadow: none !important;
 }
 
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner) main.main-surface:not(.dream-home-shell) {
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell) {
   background: linear-gradient(90deg,
     var(--dream-task-immersive-edge),
     var(--dream-task-immersive-mid) 64%,
@@ -521,7 +521,7 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
   content: none !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface > header.app-header-tint {
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]) {
   background: transparent !important;
   border-bottom: 0 !important;
   box-shadow: none !important;
@@ -530,15 +530,15 @@ html.codex-dream-skin.dream-art-wide main.main-surface > header.app-header-tint 
     0 0 8px color-mix(in oklab, var(--dream-canvas) 58%, transparent) !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface > header.app-header-tint svg {
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]) svg {
   filter: drop-shadow(0 1px 2px color-mix(in oklab, var(--dream-canvas) 72%, transparent));
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface [role="main"] {
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [role="main"] {
   background: transparent !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell
   .dream-home > div:first-child > div:first-child > div:first-child {
   border: 0 !important;
   border-radius: 0 !important;
@@ -546,12 +546,12 @@ html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell
   box-shadow: none !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell
   .dream-home > div:first-child > div:first-child > div:first-child::before {
   content: none !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell
   .dream-home .group\/home-suggestions button {
   background: color-mix(in oklab, var(--dream-surface-raised) 58%, transparent) !important;
   box-shadow: 0 8px 22px color-mix(in oklab, var(--dream-canvas) 18%, transparent),
@@ -596,14 +596,14 @@ html.codex-dream-skin .dream-home:has(.dream-home-utility) .composer-surface-chr
    Clear only full-window or sticky route chrome, leaving functional cards and
    their hover states intact. */
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
-  main.main-surface:not(.dream-home-shell) div.sticky:has(input[type="text"]),
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility div.sticky:has(input[type="text"]),
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
-  main.main-surface:not(.dream-home-shell) div.sticky:has(input[type="text"])::after {
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility div.sticky:has(input[type="text"])::after {
   background: transparent !important;
 }
 
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
-  main.main-surface:not(.dream-home-shell) div.no-drag:has(> input[type="text"]) {
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility div.no-drag:has(> input[type="text"]) {
   background: var(--dream-immersive-composer) !important;
   border: 0 !important;
   box-shadow: inset 0 0 0 1px var(--dream-immersive-line) !important;
@@ -611,21 +611,21 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
 }
 
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
-  main.main-surface:not(.dream-home-shell)
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell)
   [class~="bg-token-main-surface-primary"][class~="h-full"][class~="w-full"] {
   background: transparent !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface .app-shell-main-content-frame {
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) .app-shell-main-content-frame {
   border-top: 0 !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface .app-shell-main-content-top-fade {
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) :is(.app-shell-main-content-top-fade, [data-app-shell-main-content-top-fade], [class*="_MainContentTopFade_"]) {
   display: none !important;
   background: transparent !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
   .thread-scroll-container .bg-gradient-to-t.from-token-main-surface-primary {
   background: transparent !important;
 }
@@ -729,16 +729,16 @@ html.codex-dream-skin.dream-reduced-motion #codex-dream-skin-chrome .dream-angel
 /* The native header is fixed by Tailwind. The atmospheric task layer now
    excludes it, so this block only keeps box sizing predictable and leaves all
    native position, z-index and window controls untouched. */
-html.codex-dream-skin main.main-surface > header.app-header-tint {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]) {
   box-sizing: border-box !important;
 }
 
-html.codex-dream-skin main.main-surface > header.app-header-tint > * {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]) > * {
   min-width: 0;
 }
 
-html.codex-dream-skin main.main-surface.dream-route-task > header.app-header-tint,
-html.codex-dream-skin main.main-surface.dream-route-utility > header.app-header-tint {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-task > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]),
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]) {
   padding-inline: 8px !important;
   background:
     linear-gradient(90deg,
@@ -861,9 +861,9 @@ html.codex-dream-skin .dream-permission-banner svg {
 
 /* Utility routes use an opaque indigo console canvas instead of inheriting the
    task wallpaper wash. Their route-specific tag is decorative and inert. */
-html.codex-dream-skin main.main-surface.dream-route-utility,
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility,
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
-  main.main-surface.dream-route-utility {
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility {
   isolation: isolate;
   color: var(--dream-text) !important;
   background:
@@ -873,7 +873,7 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
       color-mix(in oklab, var(--dream-surface) 92%, var(--angel-violet) 8%)) !important;
 }
 
-html.codex-dream-skin main.main-surface.dream-route-utility::before {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility::before {
   content: "";
   position: absolute;
   z-index: 0;
@@ -888,7 +888,7 @@ html.codex-dream-skin main.main-surface.dream-route-utility::before {
   mask-image: linear-gradient(to bottom, #000 0 58%, transparent 100%);
 }
 
-html.codex-dream-skin main.main-surface.dream-route-utility::after {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility::after {
   position: absolute;
   z-index: 4;
   top: 58px;
@@ -904,19 +904,19 @@ html.codex-dream-skin main.main-surface.dream-route-utility::after {
   letter-spacing: .08em;
 }
 
-html.codex-dream-skin main.main-surface.dream-route-sites::after { content: "♡ WEB STUDIO // SITES"; }
-html.codex-dream-skin main.main-surface.dream-route-pulls::after { content: "♡ REPOSITORY LINK // PR"; }
-html.codex-dream-skin main.main-surface.dream-route-scheduled::after { content: "♡ AUTOMATION // SCHEDULE"; }
-html.codex-dream-skin main.main-surface.dream-route-plugins::after { content: "♡ ANGEL MODULES // PLUGINS"; }
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-sites::after { content: "♡ WEB STUDIO // SITES"; }
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-pulls::after { content: "♡ REPOSITORY LINK // PR"; }
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-scheduled::after { content: "♡ AUTOMATION // SCHEDULE"; }
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-plugins::after { content: "♡ ANGEL MODULES // PLUGINS"; }
 
-html.codex-dream-skin main.main-surface.dream-route-utility > :not(header.app-header-tint) {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility > :not(header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])) {
   position: relative;
   z-index: 1;
 }
 
-html.codex-dream-skin main.main-surface.dream-route-sites
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-sites
   [class~="bg-token-main-surface-primary"][class~="h-full"],
-html.codex-dream-skin main.main-surface.dream-route-pulls
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-pulls
   [class~="bg-token-main-surface-primary"] {
   background-color: color-mix(in oklab, var(--dream-surface) 92%, var(--angel-violet) 8%) !important;
   background-image:
@@ -925,26 +925,26 @@ html.codex-dream-skin main.main-surface.dream-route-pulls
       color-mix(in oklab, var(--angel-pink) 3%, transparent)) !important;
 }
 
-html.codex-dream-skin main.main-surface.dream-route-pulls [class~="border-token-border-default"] {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-pulls [class~="border-token-border-default"] {
   border-color: color-mix(in oklab, var(--angel-cyan) 34%, var(--dream-line)) !important;
 }
 
-html.codex-dream-skin main.main-surface.dream-route-utility h1,
-html.codex-dream-skin main.main-surface.dream-route-utility h2,
-html.codex-dream-skin main.main-surface.dream-route-utility [role="heading"] {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility h1,
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility h2,
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility [role="heading"] {
   color: var(--dream-text) !important;
   text-shadow: 2px 2px 0 color-mix(in oklab, var(--angel-violet) 36%, transparent);
 }
 
-html.codex-dream-skin main.main-surface.dream-route-utility input[type="text"],
-html.codex-dream-skin main.main-surface.dream-route-utility input[type="search"] {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility input[type="text"],
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility input[type="search"] {
   border-width: 1px !important;
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--angel-blue) 42%, transparent) !important;
 }
 
 /* The home route gains a lightweight broadcast HUD without introducing fake
    controls or obscuring the wallpaper subject. */
-html.codex-dream-skin main.main-surface.dream-home-shell::before {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell::before {
   content: "";
   position: absolute;
   z-index: 0;
@@ -956,7 +956,7 @@ html.codex-dream-skin main.main-surface.dream-home-shell::before {
     repeating-linear-gradient(0deg, transparent 0 5px, color-mix(in oklab, var(--angel-cyan) 3.5%, transparent) 5px 6px);
 }
 
-html.codex-dream-skin main.main-surface.dream-home-shell::after {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell::after {
   content: "♥ LIVE  //  CONNECTION: HEAVENLY  //  CHOTEN CHANNEL 01";
   position: absolute;
   z-index: 4;
@@ -973,7 +973,7 @@ html.codex-dream-skin main.main-surface.dream-home-shell::after {
   letter-spacing: .07em;
 }
 
-html.codex-dream-skin main.main-surface.dream-home-shell > :not(header.app-header-tint) {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell > :not(header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])) {
   position: relative;
   z-index: 1;
 }
@@ -1471,8 +1471,8 @@ html.codex-dream-skin.dream-safe-none #codex-dream-skin-chrome .dream-angel-webc
 }
 
 @media (max-width: 900px) {
-  html.codex-dream-skin main.main-surface.dream-route-utility::after,
-  html.codex-dream-skin main.main-surface.dream-home-shell::after {
+  html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-route-utility::after,
+  html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell::after {
     display: none;
   }
 
@@ -1578,7 +1578,7 @@ html.codex-dream-skin .dream-home #codex-dream-skin-presets {
   container: dream-presets / inline-size;
 }
 
-html.codex-dream-skin .dream-home:has(#codex-dream-skin-presets[data-dream-ready="true"]) .group\/home-suggestions {
+html.codex-dream-skin.dream-presets-ready .dream-home .group\/home-suggestions {
   visibility: hidden !important;
   pointer-events: none !important;
 }
@@ -1837,20 +1837,14 @@ html.codex-dream-skin .dream-changes-shell {
    that host shares the button's top edge, its larger curve cuts away both top
    corners before the button can paint. This structural form works on the first
    frame; the injected class keeps the rule resilient after DOM refactors. */
-html.codex-dream-skin :where(
-  .dream-changes-clip-host,
-  div[class~="relative"][class~="z-10"][class~="max-w-full"][class~="min-w-0"][class~="overflow-hidden"][class~="rounded-3xl"]:has(button [class*="git-decoration-added"]):has(button [class*="git-decoration-deleted"])
-) {
+html.codex-dream-skin .dream-changes-clip-host {
   overflow: visible !important;
   border-radius: 0 !important;
   clip-path: none !important;
   mask-image: none !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-changes-pill,
-  button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])
-) {
+html.codex-dream-skin .dream-changes-pill {
   position: relative !important;
   z-index: 3 !important;
   isolation: isolate;
@@ -1887,10 +1881,7 @@ html.codex-dream-skin .composer-surface-chrome {
   z-index: 1;
 }
 
-html.codex-dream-skin :where(
-  .dream-changes-pill,
-  button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])
-)::after {
+html.codex-dream-skin .dream-changes-pill::after {
   content: "";
   position: absolute;
   z-index: 4;
@@ -1910,10 +1901,7 @@ html.codex-dream-skin :where(
   filter: drop-shadow(1px 1px 0 var(--angel-ink));
 }
 
-html.codex-dream-skin :where(
-  .dream-changes-pill,
-  button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])
-):focus-visible {
+html.codex-dream-skin .dream-changes-pill:focus-visible {
   outline: 2px solid var(--angel-cyan) !important;
   outline-offset: 2px;
 }
@@ -1960,7 +1948,7 @@ html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-fl
 /* In wide-wallpaper mode the hero art lives on the window, so its old clipping
    box is unnecessary. Releasing it reveals Codex's native suggestion grid,
    which is intentionally positioned just below that box. */
-html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell
   .dream-home > div:first-child > div:first-child > div:first-child {
   overflow: visible !important;
 }
@@ -2053,7 +2041,7 @@ html.codex-dream-skin [data-feature="game-source"] {
 }
 
 html.codex-dream-skin article,
-html.codex-dream-skin [data-message-author-role] {
+html.codex-dream-skin :is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant]) {
   font-family: var(--angel-font-body);
   font-kerning: normal;
   line-height: 1.62;
@@ -2061,7 +2049,7 @@ html.codex-dream-skin [data-message-author-role] {
 }
 
 html.codex-dream-skin:lang(zh) article,
-html.codex-dream-skin:lang(zh) [data-message-author-role] {
+html.codex-dream-skin:lang(zh) :is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant]) {
   line-height: 1.72;
   letter-spacing: .005em;
   line-break: strict;
@@ -2092,8 +2080,8 @@ html.codex-dream-skin :focus-visible {
 
 /* Sidebar: a broadcast control deck with pixel selection states. */
 html.codex-dream-skin aside.app-shell-left-panel,
-html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell) aside.app-shell-left-panel,
-html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):has(main.main-surface:not(.dream-home-shell)) aside.app-shell-left-panel {
+html.codex-dream-skin.dream-art-wide[data-dream-route="home"] aside.app-shell-left-panel,
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)[data-dream-route]:not([data-dream-route="home"]) aside.app-shell-left-panel {
   border-right: 2px solid var(--angel-blue) !important;
   background:
     linear-gradient(180deg,
@@ -2334,15 +2322,15 @@ html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-fl
   rotate: 45deg;
 }
 
-html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [role="list"] > [role="listitem"]:has([class~="bg-token-list-hover-background"])::before {
+html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [role="list"] > .dream-sidebar-listitem-active::before {
   border-color: var(--angel-paper);
   background: var(--angel-pink);
   box-shadow: 0 0 7px color-mix(in oklab, var(--angel-pink) 72%, transparent);
 }
 
 /* Header and native app bar: translucent, but visibly part of the same system. */
-html.codex-dream-skin main.main-surface > header.app-header-tint,
-html.codex-dream-skin.dream-art-wide main.main-surface > header.app-header-tint,
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]),
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]),
 html.codex-dream-skin [class~="group/application-menu-top-bar"] {
   border-bottom: 2px solid color-mix(in oklab, var(--angel-blue) 72%, transparent) !important;
   background:
@@ -2357,8 +2345,8 @@ html.codex-dream-skin [class~="group/application-menu-top-bar"] {
 /* The previously empty native toolbar now reads as the title strip of a
    streaming desktop. The pattern is decorative and never intercepts native
    window controls. */
-html.codex-dream-skin main.main-surface > header.app-header-tint,
-html.codex-dream-skin.dream-art-wide main.main-surface > header.app-header-tint {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]),
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]) {
   background:
     repeating-linear-gradient(90deg,
       transparent 0 23px,
@@ -2369,7 +2357,7 @@ html.codex-dream-skin.dream-art-wide main.main-surface > header.app-header-tint 
       color-mix(in oklab, var(--dream-surface) 90%, var(--angel-pink) 10%)) !important;
 }
 
-html.codex-dream-skin main.main-surface.dream-home-shell > header.app-header-tint::before {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])::before {
   content: "";
   position: absolute;
   z-index: 2;
@@ -2388,7 +2376,7 @@ html.codex-dream-skin main.main-surface.dream-home-shell > header.app-header-tin
   filter: drop-shadow(1px 1px 0 var(--angel-ink));
 }
 
-html.codex-dream-skin main.main-surface.dream-home-shell > header.app-header-tint::after {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])::after {
   content: "LIVE // CHOTEN DESKTOP 01";
   position: absolute;
   z-index: 1;
@@ -2595,16 +2583,16 @@ html.codex-dream-skin button[class~="bg-token-foreground"]:hover {
 
 /* Task routes prioritize sustained reading over wallpaper visibility. */
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
-  main.main-surface.dream-task:not(.dream-home-shell),
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-task:not(.dream-home-shell),
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
-  main.main-surface:not(.dream-home-shell) [role="main"].dream-task {
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell) [role="main"].dream-task {
   background: var(--dream-surface) !important;
 }
 
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
-  main.main-surface.dream-task:not(.dream-home-shell)::after,
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-task:not(.dream-home-shell)::after,
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
-  main.main-surface:not(.dream-home-shell) .dream-task::after {
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell) .dream-task::after {
   content: "";
   position: absolute;
   z-index: 0;
@@ -2621,7 +2609,7 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
   backdrop-filter: blur(3px) saturate(.78);
 }
 
-html.codex-dream-skin .dream-task [data-message-author-role="user"] {
+html.codex-dream-skin .dream-task :is([data-message-author-role="user"], [data-local-conversation-user-anchor]) {
   border: 1px solid color-mix(in oklab, var(--angel-pink) 36%, var(--dream-line-soft)) !important;
   border-left: 4px solid var(--angel-pink) !important;
   border-radius: 5px !important;
@@ -2629,7 +2617,7 @@ html.codex-dream-skin .dream-task [data-message-author-role="user"] {
   box-shadow: 2px 2px 0 color-mix(in oklab, var(--angel-violet) 24%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-task [data-message-author-role="assistant"] {
+html.codex-dream-skin .dream-task :is([data-message-author-role="assistant"], [data-local-conversation-final-assistant]) {
   text-shadow: 0 1px 0 color-mix(in oklab, var(--dream-surface) 76%, transparent);
 }
 
@@ -2663,10 +2651,7 @@ html.codex-dream-skin [role="listbox"] {
 
 /* Composer Add and slash-command palettes use a bespoke Codex surface rather
    than role=menu. Theme both the classified node and its first mounted frame. */
-html.codex-dream-skin :where(
-  .dream-composer-palette,
-  div[class~="border-token-border"][class*="bg-token-dropdown-background"][class~="relative"][class~="overflow-hidden"][class~="rounded-2xl"][class~="p-1"]:has(> .vertical-scroll-fade-mask[class~="overflow-y-auto"])
-) {
+html.codex-dream-skin .dream-composer-palette {
   position: relative !important;
   overflow: hidden !important;
   padding: 6px !important;
@@ -2686,10 +2671,7 @@ html.codex-dream-skin :where(
   backdrop-filter: blur(20px) saturate(1.24) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-composer-palette,
-  div[class~="border-token-border"][class*="bg-token-dropdown-background"][class~="rounded-2xl"]:has(> .vertical-scroll-fade-mask)
-)::before {
+html.codex-dream-skin .dream-composer-palette::before {
   content: "";
   position: absolute;
   z-index: 20;
@@ -2884,7 +2866,7 @@ html.codex-dream-skin .dream-goal-progress-group {
 /* The native progress shell is shorter than the interactive step control and
    clips the upper/lower arcs by default. Keep the shell visually inert so the
    complete broadcast pill can paint outside the native 28px slot. */
-html.codex-dream-skin [class~="overflow-hidden"][class~="rounded-3xl"]:has(.dream-goal-step) {
+html.codex-dream-skin .dream-goal-progress-group {
   overflow: visible !important;
   clip-path: none !important;
 }
@@ -3022,10 +3004,7 @@ html.codex-dream-skin :where(
 /* Conversation navigator preview. The generic tooltip frame is only the
    positioning shell; Codex paints a second dropdown surface inside it. Skin
    both layers so no olive native rectangle can cover the themed frame. */
-html.codex-dream-skin :where(
-  .dream-turn-preview-tooltip,
-  [role="tooltip"]:has(div[class~="w-80"][class*="bg-token-dropdown-background"])
-) {
+html.codex-dream-skin .dream-turn-preview-tooltip {
   padding: 5px !important;
   border: 1.5px solid var(--angel-cyan) !important;
   border-radius: 13px !important;
@@ -3111,10 +3090,7 @@ html.codex-dream-skin :where(
 
 /* The left conversation navigator is a dense set of fixed-size hit targets.
    Recolor only their inner markers and preserve every native target rectangle. */
-html.codex-dream-skin .dream-task :where(
-  .dream-turn-nav-rail,
-  :has(> button[class*="navigation-row"])
-) {
+html.codex-dream-skin .dream-task .dream-turn-nav-rail {
   filter: drop-shadow(0 0 4px color-mix(in oklab, var(--angel-blue) 28%, transparent));
 }
 
@@ -3266,7 +3242,7 @@ html.codex-dream-skin [role="switch"][data-state="checked"] {
 /* Settings is a separate application route whose inner main surface and
    controls use their own token fallbacks. The :has() variants eliminate the
    olive first frame; renderer classes keep the skin stable after route churn. */
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-sidebar,
   aside.app-shell-left-panel:has(nav [data-settings-panel-slug])
 ) {
@@ -3283,7 +3259,7 @@ html.codex-dream-skin :where(
   box-shadow: inset -1px 0 color-mix(in oklab, var(--angel-pink) 32%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-nav,
   nav:has([data-settings-panel-slug])
 ) {
@@ -3291,7 +3267,7 @@ html.codex-dream-skin :where(
   color: var(--dream-text) !important;
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-search,
   nav:has([data-settings-panel-slug]) [role="searchbox"]
 ) {
@@ -3303,7 +3279,7 @@ html.codex-dream-skin :where(
   box-shadow: inset 3px 0 var(--angel-pink), 0 4px 12px color-mix(in oklab, var(--angel-ink) 18%, transparent) !important;
 }
 
-html.codex-dream-skin nav:has([data-settings-panel-slug]) [data-settings-panel-slug] {
+html.codex-dream-skin[data-dream-route="settings"] nav:has([data-settings-panel-slug]) [data-settings-panel-slug] {
   position: relative;
   min-height: 36px;
   color: color-mix(in oklab, var(--dream-text) 82%, var(--angel-cyan)) !important;
@@ -3312,13 +3288,13 @@ html.codex-dream-skin nav:has([data-settings-panel-slug]) [data-settings-panel-s
   transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease !important;
 }
 
-html.codex-dream-skin nav:has([data-settings-panel-slug]) [data-settings-panel-slug]:hover {
+html.codex-dream-skin[data-dream-route="settings"] nav:has([data-settings-panel-slug]) [data-settings-panel-slug]:hover {
   color: var(--angel-paper) !important;
   border-color: color-mix(in oklab, var(--angel-cyan) 38%, transparent) !important;
   background: color-mix(in oklab, var(--angel-blue) 15%, transparent) !important;
 }
 
-html.codex-dream-skin nav:has([data-settings-panel-slug]) [data-settings-panel-slug][aria-current="page"] {
+html.codex-dream-skin[data-dream-route="settings"] nav:has([data-settings-panel-slug]) [data-settings-panel-slug][aria-current="page"] {
   color: var(--angel-paper) !important;
   border-color: var(--angel-cyan) !important;
   background: linear-gradient(95deg,
@@ -3327,7 +3303,7 @@ html.codex-dream-skin nav:has([data-settings-panel-slug]) [data-settings-panel-s
   box-shadow: inset 4px 0 var(--angel-pink), inset 0 -2px var(--angel-blue), 0 4px 12px color-mix(in oklab, var(--angel-ink) 22%, transparent) !important;
 }
 
-html.codex-dream-skin nav:has([data-settings-panel-slug]) [data-settings-panel-slug][aria-current="page"]::after {
+html.codex-dream-skin[data-dream-route="settings"] nav:has([data-settings-panel-slug]) [data-settings-panel-slug][aria-current="page"]::after {
   content: "✦";
   position: absolute;
   right: 10px;
@@ -3339,9 +3315,9 @@ html.codex-dream-skin nav:has([data-settings-panel-slug]) [data-settings-panel-s
   text-shadow: 1px 1px var(--angel-ink);
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-content,
-  div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])
+  :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"])
 ) {
   position: relative;
   color: var(--dream-text) !important;
@@ -3360,9 +3336,9 @@ html.codex-dream-skin :where(
   box-shadow: inset 0 3px var(--angel-blue), inset 0 5px color-mix(in oklab, var(--angel-pink) 58%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-content,
-  div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])
+  :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"])
 )::before {
   content: "♥ SYSTEM CONFIG // INTERNET ANGEL";
   position: absolute;
@@ -3378,18 +3354,18 @@ html.codex-dream-skin :where(
   text-shadow: 1px 1px 0 var(--angel-ink);
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-content,
-  div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])
+  :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"])
 ) > [class~="scrollbar-stable"] {
   background: transparent !important;
   scrollbar-gutter: stable;
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-surface,
   nav:has([data-settings-panel-slug]) ~ * section > div[class~="overflow-hidden"][class~="rounded-2xl"],
-  div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]) div[class~="flex"][class~="flex-col"][class~="overflow-hidden"][class~="rounded-2xl"]
+  :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"]) div[class~="flex"][class~="flex-col"][class~="overflow-hidden"][class~="rounded-2xl"]
 ) {
   overflow: clip !important;
   color: var(--dream-text) !important;
@@ -3404,7 +3380,7 @@ html.codex-dream-skin :where(
     0 14px 34px color-mix(in oklab, var(--angel-ink) 22%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-row,
   .dream-settings-surface > div
 ) {
@@ -3415,7 +3391,7 @@ html.codex-dream-skin :where(
   transition: background-color 120ms ease !important;
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-row,
   .dream-settings-surface > div
 ) + :where(.dream-settings-row, .dream-settings-surface > div)::before {
@@ -3429,13 +3405,13 @@ html.codex-dream-skin :where(
     transparent);
 }
 
-html.codex-dream-skin :where(.dream-settings-row, .dream-settings-surface > div):hover {
+html.codex-dream-skin[data-dream-route="settings"] :where(.dream-settings-row, .dream-settings-surface > div):hover {
   background: linear-gradient(90deg,
     color-mix(in oklab, var(--angel-blue) 9%, transparent),
     color-mix(in oklab, var(--angel-pink) 6%, transparent)) !important;
 }
 
-html.codex-dream-skin .dream-settings-content button[aria-haspopup] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content button[aria-haspopup] {
   min-height: 34px;
   color: var(--dream-text) !important;
   border: 1px solid color-mix(in oklab, var(--angel-cyan) 42%, var(--dream-line)) !important;
@@ -3446,39 +3422,39 @@ html.codex-dream-skin .dream-settings-content button[aria-haspopup] {
   box-shadow: inset 0 -2px color-mix(in oklab, var(--angel-pink) 22%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content button[aria-haspopup][data-state="open"],
-html.codex-dream-skin .dream-settings-content button[aria-haspopup][aria-expanded="true"] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content button[aria-haspopup][data-state="open"],
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content button[aria-haspopup][aria-expanded="true"] {
   color: var(--angel-paper) !important;
   border-color: var(--angel-cyan) !important;
   box-shadow: inset 0 -2px var(--angel-pink), 0 0 0 1px color-mix(in oklab, var(--angel-blue) 34%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content [role="switch"] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content [role="switch"] {
   padding: 0 !important;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
 }
 
-html.codex-dream-skin .dream-settings-content [role="switch"] > span[data-state] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content [role="switch"] > span[data-state] {
   border: 1.25px solid color-mix(in oklab, var(--angel-cyan) 50%, var(--dream-line)) !important;
   background: color-mix(in oklab, var(--dream-surface) 82%, var(--angel-violet) 18%) !important;
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--angel-blue) 24%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content [role="switch"][data-state="checked"] > span[data-state],
-html.codex-dream-skin .dream-settings-content [role="switch"][aria-checked="true"] > span[data-state] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content [role="switch"][data-state="checked"] > span[data-state],
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content [role="switch"][aria-checked="true"] > span[data-state] {
   border-color: var(--angel-cyan) !important;
   background: linear-gradient(90deg, var(--angel-blue), var(--angel-violet) 54%, var(--angel-pink)) !important;
 }
 
-html.codex-dream-skin .dream-settings-content [role="switch"] > span[data-state] > span[data-state] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content [role="switch"] > span[data-state] > span[data-state] {
   border: 1px solid color-mix(in oklab, var(--angel-ink) 46%, transparent) !important;
   background: var(--angel-paper) !important;
   box-shadow: 1px 1px 0 var(--angel-ink), 0 0 8px color-mix(in oklab, var(--angel-cyan) 38%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-menu {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-menu {
   min-width: 180px !important;
   border-color: var(--angel-cyan) !important;
   background: linear-gradient(120deg,
@@ -3486,7 +3462,7 @@ html.codex-dream-skin .dream-settings-menu {
     color-mix(in oklab, var(--dream-surface-raised) 94%, var(--angel-pink) 6%)) !important;
 }
 
-html.codex-dream-skin .dream-settings-menu :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-menu :where(
   [role="menuitem"],
   [role="menuitemradio"],
   [role="menuitemcheckbox"]
@@ -3498,7 +3474,7 @@ html.codex-dream-skin .dream-settings-menu :where(
    across app releases, so every selector below has both a renderer class and
    a route-scoped structural fallback.  The fallback also prevents the native
    green/olive card from flashing before the observer classifies a new panel. */
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   [class*="bg-token-main-surface"],
   [class*="bg-token-sidebar-surface"]
 ) {
@@ -3506,19 +3482,19 @@ html.codex-dream-skin .dream-settings-content :where(
   background-color: transparent !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(section, [role="tabpanel"]) > :where(h1, h2, h3),
-html.codex-dream-skin .dream-settings-content :where(h1, h2, h3)[class*="text-token"] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(section, [role="tabpanel"]) > :where(h1, h2, h3),
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(h1, h2, h3)[class*="text-token"] {
   color: color-mix(in oklab, var(--angel-paper) 86%, var(--angel-cyan)) !important;
   text-shadow: 1px 1px 0 color-mix(in oklab, var(--angel-ink) 70%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content section > :where(h2, h3) {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content section > :where(h2, h3) {
   position: relative;
   padding-inline-start: 17px;
   letter-spacing: .015em;
 }
 
-html.codex-dream-skin .dream-settings-content section > :where(h2, h3)::before {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content section > :where(h2, h3)::before {
   content: "♥";
   position: absolute;
   inset: 50% auto auto 0;
@@ -3529,7 +3505,7 @@ html.codex-dream-skin .dream-settings-content section > :where(h2, h3)::before {
   text-shadow: 1px 1px 0 var(--angel-ink);
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-surface,
   .dream-settings-content div[class~="flex"][class~="flex-col"][class~="overflow-hidden"][class~="rounded-2xl"]
 ) {
@@ -3537,7 +3513,7 @@ html.codex-dream-skin :where(
   position: relative;
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-surface,
   .dream-settings-content div[class~="flex"][class~="flex-col"][class~="overflow-hidden"][class~="rounded-2xl"]
 )::before {
@@ -3556,14 +3532,14 @@ html.codex-dream-skin :where(
     var(--angel-pink) 78% 100%);
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-surface,
   .dream-settings-content div[class~="flex"][class~="flex-col"][class~="overflow-hidden"][class~="rounded-2xl"]
 ) > * {
   z-index: 1;
 }
 
-html.codex-dream-skin :where(
+html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-row,
   .dream-settings-surface > div
 )::after {
@@ -3574,7 +3550,7 @@ html.codex-dream-skin :where(
     transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   [class*="text-token-text-secondary"],
   [class*="text-token-text-tertiary"],
   [class*="text-token-foreground-secondary"],
@@ -3583,7 +3559,7 @@ html.codex-dream-skin .dream-settings-content :where(
   color: color-mix(in oklab, var(--dream-text-muted) 84%, var(--angel-cyan)) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-input,
   input:not([type="checkbox"]):not([type="radio"]),
   textarea,
@@ -3599,7 +3575,7 @@ html.codex-dream-skin .dream-settings-content :where(
   box-shadow: inset 3px 0 color-mix(in oklab, var(--angel-pink) 76%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   input:not([type="checkbox"]):not([type="radio"]),
   textarea,
   [contenteditable="true"]
@@ -3611,7 +3587,7 @@ html.codex-dream-skin .dream-settings-content :where(
     0 0 0 2px color-mix(in oklab, var(--angel-blue) 34%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   button[class~="border-token-border"]:not([role="switch"]):not([aria-pressed]),
   button[aria-haspopup]:not([aria-pressed]),
   .dream-settings-row > button:not([role="switch"]):not([aria-pressed]):not(.dream-settings-app-main),
@@ -3626,7 +3602,7 @@ html.codex-dream-skin .dream-settings-content :where(
   box-shadow: inset 0 -2px color-mix(in oklab, var(--angel-pink) 25%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   button[class~="border-token-border"]:not([role="switch"]):not([aria-pressed]),
   button[aria-haspopup]:not([aria-pressed]),
   .dream-settings-row > button:not([role="switch"]):not([aria-pressed]):not(.dream-settings-app-main),
@@ -3640,15 +3616,15 @@ html.codex-dream-skin .dream-settings-content :where(
   box-shadow: inset 0 -2px var(--angel-pink), 0 0 0 1px color-mix(in oklab, var(--angel-blue) 28%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(button, input, textarea):disabled,
-html.codex-dream-skin .dream-settings-content [aria-disabled="true"] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(button, input, textarea):disabled,
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content [aria-disabled="true"] {
   color: color-mix(in oklab, var(--dream-text-muted) 74%, var(--angel-violet)) !important;
   border-color: color-mix(in oklab, var(--angel-violet) 24%, var(--dream-line)) !important;
   background: color-mix(in oklab, var(--dream-surface) 90%, var(--angel-violet) 10%) !important;
   opacity: .62 !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-segment-group,
   [role="radiogroup"],
   :has(> button[aria-pressed] + button[aria-pressed])
@@ -3661,7 +3637,7 @@ html.codex-dream-skin .dream-settings-content :where(
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--angel-violet) 16%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-segment,
   button[aria-pressed],
   [role="radiogroup"] > button,
@@ -3675,7 +3651,7 @@ html.codex-dream-skin .dream-settings-content :where(
   box-shadow: none !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-segment[data-state="on"],
   .dream-settings-segment[data-state="active"],
   .dream-settings-segment[aria-pressed="true"],
@@ -3691,7 +3667,7 @@ html.codex-dream-skin .dream-settings-content :where(
   box-shadow: inset 0 -2px var(--angel-pink) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-segment[aria-pressed="false"],
   .dream-settings-segment[aria-checked="false"],
   button[aria-pressed="false"],
@@ -3704,7 +3680,7 @@ html.codex-dream-skin .dream-settings-content :where(
   opacity: .82;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-segment[aria-pressed="true"],
   .dream-settings-segment[aria-checked="true"],
   button[aria-pressed="true"]
@@ -3719,7 +3695,7 @@ html.codex-dream-skin .dream-settings-content :where(
   box-shadow: 0 0 7px var(--angel-cyan);
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-segment,
   button[aria-pressed],
   [role="radiogroup"] [role="radio"]
@@ -3731,7 +3707,7 @@ html.codex-dream-skin .dream-settings-content :where(
 /* Application-permission rows contain a full-width transparent button plus
    independent action/switch controls. Keep the child button visually inert so
    crossing those hit regions cannot alternate two competing hover paints. */
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-app-row,
   .dream-settings-row:has(> button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]),
   div[class~="overflow-hidden"][class~="rounded-2xl"]:has(> div > button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]) > div
@@ -3741,7 +3717,7 @@ html.codex-dream-skin .dream-settings-content :where(
   transition: none !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-app-row,
   .dream-settings-row:has(> button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]),
   div[class~="overflow-hidden"][class~="rounded-2xl"]:has(> div > button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]) > div
@@ -3755,7 +3731,7 @@ html.codex-dream-skin .dream-settings-content :where(
     inset -2px 0 color-mix(in oklab, var(--angel-pink) 72%, transparent) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-app-main,
   .dream-settings-row > button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]
 ) {
@@ -3767,7 +3743,7 @@ html.codex-dream-skin .dream-settings-content :where(
   transition: none !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-app-main,
   .dream-settings-row > button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]
 ):hover {
@@ -3776,7 +3752,7 @@ html.codex-dream-skin .dream-settings-content :where(
   box-shadow: none !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-app-main,
   .dream-settings-row > button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]
 ):focus-visible {
@@ -3784,7 +3760,7 @@ html.codex-dream-skin .dream-settings-content :where(
   outline-offset: 3px;
 }
 
-html.codex-dream-skin .dream-settings-content :where(
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   .dream-settings-app-row,
   .dream-settings-row:has(> button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]),
   div[class~="overflow-hidden"][class~="rounded-2xl"]:has(> div > button[class~="appearance-none"][class~="bg-transparent"][class~="p-0"][class~="text-left"]) > div
@@ -3795,19 +3771,19 @@ html.codex-dream-skin .dream-settings-content :where(
   box-shadow: 2px 2px 0 color-mix(in oklab, var(--angel-pink) 58%, var(--angel-ink)) !important;
 }
 
-html.codex-dream-skin .dream-settings-content :where([role="checkbox"], input[type="checkbox"], input[type="radio"]) {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where([role="checkbox"], input[type="checkbox"], input[type="radio"]) {
   accent-color: var(--angel-pink) !important;
   border-color: var(--angel-cyan) !important;
   background-color: color-mix(in oklab, var(--dream-surface) 82%, var(--angel-violet) 18%) !important;
 }
 
-html.codex-dream-skin .dream-settings-content [role="slider"] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content [role="slider"] {
   border: 1px solid color-mix(in oklab, var(--angel-cyan) 70%, var(--angel-blue)) !important;
   background: var(--angel-paper) !important;
   box-shadow: 1px 1px 0 var(--angel-ink), 0 0 8px color-mix(in oklab, var(--angel-pink) 36%, transparent) !important;
 }
 
-html.codex-dream-skin.dream-settings-active :where(
+html.codex-dream-skin[data-dream-route="settings"].dream-settings-active :where(
   .dream-settings-menu,
   [role="menu"],
   [role="listbox"]
@@ -3824,7 +3800,7 @@ html.codex-dream-skin.dream-settings-active :where(
     0 16px 34px color-mix(in oklab, var(--angel-ink) 42%, transparent) !important;
 }
 
-html.codex-dream-skin.dream-settings-active :where(
+html.codex-dream-skin[data-dream-route="settings"].dream-settings-active :where(
   [role="menuitem"],
   [role="menuitemradio"],
   [role="menuitemcheckbox"],
@@ -3836,7 +3812,7 @@ html.codex-dream-skin.dream-settings-active :where(
   border-radius: 7px !important;
 }
 
-html.codex-dream-skin.dream-settings-active :where(
+html.codex-dream-skin[data-dream-route="settings"].dream-settings-active :where(
   [role="menuitem"],
   [role="menuitemradio"],
   [role="menuitemcheckbox"],
@@ -3850,7 +3826,7 @@ html.codex-dream-skin.dream-settings-active :where(
   box-shadow: inset 3px 0 var(--angel-pink) !important;
 }
 
-html.codex-dream-skin.dream-settings-active :where(
+html.codex-dream-skin[data-dream-route="settings"].dream-settings-active :where(
   [role="menuitemradio"][data-state="checked"],
   [role="menuitemcheckbox"][data-state="checked"],
   [role="option"][aria-selected="true"]
@@ -3860,9 +3836,9 @@ html.codex-dream-skin.dream-settings-active :where(
 }
 
 @media (max-width: 920px) {
-  html.codex-dream-skin :where(
+  html.codex-dream-skin[data-dream-route="settings"] :where(
     .dream-settings-content,
-    div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])
+    :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"])
   )::before {
     display: none;
   }
@@ -3883,7 +3859,7 @@ html.codex-dream-skin.dream-settings-active :where(
 
 /* Reading and code surfaces: high-contrast, quiet enough for long sessions. */
 html.codex-dream-skin article a,
-html.codex-dream-skin [data-message-author-role] a {
+html.codex-dream-skin :is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant]) a {
   color: color-mix(in oklab, var(--angel-blue) 72%, var(--dream-text)) !important;
   text-decoration-color: var(--angel-pink) !important;
   text-decoration-thickness: 2px;
@@ -3994,7 +3970,7 @@ html.codex-dream-skin aside[class~="relative"][class~="isolate"][class~="rounded
    token-coloured shell, then mounts its tab bar and xterm descendants.  Paint
    the shell itself so the very first expanded frame cannot expose the native
    olive surface while the renderer classifier is still waiting on children. */
-html.codex-dream-skin main.main-surface
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
   [class~="relative"][class~="z-30"][class~="min-h-0"][class~="w-full"][class~="shrink-0"][class~="overflow-visible"]
   > [class~="absolute"][class~="inset-0"][class~="min-h-0"][class~="overflow-hidden"]
   > [class~="absolute"][class~="inset-x-0"][class~="top-0"][class~="min-h-0"][class~="border-t"][class~="bg-token-main-surface-primary"] {
@@ -4011,7 +3987,7 @@ html.codex-dream-skin main.main-surface
     0 -5px 0 color-mix(in oklab, var(--angel-pink) 18%, transparent) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) {
+html.codex-dream-skin .dream-terminal-panel {
   overflow: hidden !important;
   color: var(--dream-text) !important;
   border-top: 2px solid var(--angel-blue) !important;
@@ -4026,7 +4002,7 @@ html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_pain
     0 -5px 0 color-mix(in oklab, var(--angel-pink) 18%, transparent) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) > :first-child:not([role="tabpanel"]) {
+html.codex-dream-skin .dream-terminal-panel > :first-child:not([role="tabpanel"]) {
   min-height: 38px;
   border-bottom: 1px solid color-mix(in oklab, var(--angel-cyan) 30%, var(--dream-line-soft)) !important;
   background: linear-gradient(90deg,
@@ -4034,7 +4010,7 @@ html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_pain
     color-mix(in oklab, var(--dream-surface-raised) 91%, var(--angel-pink) 9%)) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] [role="button"]:has(> [role="tab"]) {
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] [role="button"]:has(> [role="tab"]) {
   border: 1px solid color-mix(in oklab, var(--angel-cyan) 54%, var(--dream-line)) !important;
   border-radius: 4px 10px 4px 10px !important;
   color: var(--dream-text) !important;
@@ -4042,8 +4018,8 @@ html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_pain
   box-shadow: 2px 2px 0 color-mix(in oklab, var(--angel-violet) 38%, transparent) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] [role="button"]:has(> [role="tab"][aria-selected="true"]),
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] [role="button"]:has(> [role="tab"][data-state="active"]) {
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] [role="button"]:has(> [role="tab"][aria-selected="true"]),
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] [role="button"]:has(> [role="tab"][data-state="active"]) {
   border-color: var(--angel-cyan) !important;
   background: linear-gradient(90deg,
     color-mix(in oklab, var(--angel-blue) 28%, var(--dream-surface-raised)),
@@ -4054,9 +4030,9 @@ html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_pain
 /* Codex nests the actual tab inside a native token-coloured shell and a full
    absolute overlay. Skin the shell, then make both inner layers transparent so
    the olive/black fallback cannot peek out around the icon or close button. */
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] [role="button"]:has(> [role="tab"])
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] [role="button"]:has(> [role="tab"])
   > [class*="pointer-events-none"][class*="absolute"][class*="inset-0"],
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tab"] {
+html.codex-dream-skin .dream-terminal-panel [role="tab"] {
   border-color: transparent !important;
   border-radius: 0 !important;
   color: var(--dream-text) !important;
@@ -4066,25 +4042,25 @@ html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_pain
 
 /* Keep the native title fade for long shell paths, but blend it into our tab
    surface instead of --app-shell-tab-background (the dark block in the report). */
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tab"] [class*="app-shell-tab-background"] {
+html.codex-dream-skin .dream-terminal-panel [role="tab"] [class*="app-shell-tab-background"] {
   background: linear-gradient(90deg,
     transparent,
     color-mix(in oklab, var(--dream-surface-raised) 90%, var(--angel-blue) 10%) 82%) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tab"][aria-selected="true"] [class*="app-shell-tab-background"] {
+html.codex-dream-skin .dream-terminal-panel [role="tab"][aria-selected="true"] [class*="app-shell-tab-background"] {
   background: linear-gradient(90deg,
     transparent,
     color-mix(in oklab, var(--dream-surface-raised) 78%, var(--angel-pink) 22%) 82%) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] [role="button"]:has(> [role="tab"]) > button {
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] [role="button"]:has(> [role="tab"]) > button {
   border-color: transparent !important;
   color: color-mix(in oklab, var(--dream-text) 82%, var(--angel-cyan)) !important;
   background: transparent !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] [role="button"]:has(> [role="tab"]) > button:hover {
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] [role="button"]:has(> [role="tab"]) > button:hover {
   color: #fff !important;
   background: color-mix(in oklab, var(--angel-pink) 28%, transparent) !important;
 }
@@ -4092,11 +4068,11 @@ html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_pain
 /* The new-terminal action lives in a separate sticky
    bg-token-main-surface-primary wrapper. Keeping the wrapper transparent and
    drawing the button itself prevents the square black block seen beside tabs. */
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] ~ [class~="bg-token-main-surface-primary"] {
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] ~ [class~="bg-token-main-surface-primary"] {
   background: transparent !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] ~ [class~="bg-token-main-surface-primary"] > button {
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] ~ [class~="bg-token-main-surface-primary"] > button {
   border: 1px solid color-mix(in oklab, var(--angel-cyan) 48%, var(--dream-line)) !important;
   border-radius: 5px 9px 5px 9px !important;
   color: var(--angel-cyan) !important;
@@ -4106,8 +4082,8 @@ html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_pain
   box-shadow: 2px 2px 0 color-mix(in oklab, var(--angel-violet) 34%, transparent) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] ~ [class~="bg-token-main-surface-primary"] > button:hover,
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] ~ [class~="bg-token-main-surface-primary"] > button[data-state="open"] {
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] ~ [class~="bg-token-main-surface-primary"] > button:hover,
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] ~ [class~="bg-token-main-surface-primary"] > button[data-state="open"] {
   border-color: var(--angel-cyan) !important;
   color: #fff !important;
   background: linear-gradient(135deg,
@@ -4115,39 +4091,39 @@ html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_pain
     color-mix(in oklab, var(--angel-pink) 26%, var(--dream-surface-raised))) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] ~ [class~="bg-token-main-surface-primary"] > button:focus-visible {
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] ~ [class~="bg-token-main-surface-primary"] > button:focus-visible {
   outline: 2px solid var(--angel-pink) !important;
   outline-offset: 2px !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm), [class*="contain:layout_paint"]:has(> [class~="h-toolbar-pane"] [role="tablist"])) [role="tablist"] ~ [class*="after:to-token-main-surface-primary"]::after {
+html.codex-dream-skin .dream-terminal-panel [role="tablist"] ~ [class*="after:to-token-main-surface-primary"]::after {
   background-image: linear-gradient(90deg,
     transparent,
     color-mix(in oklab, var(--dream-surface-raised) 88%, var(--angel-blue) 12%)) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) [role="tabpanel"],
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) [class~="app-theme"],
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) .xterm,
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) .xterm-viewport,
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) .xterm-screen,
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) .xterm-rows {
+html.codex-dream-skin .dream-terminal-panel [role="tabpanel"],
+html.codex-dream-skin .dream-terminal-panel [class~="app-theme"],
+html.codex-dream-skin .dream-terminal-panel .xterm,
+html.codex-dream-skin .dream-terminal-panel .xterm-viewport,
+html.codex-dream-skin .dream-terminal-panel .xterm-screen,
+html.codex-dream-skin .dream-terminal-panel .xterm-rows {
   background: transparent !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) .xterm,
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) .xterm-helper-textarea {
+html.codex-dream-skin .dream-terminal-panel .xterm,
+html.codex-dream-skin .dream-terminal-panel .xterm-helper-textarea {
   font-family: var(--angel-font-mono) !important;
   font-variant-ligatures: contextual;
   caret-color: var(--angel-pink) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) .xterm-selection-layer > div {
+html.codex-dream-skin .dream-terminal-panel .xterm-selection-layer > div {
   background: color-mix(in oklab, var(--angel-cyan) 34%, var(--angel-violet) 26%) !important;
 }
 
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) .xterm-cursor,
-html.codex-dream-skin :where(.dream-terminal-panel, [class*="contain:layout_paint"]:has(.xterm)) .xterm-cursor-block {
+html.codex-dream-skin .dream-terminal-panel .xterm-cursor,
+html.codex-dream-skin .dream-terminal-panel .xterm-cursor-block {
   color: var(--angel-ink) !important;
   background-color: var(--angel-pink) !important;
   outline-color: var(--angel-cyan) !important;
@@ -4224,15 +4200,11 @@ html.codex-dream-skin .dream-side-workspace kbd {
   font-family: var(--angel-font-mono) !important;
 }
 
-/* The auxiliary launcher can paint before renderer classification. Match its
-   stable split-pane structure as well as the durable class so the olive native
-   surface never flashes through. The two readouts turn the otherwise empty
-   panel into a compact CHOTEN relay deck without inventing controls. */
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-) {
+/* The renderer assigns the durable workspace class from the mutation batch
+   before the next paint. Keeping this hot path class-only avoids repeatedly
+   evaluating deep :has() fallbacks while a task updates. The two readouts turn
+   the otherwise empty panel into a compact CHOTEN relay deck. */
+html.codex-dream-skin .dream-side-workspace {
   position: relative !important;
   isolation: isolate;
   overflow: hidden !important;
@@ -4259,28 +4231,16 @@ html.codex-dream-skin :where(
     -4px 0 0 color-mix(in oklab, var(--angel-pink) 18%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-) > * {
+html.codex-dream-skin .dream-side-workspace > * {
   position: relative;
   z-index: 1;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-) [class~="bg-token-main-surface-primary"] {
+html.codex-dream-skin .dream-side-workspace [class~="bg-token-main-surface-primary"] {
   background: transparent !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-)::before {
+html.codex-dream-skin .dream-side-workspace::before {
   content: "\2665  SIDE CHANNEL // ANGEL RELAY";
   position: absolute;
   z-index: 3;
@@ -4301,11 +4261,7 @@ html.codex-dream-skin :where(
   white-space: nowrap;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-)::after {
+html.codex-dream-skin .dream-side-workspace::after {
   content: "LIVE  99%    AFFECTION  9999+";
   position: absolute;
   z-index: 2;
@@ -4329,11 +4285,7 @@ html.codex-dream-skin :where(
   white-space: nowrap;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-) :is(button:has(kbd), ul button[class~="bg-token-bg-fog"]) {
+html.codex-dream-skin .dream-side-workspace :is(button:has(kbd), ul button[class~="bg-token-bg-fog"]) {
   position: relative;
   min-height: 50px;
   border: 1px solid color-mix(in oklab, var(--angel-cyan) 48%, var(--dream-line)) !important;
@@ -4347,11 +4299,7 @@ html.codex-dream-skin :where(
     3px 3px 0 color-mix(in oklab, var(--angel-blue) 34%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-) :is(button:has(kbd), ul button[class~="bg-token-bg-fog"]):hover {
+html.codex-dream-skin .dream-side-workspace :is(button:has(kbd), ul button[class~="bg-token-bg-fog"]):hover {
   border-color: var(--angel-cyan) !important;
   translate: -2px -1px;
   background: linear-gradient(90deg,
@@ -4362,11 +4310,7 @@ html.codex-dream-skin :where(
     5px 4px 0 color-mix(in oklab, var(--angel-blue) 46%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-workspace,
-  main.main-surface aside > [class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd),
-  main.main-surface [class~="isolate"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class*="contain:layout_paint"]:not(:has(.xterm)):not(:has(.thread-scroll-container)):has(button kbd)
-) :where(kbd, svg) {
+html.codex-dream-skin .dream-side-workspace :where(kbd, svg) {
   color: var(--angel-cyan) !important;
 }
 
@@ -4439,13 +4383,10 @@ html.codex-dream-skin .dream-side-workspace-brand > em {
   color: color-mix(in oklab, var(--angel-cyan) 72%, var(--angel-paper));
 }
 
-/* A live side conversation replaces the launcher DOM entirely. Keep both the
-   classified form and the native structure selector so a newly mounted panel
-   receives its broadcast surface on the very first painted frame. */
-html.codex-dream-skin :where(
-  .dream-side-chat-panel,
-  main.main-surface aside > [class*="contain:layout_paint"]:has(.thread-scroll-container):has(.composer-surface-chrome)
-) {
+/* A live side conversation replaces the launcher DOM entirely. Its durable
+   class is assigned from the same mutation batch before the next paint, which
+   keeps the frequently changing conversation subtree out of :has() matching. */
+html.codex-dream-skin .dream-side-chat-panel {
   position: relative !important;
   isolation: isolate;
   color: var(--dream-text) !important;
@@ -4462,17 +4403,11 @@ html.codex-dream-skin :where(
     -4px 0 0 color-mix(in oklab, var(--angel-pink) 18%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-chat-panel,
-  main.main-surface aside > [class*="contain:layout_paint"]:has(.thread-scroll-container):has(.composer-surface-chrome)
-) :where([class~="bg-token-main-surface-primary"], .thread-scroll-container) {
+html.codex-dream-skin .dream-side-chat-panel :where([class~="bg-token-main-surface-primary"], .thread-scroll-container) {
   background: transparent !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-side-chat-panel,
-  main.main-surface aside > [class*="contain:layout_paint"]:has(.thread-scroll-container):has(.composer-surface-chrome)
-) > [class~="bg-token-main-surface-primary"] {
+html.codex-dream-skin .dream-side-chat-panel > [class~="bg-token-main-surface-primary"] {
   border-top: 1px solid color-mix(in oklab, var(--angel-cyan) 44%, transparent) !important;
 }
 
@@ -4534,11 +4469,7 @@ html.codex-dream-skin .dream-selected-fragment svg {
   color: var(--angel-cyan) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-optional-comment,
-  div:has(> :is(input, textarea)[placeholder*="optional comment" i]),
-  div:has(> :is(input, textarea)[placeholder*="可选评论"])
-) {
+html.codex-dream-skin .dream-optional-comment {
   overflow: hidden !important;
   border: 2px solid color-mix(in oklab, var(--angel-cyan) 76%, var(--angel-blue)) !important;
   border-radius: 5px 18px 5px 18px !important;
@@ -4551,11 +4482,7 @@ html.codex-dream-skin :where(
     3px 3px 0 color-mix(in oklab, var(--angel-pink) 44%, var(--angel-ink)) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-optional-comment,
-  div:has(> :is(input, textarea)[placeholder*="optional comment" i]),
-  div:has(> :is(input, textarea)[placeholder*="可选评论"])
-):focus-within {
+html.codex-dream-skin .dream-optional-comment:focus-within {
   border-color: var(--angel-pink) !important;
   box-shadow:
     inset 4px 0 var(--angel-cyan),
@@ -4579,10 +4506,7 @@ html.codex-dream-skin :is(
   box-shadow: none !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-summary-panel,
-  [class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])
-) {
+html.codex-dream-skin .dream-summary-panel {
   position: relative !important;
   isolation: isolate;
   box-sizing: border-box !important;
@@ -4601,19 +4525,13 @@ html.codex-dream-skin :where(
   backdrop-filter: none !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-summary-panel,
-  [class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])
-) > [class*="overflow-y-auto"] {
+html.codex-dream-skin .dream-summary-panel > [class*="overflow-y-auto"] {
   overflow-x: clip !important;
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
 }
 
-html.codex-dream-skin :where(
-  .dream-summary-panel,
-  [class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])
-) :is(header, [class*="sticky"][class*="top-0"][class*="bg-token-dropdown-background"]) {
+html.codex-dream-skin .dream-summary-panel :is(header, [class*="sticky"][class*="top-0"][class*="bg-token-dropdown-background"]) {
   color: var(--dream-text) !important;
   border-bottom: 0 !important;
   background: linear-gradient(90deg,
@@ -4622,10 +4540,7 @@ html.codex-dream-skin :where(
   box-shadow: inset 0 -1px color-mix(in oklab, var(--angel-cyan) 34%, var(--dream-line-soft)) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-summary-panel,
-  [class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])
-) :is(section, [class*="after:bg-token-border-default"])::after {
+html.codex-dream-skin .dream-summary-panel :is(section, [class*="after:bg-token-border-default"])::after {
   background: linear-gradient(90deg,
     transparent,
     color-mix(in oklab, var(--angel-cyan) 45%, var(--dream-line-soft)) 16%,
@@ -4633,29 +4548,19 @@ html.codex-dream-skin :where(
     transparent) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-summary-panel,
-  [class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])
-) button {
+html.codex-dream-skin .dream-summary-panel button {
   color: var(--dream-text) !important;
   border-radius: 4px !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-summary-panel,
-  [class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])
-) button:hover {
+html.codex-dream-skin .dream-summary-panel button:hover {
   background: linear-gradient(90deg, var(--dream-accent-soft), color-mix(in oklab, var(--angel-cyan) 16%, transparent)) !important;
   box-shadow: inset 3px 0 var(--angel-pink) !important;
 }
 
 /* Turn diff resource cards are renderer-owned, so both their structural shell
    and their classified state receive the same first-frame-stable skin. */
-html.codex-dream-skin :where(
-  .dream-edited-card,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]),
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"])
-) {
+html.codex-dream-skin .dream-edited-card {
   position: relative !important;
   isolation: isolate;
   box-sizing: border-box !important;
@@ -4673,22 +4578,14 @@ html.codex-dream-skin :where(
     0 8px 24px color-mix(in oklab, var(--angel-ink) 34%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]),
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"])
-) > :where(.dream-edited-card-header, [class*="group/turn-diff-header"]) {
+html.codex-dream-skin .dream-edited-card > :where(.dream-edited-card-header, [class*="group/turn-diff-header"]) {
   background: linear-gradient(90deg,
     color-mix(in oklab, var(--dream-surface-raised) 92%, var(--angel-blue) 8%),
     color-mix(in oklab, var(--dream-surface-raised) 94%, var(--angel-pink) 6%)) !important;
   box-shadow: inset 0 -1px color-mix(in oklab, var(--angel-cyan) 28%, var(--dream-line-soft)) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]),
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"])
-) :where(.dream-edited-card-icon, [class~="size-10"][class~="rounded-lg"]:has(> svg)) {
+html.codex-dream-skin .dream-edited-card .dream-edited-card-icon {
   position: relative !important;
   color: var(--dream-text) !important;
   border: 1px solid color-mix(in oklab, var(--angel-cyan) 72%, var(--angel-blue)) !important;
@@ -4701,11 +4598,7 @@ html.codex-dream-skin :where(
     3px 3px 0 color-mix(in oklab, var(--angel-ink) 42%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card-icon,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]) [class~="size-10"][class~="rounded-lg"]:has(> svg),
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"]) [class~="size-10"][class~="rounded-lg"]:has(> svg)
-)::after {
+html.codex-dream-skin .dream-edited-card-icon::after {
   content: "";
   position: absolute;
   top: -4px;
@@ -4718,23 +4611,14 @@ html.codex-dream-skin :where(
   filter: drop-shadow(1px 1px 0 var(--angel-ink));
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card-title,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]) [class~="font-medium"][class*="text-token-foreground"],
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"]) [class~="font-medium"][class*="text-token-foreground"]
-) {
+html.codex-dream-skin .dream-edited-card-title {
   color: var(--dream-text) !important;
   font-family: var(--angel-font-ui) !important;
   font-weight: 700 !important;
   letter-spacing: .01em;
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card-stats,
-  .dream-edited-card .turn-diff-default-subtitle,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]) .turn-diff-default-subtitle,
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"]) .turn-diff-default-subtitle
-) {
+html.codex-dream-skin :where(.dream-edited-card-stats, .dream-edited-card .turn-diff-default-subtitle) {
   display: inline-flex !important;
   align-items: center;
   gap: 3px;
@@ -4747,20 +4631,11 @@ html.codex-dream-skin :where(
   font-variant-numeric: tabular-nums;
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card-actions,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button),
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button)
-) {
+html.codex-dream-skin .dream-edited-card-actions {
   gap: 7px !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card-undo,
-  .dream-edited-card-review,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button) > button,
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button) > button
-) {
+html.codex-dream-skin :where(.dream-edited-card-undo, .dream-edited-card-review) {
   min-height: 34px !important;
   padding-inline: 12px !important;
   color: var(--dream-text) !important;
@@ -4772,22 +4647,13 @@ html.codex-dream-skin :where(
   font-weight: 700 !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card-review,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button) > button:last-of-type,
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button) > button:last-of-type
-) {
+html.codex-dream-skin .dream-edited-card-review {
   color: #fff !important;
   border-color: var(--angel-pink) !important;
   background: linear-gradient(110deg, var(--angel-blue), var(--angel-pink)) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card-undo,
-  .dream-edited-card-review,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button) > button,
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button) > button
-):hover {
+html.codex-dream-skin :where(.dream-edited-card-undo, .dream-edited-card-review):hover {
   border-color: var(--angel-cyan) !important;
   filter: brightness(1.12);
   box-shadow:
@@ -4795,12 +4661,7 @@ html.codex-dream-skin :where(
     2px 2px 0 color-mix(in oklab, var(--angel-pink) 36%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-edited-card-undo,
-  .dream-edited-card-review,
-  [class*="--thread-resource-card-row-padding-x:"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button) > button,
-  [class*="rounded-lg"][class*="bg-token-dropdown-background"]:has(> [class*="group/turn-diff-header"]) [class*="pointer-events-auto"]:has(> button + button) > button
-):focus-visible {
+html.codex-dream-skin :where(.dream-edited-card-undo, .dream-edited-card-review):focus-visible {
   outline: 2px solid var(--angel-cyan) !important;
   outline-offset: 2px;
 }
@@ -4842,8 +4703,8 @@ html.codex-dream-skin [class~="group/application-menu-top-bar"] button[data-stat
   box-shadow: inset 0 -2px var(--angel-cyan), 2px 2px 0 color-mix(in oklab, var(--angel-pink) 42%, transparent) !important;
 }
 
-html.codex-dream-skin main.main-surface > header.app-header-tint button[aria-pressed="true"],
-html.codex-dream-skin main.main-surface > header.app-header-tint button[data-state="on"] {
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]) button[aria-pressed="true"],
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"]) button[data-state="on"] {
   color: var(--angel-cyan) !important;
   border-color: color-mix(in oklab, var(--angel-cyan) 66%, transparent) !important;
   background: color-mix(in oklab, var(--angel-blue) 22%, var(--dream-surface-raised)) !important;
@@ -4879,7 +4740,7 @@ html.codex-dream-skin ::-webkit-scrollbar-track {
     margin-left: 36px !important;
   }
 
-  html.codex-dream-skin main.main-surface.dream-home-shell > header.app-header-tint::after {
+  html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-home-shell > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])::after {
     content: "LIVE // CHOTEN 01";
     min-width: 164px;
   }
@@ -4894,7 +4755,7 @@ html.codex-dream-skin ::-webkit-scrollbar-track {
   }
 
   html.codex-dream-skin aside.app-shell-left-panel,
-  html.codex-dream-skin.dream-art-wide:has(main.main-surface.dream-home-shell) aside.app-shell-left-panel {
+  html.codex-dream-skin.dream-art-wide[data-dream-route="home"] aside.app-shell-left-panel {
     box-shadow: inset -1px 0 var(--angel-cyan) !important;
   }
 }
@@ -5219,13 +5080,7 @@ html.codex-dream-skin.dream-home-dual-panel .dream-home .composer-surface-chrome
    completed work as a dense archive. Structural fallbacks style the very first
    frame before the renderer can add the durable dream-subagent-* classes. */
 
-html.codex-dream-skin :where(
-  .dream-subagent-frame,
-  [class~="absolute"][class~="top-0"][class~="bottom-0"][class~="left-0"][class~="border-l"]:has(
-    [role="tabpanel"] > [class~="h-full"][class~="min-h-0"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-    > section > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]
-  )
-) {
+html.codex-dream-skin .dream-subagent-frame {
   border-left: 2px solid var(--angel-blue) !important;
   background: var(--dream-surface) !important;
   box-shadow:
@@ -5233,14 +5088,7 @@ html.codex-dream-skin :where(
     -8px 0 26px color-mix(in oklab, var(--angel-ink) 32%, transparent) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-subagent-shell,
-  [class~="isolate"][class~="flex"][class~="h-full"][class~="min-h-0"][class~="flex-col"][class~="bg-token-main-surface-primary"]:has(
-    > [class~="h-toolbar"] + [role="tabpanel"]
-    > [class~="h-full"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-    > section > [class~="relative"][class~="z-10"] > button[class~="items-start"]
-  )
-) {
+html.codex-dream-skin .dream-subagent-shell {
   position: relative;
   color: var(--dream-text) !important;
   background:
@@ -5259,11 +5107,7 @@ html.codex-dream-skin :where(
 
 html.codex-dream-skin :where(
   .dream-subagent-toolbar,
-  .dream-subagent-shell > [class~="h-toolbar"],
-  [class~="h-toolbar"]:has(
-    + [role="tabpanel"] > [class~="h-full"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-    > section > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]
-  )
+  .dream-subagent-shell > [class~="h-toolbar"]
 ) {
   min-height: 48px !important;
   color: var(--dream-text) !important;
@@ -5281,10 +5125,7 @@ html.codex-dream-skin :where(
 }
 
 html.codex-dream-skin .dream-subagent-toolbar [class~="group/tab"],
-html.codex-dream-skin [class~="h-toolbar"]:has(
-  + [role="tabpanel"] > [class~="h-full"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-  > section > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]
-) [class~="group/tab"] {
+html.codex-dream-skin .dream-subagent-toolbar [class~="group/tab"] {
   overflow: visible !important;
   min-width: 174px;
   color: var(--angel-paper) !important;
@@ -5300,10 +5141,7 @@ html.codex-dream-skin [class~="h-toolbar"]:has(
 }
 
 html.codex-dream-skin .dream-subagent-toolbar [role="tab"],
-html.codex-dream-skin [class~="h-toolbar"]:has(
-  + [role="tabpanel"] > [class~="h-full"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-  > section > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]
-) [role="tab"] {
+html.codex-dream-skin .dream-subagent-toolbar [role="tab"] {
   color: var(--angel-paper) !important;
   font-family: var(--angel-font-ui) !important;
   font-weight: 760 !important;
@@ -5311,10 +5149,7 @@ html.codex-dream-skin [class~="h-toolbar"]:has(
 }
 
 html.codex-dream-skin .dream-subagent-toolbar [role="tab"]::before,
-html.codex-dream-skin [class~="h-toolbar"]:has(
-  + [role="tabpanel"] > [class~="h-full"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-  > section > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]
-) [role="tab"]::before {
+html.codex-dream-skin .dream-subagent-toolbar [role="tab"]::before {
   content: "◆";
   flex: 0 0 auto;
   color: var(--angel-pink);
@@ -5324,44 +5159,27 @@ html.codex-dream-skin [class~="h-toolbar"]:has(
 }
 
 html.codex-dream-skin .dream-subagent-toolbar :where(button, [role="button"]):focus-visible,
-html.codex-dream-skin [class~="h-toolbar"]:has(
-  + [role="tabpanel"] > [class~="h-full"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-  > section > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]
-) :where(button, [role="button"]):focus-visible {
+html.codex-dream-skin .dream-subagent-toolbar :where(button, [role="button"]):focus-visible {
   outline: 2px solid var(--angel-pink) !important;
   outline-offset: 2px;
 }
 
 html.codex-dream-skin .dream-subagent-toolbar > :last-child button,
 html.codex-dream-skin .dream-subagent-toolbar [class~="group/tab"] > button:last-child,
-html.codex-dream-skin [class~="h-toolbar"]:has(
-  + [role="tabpanel"] > [class~="h-full"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-  > section > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]
-) [class~="group/tab"] > button:last-child {
+html.codex-dream-skin .dream-subagent-toolbar [class~="group/tab"] > button:last-child {
   color: color-mix(in oklab, var(--angel-cyan) 62%, var(--dream-text)) !important;
   border-color: color-mix(in oklab, var(--angel-cyan) 46%, transparent) !important;
   background: color-mix(in oklab, var(--angel-blue) 16%, var(--dream-surface-raised)) !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-subagent-panel,
-  [role="tabpanel"]:has(
-    > [class~="h-full"][class~="min-h-0"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-    > section > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]
-  )
-) {
+html.codex-dream-skin .dream-subagent-panel {
   container-name: dream-subagent;
   container-type: inline-size;
   color: var(--dream-text) !important;
   background: transparent !important;
 }
 
-html.codex-dream-skin :where(
-  .dream-subagent-scroller,
-  [role="tabpanel"] > [class~="h-full"][class~="min-h-0"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]:has(
-    > section > [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"]
-  )
-) {
+html.codex-dream-skin .dream-subagent-scroller {
   padding: 18px 12px 22px !important;
   color: var(--dream-text) !important;
   background:
@@ -5374,12 +5192,7 @@ html.codex-dream-skin :where(
   scrollbar-color: var(--angel-pink) color-mix(in oklab, var(--angel-blue) 12%, transparent);
 }
 
-html.codex-dream-skin :where(
-  .dream-subagent-section,
-  .dream-subagent-scroller > section,
-  [role="tabpanel"] > [class~="h-full"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]
-  > section:has(> [class~="relative"][class~="z-10"] > button[class~="items-start"][class~="w-full"])
-) {
+html.codex-dream-skin :where(.dream-subagent-section, .dream-subagent-scroller > section) {
   position: relative;
   padding: 11px 10px 10px;
   border: 1px solid color-mix(in oklab, var(--angel-cyan) 38%, var(--dream-line)) !important;
@@ -5561,7 +5374,9 @@ html.codex-dream-skin :where(
 ) > svg:first-child {
   border-color: var(--angel-pink);
   background: linear-gradient(145deg, var(--angel-cyan), color-mix(in oklab, var(--angel-pink) 74%, var(--angel-violet)));
-  animation: dream-subagent-live-pulse 2.2s ease-in-out infinite;
+  /* A live row can remain mounted throughout an active task. Repainting filter
+     and shadow keyframes on every icon consumed a GPU core while streaming. */
+  animation: none;
 }
 
 html.codex-dream-skin .dream-subagent-row-archive > svg:first-child {
@@ -6243,7 +6058,7 @@ html.codex-dream-skin.dream-choten-art:not(.dream-home-side-open):not(.dream-hom
   opacity: .9;
 }
 
-html.codex-dream-skin:has(.dream-system-toast) #codex-dream-skin-chrome :where(
+html.codex-dream-skin.dream-system-toast-active #codex-dream-skin-chrome :where(
   .dream-angel-dose-strip,
   .dream-angel-window-stack,
   .dream-angel-webcam-card,
@@ -6253,7 +6068,7 @@ html.codex-dream-skin:has(.dream-system-toast) #codex-dream-skin-chrome :where(
   display: none !important;
 }
 
-html.codex-dream-skin:has(#codex-dream-skin-presets[data-dream-ready="true"]) #codex-dream-skin-chrome :where(
+html.codex-dream-skin.dream-presets-ready #codex-dream-skin-chrome :where(
   .dream-angel-window-stack,
   .dream-angel-webcam-card,
   .dream-angel-heartbeat
