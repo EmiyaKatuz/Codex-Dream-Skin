@@ -516,7 +516,7 @@ function Write-DreamSkinAutoLaunchState {
     [AllowNull()][string]$StoppedAt,
     [AllowNull()][string]$AttemptToken,
     [AllowNull()][string]$SessionToken,
-    [AllowNull()][object[]]$TargetProcesses
+    [AllowNull()][object[]]$TargetProcesses = @()
   )
 
   Assert-DreamSkinAutoLaunchPlainFile -Path $Path

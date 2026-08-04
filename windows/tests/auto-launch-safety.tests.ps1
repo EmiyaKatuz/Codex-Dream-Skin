@@ -42,6 +42,7 @@ foreach ($required in @(
   '-CaptureTargetProcesses',
   '$targetProcesses = @($snapshot.TargetProcesses)',
   '-TargetProcesses @($confirmation.TargetProcesses)',
+  '[AllowNull()][object[]]$TargetProcesses = @()',
   '__InstanceCreationEvent WITHIN 2',
   '__InstanceDeletionEvent WITHIN 2',
   '[System.Threading.AutoResetEvent]::new($false)',
@@ -401,15 +402,26 @@ try {
     @(Get-DreamSkinCodexProcesses -Codex $syntheticInstall -ExpectedSessionId 7).Count -ne 0) {
     throw 'Another session would incorrectly suppress same-session stock recovery after a failed handoff.'
   }
-  if (-not (Test-DreamSkinCodexPortOwner -Port 9335 -Codex $syntheticInstall) -or
-    (Test-DreamSkinCodexPortOwner -Port 9335 -Codex $syntheticInstall `
-      -ExpectedSessionId 7) -or
-    -not (Test-DreamSkinCodexPortOwner -Port 9335 -Codex $syntheticInstall `
-      -ExpectedSessionId 8)) {
-    throw 'Session-bound CDP ownership did not reject an identical owner from another session.'
+  & {
+    Set-StrictMode -Version 2.0
+    if (-not (Test-DreamSkinCodexPortOwner -Port 9335 -Codex $syntheticInstall) -or
+      (Test-DreamSkinCodexPortOwner -Port 9335 -Codex $syntheticInstall `
+        -ExpectedSessionId 7) -or
+      -not (Test-DreamSkinCodexPortOwner -Port 9335 -Codex $syntheticInstall `
+        -ExpectedSessionId 8)) {
+      throw 'Session-bound CDP ownership did not reject an identical owner from another session.'
+    }
+    if (Test-DreamSkinPortAvailable -Port 9335) {
+      throw "Another session's rejected CDP owner must still keep its machine-wide port unavailable."
+    }
   }
-  if (Test-DreamSkinPortAvailable -Port 9335) {
-    throw "Another session's rejected CDP owner must still keep its machine-wide port unavailable."
+  Set-Item 'function:Get-DreamSkinPortListeners' -Value { param($Port); return @() }
+  & {
+    Set-StrictMode -Version 2.0
+    if ((Test-DreamSkinCodexPortOwner -Port 9335 -Codex $syntheticInstall) -or
+      -not (Test-DreamSkinPortAvailable -Port 9335)) {
+      throw 'A zero-listener CDP port was not normalized safely under StrictMode.'
+    }
   }
 } finally {
   Set-Item 'function:Get-DreamSkinPortListeners' -Value $crossSessionOriginalPortListeners
