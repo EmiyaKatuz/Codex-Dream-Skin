@@ -14,6 +14,7 @@
   const SHELL_MAIN_SELECTOR = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
   const HEADER_TINT_SELECTOR = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
   const SIDEBAR_SELECTOR = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
+  const SETTINGS_CONTENT_SELECTOR = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
   const MESSAGE_SELECTOR = ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])';
   const CHROME_ID = "codex-dream-skin-chrome";
   const FALLBACK_PRESETS_ID = "codex-dream-skin-presets";
@@ -888,10 +889,12 @@
     const routeMains = [...document.querySelectorAll('[role="main"]')];
     if (!routeMains.length) routeMains.push(shellMain);
     const settingsNav = document.querySelector('nav:has([data-settings-panel-slug])');
-    const settingsSidebar = settingsNav?.closest?.(SIDEBAR_SELECTOR) || null;
-    const settingsContent = document.querySelector(
-      'div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])',
-    ) || document.querySelector('[data-settings-panel-slug="general-settings"]');
+    const settingsSidebar = settingsNav?.closest?.(SIDEBAR_SELECTOR)
+      || settingsNav?.parentElement
+      || null;
+    const settingsContent = settingsSidebar?.parentElement
+      ?.querySelector?.(SETTINGS_CONTENT_SELECTOR)
+      ?.parentElement || null;
     const semanticHome = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
     const homeMarker = shellMain.querySelector?.('[data-testid="home-icon"]') || null;
     const homeHeading = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]

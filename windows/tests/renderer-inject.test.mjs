@@ -14,6 +14,8 @@ const linuxTemplate = await fs.readFile(
 const css = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
 const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
+const sidebarSelector = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
+const settingsContentSelector = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
 assert.ok(template.includes(`const SHELL_MAIN_SELECTOR = '${shellSelector}'`)
   && template.includes(`const HEADER_TINT_SELECTOR = '${headerSelector}'`),
 "The Windows renderer must use the same Codex 26.727 shell/header unions as its CSS.");
@@ -21,7 +23,7 @@ assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
   && css.includes("data-app-shell-main-content-top-fade")
   && css.includes("data-local-conversation-user-anchor")
   && css.includes("data-local-conversation-final-assistant")
-  && css.includes('data-settings-panel-slug="general-settings"'),
+  && css.includes("data-settings-panel-slug"),
 "The Windows overlay must cover every observed Codex 26.727 surface marker.");
 assert.doesNotMatch(css, /main\.main-surface|header\.app-header-tint/,
   "No Windows CSS rule may remain locked to the removed pre-26.727 shell classes.");
@@ -259,6 +261,21 @@ assert.ok(template.includes('"dream-route-settings"')
   && template.includes("nav:has([data-settings-panel-slug])")
   && template.includes('if (settingsNav) route = "settings"'),
   "Settings must be detected before the default task route without localized text.");
+assert.ok(template.includes(`const SETTINGS_CONTENT_SELECTOR = '${settingsContentSelector}'`)
+  && template.includes("|| settingsNav?.parentElement")
+  && template.includes("const settingsContent = settingsSidebar?.parentElement")
+  && template.includes("?.querySelector?.(SETTINGS_CONTENT_SELECTOR)"),
+  "Settings content must be resolved inside the settings sidebar's own layout.");
+assert.doesNotMatch(template, /document\.querySelector\('\[data-settings-panel-slug="general-settings"\]'\)/,
+  "A settings navigation item must never be used as the settings content surface.");
+assert.doesNotMatch(css, /div\.main-surface:has\(> \[class~="scrollbar-stable"\]/,
+  "Settings CSS must use the durable scoped content class after Codex removed main-surface.");
+assert.doesNotMatch(css, /\[data-settings-panel-slug="general-settings"\]/,
+  "Settings CSS must never paint the General settings navigation item as content.");
+assert.match(css, /html\.codex-dream-skin\[data-dream-route="settings"\] \.dream-settings-content\s*\{[^}]*background:/s,
+  "The durable settings content root must retain its themed background.");
+assert.match(css, /html\.codex-dream-skin\[data-dream-route="settings"\] \.dream-settings-content::before\s*\{/,
+  "The durable settings content root must retain its Internet Angel header ornament.");
 for (const settingsClass of [
   "dream-settings-sidebar",
   "dream-settings-nav",
@@ -524,6 +541,8 @@ function createFixture({
   homePresent = false,
   homeHeadingPresent = false,
   utilityPresent = false,
+  settingsPresent = false,
+  settingsSidebarMatches = true,
   shellAppearance = "dark",
   computedColorScheme = "",
   osAppearance = "light",
@@ -585,16 +604,49 @@ function createFixture({
     return {
       nodeType: 1,
       classList: makeClassList(),
+      parentElement: null,
       getAttribute(name) { return attributes.get(name) ?? null; },
       setAttribute(name, value) { attributes.set(name, String(value)); },
       removeAttribute(name) { attributes.delete(name); },
       matches(candidate) { return candidate === selector; },
+      closest(candidate) { return candidate === sidebarSelector ? this : null; },
       querySelectorAll() { return []; },
       getBoundingClientRect() { return { width: 280, height: 760 }; },
     };
   };
   const shellSidebar = makePartNode("aside.app-shell-left-panel");
   const floatingSidebar = makePartNode('[data-testid="app-shell-floating-left-panel"]');
+  const settingsContentClasses = new Set();
+  const unrelatedSettingsContentClasses = new Set();
+  const settingsContent = {
+    classList: makeClassList(settingsContentClasses),
+    querySelectorAll() { return []; },
+  };
+  const unrelatedSettingsContent = {
+    classList: makeClassList(unrelatedSettingsContentClasses),
+    querySelectorAll() { return []; },
+  };
+  const settingsScroll = { parentElement: settingsContent };
+  const unrelatedSettingsScroll = { parentElement: unrelatedSettingsContent };
+  const settingsLayout = {
+    querySelector(selector) {
+      return selector === settingsContentSelector ? settingsScroll : null;
+    },
+  };
+  if (settingsPresent) shellSidebar.parentElement = settingsLayout;
+  const settingsNavClasses = new Set();
+  const settingsNav = {
+    classList: makeClassList(settingsNavClasses),
+    parentElement: settingsPresent ? shellSidebar : null,
+    closest(selector) {
+      return settingsPresent && settingsSidebarMatches && selector === sidebarSelector
+        ? shellSidebar
+        : null;
+    },
+    querySelector() { return null; },
+  };
+  const settingsNavItemClasses = new Set();
+  const settingsNavItem = { classList: makeClassList(settingsNavItemClasses) };
 
   root = {
     className: shellAppearance,
@@ -713,6 +765,18 @@ function createFixture({
     querySelector(selector) {
       if (selector === shellSelector) return hasMain ? shellMain : null;
       if (selector === "main") return hasMain ? shellMain : null;
+      if (selector === 'nav:has([data-settings-panel-slug])') {
+        return settingsPresent ? settingsNav : null;
+      }
+      if (selector === settingsContentSelector) {
+        return settingsPresent ? unrelatedSettingsScroll : null;
+      }
+      if (selector === 'div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])') {
+        return settingsPresent ? unrelatedSettingsContent : null;
+      }
+      if (selector === '[data-settings-panel-slug="general-settings"]') {
+        return settingsPresent ? settingsNavItem : null;
+      }
       if (selector === "aside.app-shell-left-panel") return hasSidebar ? shellSidebar : null;
       if (selector === '[data-testid="app-shell-floating-left-panel"]') {
         return hasFloatingSidebar ? floatingSidebar : null;
@@ -844,6 +908,9 @@ function createFixture({
     revokedUrls,
     shellSidebar,
     floatingSidebar,
+    settingsContentClasses,
+    unrelatedSettingsContentClasses,
+    settingsNavItemClasses,
     routeClasses,
     utilityClasses,
     getTimeoutCalls() { return timeoutCalls; },
@@ -877,6 +944,27 @@ assert.equal(main.rootClasses.has("dream-theme-dark"), true);
 assert.equal(main.rootClasses.has("dream-art-standard"), true);
 assert.equal(main.rootClasses.has("dream-task-ambient"), true);
 assert.equal(main.routeClasses.has("dream-task"), true);
+
+const scopedSettings = createFixture({ shellPresent: true, settingsPresent: true });
+vm.runInNewContext(payload, scopedSettings.context);
+assert.equal(scopedSettings.rootAttributes.get("data-dream-route"), "settings");
+assert.equal(scopedSettings.settingsContentClasses.has("dream-settings-content"), true,
+  "The settings layout content must receive the durable settings class.");
+assert.equal(scopedSettings.unrelatedSettingsContentClasses.has("dream-settings-content"), false,
+  "An unrelated matching scroll surface must remain unclassified.");
+assert.equal(scopedSettings.settingsNavItemClasses.has("dream-settings-content"), false,
+  "The General settings navigation item must remain navigation, not content.");
+
+const nestedSettings = createFixture({
+  shellPresent: true,
+  settingsPresent: true,
+  settingsSidebarMatches: false,
+});
+vm.runInNewContext(payload, nestedSettings.context);
+assert.equal(nestedSettings.settingsContentClasses.has("dream-settings-content"), true,
+  "A settings nav outside the fixed/floating aside must resolve through its parent wrapper.");
+assert.equal(nestedSettings.unrelatedSettingsContentClasses.has("dream-settings-content"), false,
+  "The parent-wrapper fallback must remain scoped to its own settings layout.");
 
 const sidebarParts = createFixture({
   shellPresent: true,

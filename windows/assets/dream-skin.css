@@ -3315,10 +3315,7 @@ html.codex-dream-skin[data-dream-route="settings"] nav:has([data-settings-panel-
   text-shadow: 1px 1px var(--angel-ink);
 }
 
-html.codex-dream-skin[data-dream-route="settings"] :where(
-  .dream-settings-content,
-  :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"])
-) {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content {
   position: relative;
   color: var(--dream-text) !important;
   background:
@@ -3336,10 +3333,7 @@ html.codex-dream-skin[data-dream-route="settings"] :where(
   box-shadow: inset 0 3px var(--angel-blue), inset 0 5px color-mix(in oklab, var(--angel-pink) 58%, transparent) !important;
 }
 
-html.codex-dream-skin[data-dream-route="settings"] :where(
-  .dream-settings-content,
-  :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"])
-)::before {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content::before {
   content: "♥ SYSTEM CONFIG // INTERNET ANGEL";
   position: absolute;
   z-index: 2;
@@ -3354,18 +3348,14 @@ html.codex-dream-skin[data-dream-route="settings"] :where(
   text-shadow: 1px 1px 0 var(--angel-ink);
 }
 
-html.codex-dream-skin[data-dream-route="settings"] :where(
-  .dream-settings-content,
-  :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"])
-) > [class~="scrollbar-stable"] {
+html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content > [class~="scrollbar-stable"] {
   background: transparent !important;
   scrollbar-gutter: stable;
 }
 
 html.codex-dream-skin[data-dream-route="settings"] :where(
   .dream-settings-surface,
-  nav:has([data-settings-panel-slug]) ~ * section > div[class~="overflow-hidden"][class~="rounded-2xl"],
-  :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"]) div[class~="flex"][class~="flex-col"][class~="overflow-hidden"][class~="rounded-2xl"]
+  nav:has([data-settings-panel-slug]) ~ * section > div[class~="overflow-hidden"][class~="rounded-2xl"]
 ) {
   overflow: clip !important;
   color: var(--dream-text) !important;
@@ -3470,10 +3460,9 @@ html.codex-dream-skin[data-dream-route="settings"] .dream-settings-menu :where(
   min-height: 34px;
 }
 
-/* Full settings control system.  Settings panels have changed DOM nesting
-   across app releases, so every selector below has both a renderer class and
-   a route-scoped structural fallback.  The fallback also prevents the native
-   green/olive card from flashing before the observer classifies a new panel. */
+/* Full settings control system. Settings panels change DOM nesting across app
+   releases, so content paint stays rooted in the renderer's durable scoped
+   class instead of version-specific shell or localized navigation markers. */
 html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content :where(
   [class*="bg-token-main-surface"],
   [class*="bg-token-sidebar-surface"]
@@ -3836,10 +3825,7 @@ html.codex-dream-skin[data-dream-route="settings"].dream-settings-active :where(
 }
 
 @media (max-width: 920px) {
-  html.codex-dream-skin[data-dream-route="settings"] :where(
-    .dream-settings-content,
-    :is(div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]), [data-settings-panel-slug="general-settings"])
-  )::before {
+  html.codex-dream-skin[data-dream-route="settings"] .dream-settings-content::before {
     display: none;
   }
 }

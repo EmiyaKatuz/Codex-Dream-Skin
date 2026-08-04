@@ -517,6 +517,9 @@ function makeOverlayFixture() {
     return { buttons, footer, help, mode, newTask, nodes: [footer, ...buttons], profile, row, search, section };
   };
 
+  const sidebarSelector = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
+  const settingsNavSelector = 'nav:has([data-settings-panel-slug])';
+  const settingsContentSelector = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
   const sidebar = makeNode({ className: "app-shell-left-panel" });
   const sidebarControls = makeSidebarControls();
   sidebar.addQuery("button, [role=button]", sidebarControls.buttons);
@@ -527,6 +530,21 @@ function makeOverlayFixture() {
   const fixedSidebarNodes = [sidebar, ...sidebarControls.nodes];
   const floatingSidebarNodes = [floatingSidebar, ...floatingSidebarControls.nodes];
   for (const node of floatingSidebarNodes) node.isConnected = false;
+
+  const settingsLayout = makeNode();
+  const settingsSidebar = makeNode({ className: "app-shell-left-panel" });
+  const settingsNav = makeNode();
+  const settingsContent = makeNode();
+  const settingsScroll = makeNode({ className: "flex-1 scrollbar-stable overflow-y-auto p-panel" });
+  const unrelatedSettingsContent = makeNode();
+  const unrelatedSettingsScroll = makeNode({ className: "flex-1 scrollbar-stable overflow-y-auto p-panel" });
+  settingsSidebar.parentElement = settingsLayout;
+  settingsNav.parentElement = settingsSidebar;
+  settingsNav.closestNodes.set(sidebarSelector, settingsSidebar);
+  settingsScroll.parentElement = settingsContent;
+  settingsContent.parentElement = settingsLayout;
+  unrelatedSettingsScroll.parentElement = unrelatedSettingsContent;
+  settingsLayout.addQuery(settingsContentSelector, settingsScroll);
 
   const palette = makeNode({ className: "border-token-border bg-token-dropdown-background/90 relative overflow-hidden rounded-2xl p-1" });
   const paletteScroll = makeNode({ className: "vertical-scroll-fade-mask overflow-y-auto" });
@@ -642,7 +660,6 @@ function makeOverlayFixture() {
   const shell = makeNode();
   const body = makeNode();
   sidebar.parentElement = body;
-  const sidebarSelector = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
   const documentQueries = new Map([
     [".composer-surface-chrome", [composer]],
     [".composer-surface-chrome button", [send, goalMode]],
@@ -671,6 +688,8 @@ function makeOverlayFixture() {
     [sidebarSelector, [sidebar]],
     ['div.vertical-scroll-fade-mask[class~="overflow-y-auto"]', [paletteScroll]],
     ['button[class*="navigation-row"]', [turnRow]],
+    [settingsNavSelector, [settingsNav]],
+    [settingsContentSelector, [unrelatedSettingsScroll, settingsScroll]],
   ]);
   const document = {
     body,
@@ -784,6 +803,10 @@ function makeOverlayFixture() {
     sidebarRow: sidebarControls.row,
     sidebarSearch: sidebarControls.search,
     sidebarSection: sidebarControls.section,
+    settingsContent,
+    settingsNav,
+    settingsSidebar,
+    unrelatedSettingsContent,
     summaryPanel,
     streamingActivity,
     streamingActivityHeader,
@@ -871,6 +894,14 @@ assert.equal(component(fixture.sidebarRow), "sidebar-row");
 assert.equal(component(fixture.sidebarFooter), "sidebar-footer");
 assert.equal(component(fixture.sidebarProfile), "sidebar-profile");
 assert.equal(component(fixture.sidebarHelp), "sidebar-help");
+assert.equal(component(fixture.settingsSidebar), "settings-sidebar");
+assert.equal(component(fixture.settingsNav), "settings-nav");
+assert.equal(component(fixture.settingsContent), "settings-content");
+assert.equal(
+  component(fixture.unrelatedSettingsContent),
+  null,
+  "Settings classification must stay inside the layout that owns the settings navigation.",
+);
 fixture.removeFixedSidebar();
 fixture.flushTimers();
 assert.equal(
