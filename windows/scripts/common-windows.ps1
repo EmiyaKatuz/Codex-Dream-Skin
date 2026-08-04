@@ -1387,7 +1387,7 @@ function Get-DreamSkinPortListeners {
 
 function Test-DreamSkinPortAvailable {
   param([int]$Port)
-  return (Get-DreamSkinPortListeners -Port $Port).Count -eq 0
+  return @(Get-DreamSkinPortListeners -Port $Port).Count -eq 0
 }
 
 function Test-DreamSkinCodexPortOwner {
@@ -1397,7 +1397,7 @@ function Test-DreamSkinCodexPortOwner {
     [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
   )
   $enforceSession = $PSBoundParameters.ContainsKey('ExpectedSessionId')
-  $listeners = Get-DreamSkinPortListeners -Port $Port
+  $listeners = @(Get-DreamSkinPortListeners -Port $Port)
   if ($listeners.Count -eq 0) { return $false }
   foreach ($listener in $listeners) {
     if ($listener.LocalAddress -notin @('127.0.0.1', '::1')) { return $false }
