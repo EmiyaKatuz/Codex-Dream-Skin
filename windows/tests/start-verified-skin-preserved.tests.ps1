@@ -46,6 +46,11 @@ foreach ($forbidden in @(
   }
 }
 
+if (-not $startSource.Contains('--allow-hidden-document') -or
+    $verifySource.Contains('--allow-hidden-document')) {
+  throw 'Only managed startup may use the exact-HWND hidden-document readiness allowance.'
+}
+
 if (-not $startSource.Contains('if ($launchedWithCdp) {')) {
   throw 'A failed verified launch no longer restarts the CDP session during rollback.'
 }

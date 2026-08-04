@@ -50,7 +50,11 @@ const originalFetch = globalThis.fetch;
 globalThis.WebSocket = MockWebSocket;
 
 try {
-  const { CdpSession, connectBrowserIdentityAnchor } = await import("../scripts/injector.mjs");
+  const {
+    CdpSession,
+    connectBrowserIdentityAnchor,
+    connectBrowserIdentityAnchorWithRetry,
+  } = await import("../scripts/injector.mjs");
   const port = 9335;
   const target = {
     id: "page-test",
@@ -210,6 +214,93 @@ try {
   } finally {
     console.error = fallbackOriginalConsoleError;
   }
+
+  let retryFetchAttempts = 0;
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), `http://127.0.0.1:${port}/json/version`);
+    retryFetchAttempts += 1;
+    if (retryFetchAttempts === 1) {
+      throw new DOMException("transient CDP version stall", "AbortError");
+    }
+    return {
+      ok: true,
+      async json() {
+        return {
+          webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/browser/${browserId}`,
+        };
+      },
+    };
+  };
+  const socketCountBeforeRetry = MockWebSocket.instances.length;
+  const retryConnecting = connectBrowserIdentityAnchorWithRetry(
+    port,
+    browserId,
+    () => {},
+    { attempts: 2, delayMs: 0 },
+  );
+  for (let attempt = 0;
+    attempt < 10 && MockWebSocket.instances.length === socketCountBeforeRetry;
+    attempt += 1) await Promise.resolve();
+  const retryAnchorSocket = MockWebSocket.instances.at(-1);
+  assert.notEqual(retryAnchorSocket, MockWebSocket.instances[socketCountBeforeRetry - 1],
+    "A transient version fetch failure must retry and create the pinned browser anchor.");
+  retryAnchorSocket.onSend = (message) => {
+    queueMicrotask(() => retryAnchorSocket.emit("message", {
+      data: JSON.stringify({ id: message.id, result: {} }),
+    }));
+  };
+  retryAnchorSocket.emit("open");
+  const retryAnchor = await retryConnecting;
+  assert.equal(retryFetchAttempts, 2,
+    "The watcher anchor must retry a transient CDP version failure.");
+  retryAnchor.close();
+
+  let exhaustedFetchAttempts = 0;
+  globalThis.fetch = async () => {
+    exhaustedFetchAttempts += 1;
+    throw new DOMException("CDP remains stalled", "AbortError");
+  };
+  const socketCountBeforeExhaustion = MockWebSocket.instances.length;
+  await assert.rejects(
+    connectBrowserIdentityAnchorWithRetry(
+      port,
+      browserId,
+      () => {},
+      { attempts: 3, delayMs: 0 },
+    ),
+    /CDP remains stalled/,
+  );
+  assert.equal(exhaustedFetchAttempts, 3,
+    "The watcher anchor must stop after its bounded transient retry budget.");
+  assert.equal(MockWebSocket.instances.length, socketCountBeforeExhaustion,
+    "Exhausted version retries must not connect to or inject any page target.");
+
+  let mismatchFetchAttempts = 0;
+  globalThis.fetch = async () => {
+    mismatchFetchAttempts += 1;
+    if (mismatchFetchAttempts === 1) {
+      throw new DOMException("first identity probe stalled", "AbortError");
+    }
+    return {
+      ok: true,
+      async json() {
+        return {
+          webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/browser/replaced-browser`,
+        };
+      },
+    };
+  };
+  await assert.rejects(
+    connectBrowserIdentityAnchorWithRetry(
+      port,
+      browserId,
+      null,
+      { attempts: 3, delayMs: 0 },
+    ),
+    /CDP browser identity changed/,
+  );
+  assert.equal(mismatchFetchAttempts, 2,
+    "A browser identity mismatch after a transient retry must fail closed immediately.");
 
   const source = await fs.readFile(new URL("../scripts/injector.mjs", import.meta.url), "utf8");
   assert.match(source, /await waitForDiscovery\(1200\)/,

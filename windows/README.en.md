@@ -83,6 +83,53 @@ The verification script confirms:
 
 Next, use the generated screenshot to check horizontal overflow and text contrast. On both the home and normal task routes, manually check the project menu and composer interaction. See [`references/qa-inventory.md`](./references/qa-inventory.md) for the complete visual checklist.
 
+## Optional Acrylic window material
+
+Windows 11 build 22621 or newer can use native Desktop Acrylic instead of the
+default system/Mica material. Windows transparency effects must be enabled.
+This preference is opt-in and applies on the next Dream Skin launch:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\manage-window-effects.ps1 -Set Acrylic
+```
+
+Use `-Status` to inspect the saved preference, or `-Set System` to return to the
+normal system material. The launcher keeps an identity-pinned monitor for the
+exact Codex PID, creation time, package, window class, and HWND; failed startup
+restores the previous material instead of mutating another window.
+
+## Optional official-shortcut handoff
+
+The installer does not enable automatic handoff by default. Users who want an
+ordinary Store/Start-menu Codex launch to become a managed Dream Skin session
+can enable the guarded current-user watcher explicitly:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\manage-auto-launch-dream-skin.ps1 -Enable -ProtectCurrentSession
+```
+
+`-ProtectCurrentSession` is a one-time guard for a Codex session that is already
+open while enabling the watcher; it is not persisted in the login shortcut.
+After that protected session reaches a stable zero-process boundary, a newly
+opened stock Codex session receives a three-second grace period and is handed
+off at most once through the normal identity-verified launcher. Debug/CDP,
+paused, uninspectable, and already managed sessions are never restarted.
+The handoff closes that exact stock session; after a 15-second graceful-close
+window, its remaining identity-verified processes may be force-stopped. Save or
+send any in-progress input before relying on automatic handoff.
+Watcher ownership is limited to one Windows session per user across Fast User
+Switching and RDP. The first session to acquire the watcher owns it and monitors
+only that session; other sessions fail closed and do not hand off Codex until
+the owner watcher exits or is disabled. Managed `state.json` is also a single
+per-user live-session slot. Only one Windows session can own live managed state
+at a time; manual and automatic starts in another session fail closed without
+stopping or overwriting that owner until its session exits or is restored.
+
+Use `-Status` to inspect the watcher and `-Disable` to stop it and remove its
+managed Startup entry. The ordinary Store shortcut can show the stock window
+briefly during the grace period. The dedicated `Codex Dream Skin` shortcut is a
+direct entry without that three-second grace and normally minimizes stock flash.
+
 ## Change and save themes
 
 Open `Codex Dream Skin - Tray` to:

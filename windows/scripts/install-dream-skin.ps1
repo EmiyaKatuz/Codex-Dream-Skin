@@ -42,8 +42,10 @@ try {
   $null = Initialize-DreamSkinThemeStore -SkillRoot $engine.Root -StateRoot $StateRoot
   $ConfigPath = Join-Path $HOME '.codex\config.toml'
   $BackupPath = Join-Path $StateRoot 'config.before-dream-skin.toml'
+  $windowMaterial = (Read-DreamSkinWindowEffects -StateRoot $StateRoot).WindowMaterial
   Install-DreamSkinBaseTheme -ConfigPath $ConfigPath -BackupPath $BackupPath `
-    -AppearanceTheme (Get-DreamSkinActiveThemeAppearance -ThemeDirectory $themePaths.Active)
+    -AppearanceTheme (Get-DreamSkinActiveThemeAppearance -ThemeDirectory $themePaths.Active) `
+    -TransparentWindows:($windowMaterial -ceq 'acrylic')
 
   if (-not $NoShortcuts) {
     $shell = New-Object -ComObject WScript.Shell

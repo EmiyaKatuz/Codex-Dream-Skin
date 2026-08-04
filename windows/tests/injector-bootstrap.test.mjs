@@ -8,6 +8,8 @@ import { earlyPayloadFor } from "../scripts/injector.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const injectorPath = path.resolve(here, "../scripts/injector.mjs");
 const source = await fs.readFile(injectorPath, "utf8");
+const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
+const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
 
 function createFixture() {
   const domReady = [];
@@ -33,16 +35,20 @@ function createFixture() {
       get body() { return body; },
       addEventListener(type, callback) { if (type === "DOMContentLoaded") domReady.push(callback); },
       querySelector(selector) {
-        if (selector === ":is(main.main-surface, main[data-app-shell-main-surface])") {
-          return markers.shell ? {} : null;
-        }
-        if (selector === ":is(header.app-header-tint, header[data-app-shell-application-menu-bar])") {
-          return markers.header ? {} : null;
-        }
+        if (selector === shellSelector) return markers.shell ? {} : null;
+        if (selector === headerSelector) return markers.header ? {} : null;
         if (selector === "aside.app-shell-left-panel") return markers.sidebar ? {} : null;
         if (selector === ".composer-surface-chrome") return markers.composer ? {} : null;
+        if (selector === 'main, [role="main"]') return markers.shell || markers.main ? {} : null;
+        if (selector === 'textarea, [contenteditable="true"], [role="textbox"]') {
+          return markers.composer ? {} : null;
+        }
+        if (selector.includes("app-shell-header-context-menu-surface")) {
+          return markers.header ? {} : null;
+        }
         if (selector.includes("[role=\"main\"]")) return markers.main ? {} : null;
-        if (selector.includes("appearance-theme") || selector.includes("theme-preview")) {
+        if (selector.includes("general-settings") || selector.includes("appearance-theme") ||
+          selector.includes("theme-preview")) {
           return markers.settings ? {} : null;
         }
         return null;
@@ -87,6 +93,13 @@ guarded.tick();
 assert.deepEqual(guarded.context.window.installs, ["guarded"],
   "A verified shell and composer must support the collapsed-sidebar renderer.");
 
+const modernSettings = createFixture();
+vm.runInNewContext(earlyPayloadFor('window.installs.push("settings")', "settings"), modernSettings.context);
+modernSettings.markers.settings = true;
+modernSettings.tick();
+assert.deepEqual(modernSettings.context.window.installs, ["settings"],
+  "Codex 26.727 General Settings must bootstrap without legacy appearance controls.");
+
 const generations = createFixture();
 generations.makeNotReady();
 generations.markers.shell = true;
@@ -103,7 +116,8 @@ assert.deepEqual(
 assert.equal(generations.context.window.__CODEX_DREAM_SKIN_EARLY_APPLIED__, "new");
 
 const earlyStart = source.indexOf("export function earlyPayloadFor");
-const earlySource = source.slice(earlyStart, earlyStart + 2200);
+const earlyEnd = source.indexOf("async function registerEarlyPayload", earlyStart);
+const earlySource = source.slice(earlyStart, earlyEnd);
 assert.ok(earlyStart >= 0, "Early payload helper must remain exported for bootstrap tests.");
 assert.doesNotMatch(earlySource, /MutationObserver|childList|subtree/,
   "Early bootstrap must not observe the entire renderer DOM.");

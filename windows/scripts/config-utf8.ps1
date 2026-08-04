@@ -522,6 +522,129 @@ function Write-DreamSkinAppearanceMarker {
   Write-DreamSkinUtf8FileAtomically -Path $markerPath -Content ($marker + "`r`n")
 }
 
+function Remove-DreamSkinTomlQuotedTextAndComment {
+  param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line)
+  $builder = [System.Text.StringBuilder]::new($Line.Length)
+  $quote = [char]0
+  $escaped = $false
+  foreach ($character in $Line.ToCharArray()) {
+    if ($quote -ne [char]0) {
+      [void]$builder.Append(' ')
+      if ($quote -eq '"' -and $escaped) {
+        $escaped = $false
+      } elseif ($quote -eq '"' -and $character -eq '\') {
+        $escaped = $true
+      } elseif ($character -eq $quote) {
+        $quote = [char]0
+      }
+      continue
+    }
+    if ($character -eq '#') { break }
+    if ($character -eq '"' -or $character -eq "'") {
+      $quote = $character
+      [void]$builder.Append(' ')
+      continue
+    }
+    [void]$builder.Append($character)
+  }
+  return $builder.ToString()
+}
+
+function Get-DreamSkinTomlInlineTableBooleanValues {
+  param(
+    [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line,
+    [Parameter(Mandatory = $true)][string]$Key
+  )
+  $structuralLine = Remove-DreamSkinTomlQuotedTextAndComment -Line $Line
+  $equalsIndex = $structuralLine.IndexOf('=')
+  if ($equalsIndex -lt 0) { return }
+  $value = $structuralLine.Substring($equalsIndex + 1).Trim()
+  if ($value.Length -lt 2 -or $value[0] -ne '{' -or $value[$value.Length - 1] -ne '}') {
+    return
+  }
+
+  $body = $value.Substring(1, $value.Length - 2)
+  $segments = [System.Collections.Generic.List[string]]::new()
+  $builder = [System.Text.StringBuilder]::new()
+  $braceDepth = 0
+  $bracketDepth = 0
+  foreach ($character in $body.ToCharArray()) {
+    if ($character -eq '{') { $braceDepth++ }
+    elseif ($character -eq '}') {
+      $braceDepth--
+      if ($braceDepth -lt 0) { return }
+    } elseif ($character -eq '[') { $bracketDepth++ }
+    elseif ($character -eq ']') {
+      $bracketDepth--
+      if ($bracketDepth -lt 0) { return }
+    }
+    if ($character -eq ',' -and $braceDepth -eq 0 -and $bracketDepth -eq 0) {
+      $segments.Add($builder.ToString())
+      [void]$builder.Clear()
+      continue
+    }
+    [void]$builder.Append($character)
+  }
+  if ($braceDepth -ne 0 -or $bracketDepth -ne 0) { return }
+  $segments.Add($builder.ToString())
+
+  $pattern = '^\s*' + [regex]::Escape($Key) + '\s*=\s*(true|false)\s*$'
+  foreach ($segment in $segments) {
+    $match = [regex]::Match($segment, $pattern, [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+    if ($match.Success) { $match.Groups[1].Value }
+  }
+}
+
+function Test-DreamSkinAcrylicTransparencyConfig {
+  param([Parameter(Mandatory = $true)][string]$ConfigPath)
+  if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) { return $false }
+  try {
+    $content = ConvertFrom-DreamSkinUtf8Bytes `
+      -Bytes ([System.IO.File]::ReadAllBytes($ConfigPath)) -Path $ConfigPath
+    Assert-DreamSkinDesktopShapeSupported -Content $content
+    $desktop = Get-DreamSkinDesktopSection -Content $content
+    if ($null -eq $desktop) { return $false }
+
+    $inline = Get-DreamSkinSectionSettingLine `
+      -Body $desktop.Body -Key 'appearanceLightChromeTheme'
+    if ($inline) {
+      $opaqueValues = @(Get-DreamSkinTomlInlineTableBooleanValues `
+        -Line $inline -Key 'opaqueWindows')
+      return $opaqueValues.Count -eq 1 -and $opaqueValues[0] -ceq 'false'
+    }
+
+    $nested = [regex]::Match(
+      $content,
+      '(?ms)^[ \t]*\[desktop\.appearanceLightChromeTheme\][ \t]*(?:#.*)?\r?\n(?<body>.*?)(?=^[ \t]*\[|\z)'
+    )
+    if (-not $nested.Success) { return $false }
+    return [regex]::IsMatch(
+      $nested.Groups['body'].Value,
+      '(?im)^[ \t]*opaqueWindows[ \t]*=[ \t]*false(?:[ \t]*(?:#.*)?)?\r?$'
+    )
+  } catch {
+    return $false
+  }
+}
+
+function Test-DreamSkinAcrylicTransparencyConfigManageable {
+  param([Parameter(Mandatory = $true)][string]$ConfigPath)
+  if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) { return $false }
+  try {
+    $content = ConvertFrom-DreamSkinUtf8Bytes `
+      -Bytes ([System.IO.File]::ReadAllBytes($ConfigPath)) -Path $ConfigPath
+    Assert-DreamSkinDesktopShapeSupported -Content $content
+    if (Test-DreamSkinAcrylicTransparencyConfig -ConfigPath $ConfigPath) { return $true }
+    # The managed base-theme transaction can safely create or replace the
+    # scalar/inline chrome theme. A nested table is deliberately preserved, so
+    # an opaque nested theme must be rejected before Codex is ever closed.
+    return -not (Test-DreamSkinDesktopNestedTable `
+      -Content $content -Key 'appearanceLightChromeTheme')
+  } catch {
+    return $false
+  }
+}
+
 function Install-DreamSkinBaseTheme {
   [CmdletBinding()]
   param(
@@ -532,7 +655,9 @@ function Install-DreamSkinBaseTheme {
     [string]$BackupPath,
 
     [ValidateSet('auto', 'light', 'dark')]
-    [string]$AppearanceTheme = 'auto'
+    [string]$AppearanceTheme = 'auto',
+
+    [switch]$TransparentWindows
   )
 
   if (-not (Test-Path -LiteralPath $ConfigPath)) { throw "Codex config not found: $ConfigPath" }
@@ -585,9 +710,16 @@ function Install-DreamSkinBaseTheme {
       $body = Set-DreamSkinSectionSetting -Body $body -Key 'appearanceTheme' `
         -Line ('appearanceTheme = "{0}"' -f $AppearanceTheme) -NewLine $newLine
     }
+    $managedLightChromeTheme = $script:DreamSkinManagedLightChromeTheme
+    if ($TransparentWindows) {
+      $managedLightChromeTheme = $managedLightChromeTheme.Replace(
+        'opaqueWindows = true',
+        'opaqueWindows = false'
+      )
+    }
     $settings = [ordered]@{
       appearanceLightCodeThemeId = $script:DreamSkinManagedLightCodeTheme
-      appearanceLightChromeTheme = $script:DreamSkinManagedLightChromeTheme
+      appearanceLightChromeTheme = $managedLightChromeTheme
     }
     $hasNestedLightChromeTheme = Test-DreamSkinDesktopNestedTable `
       -Content $content -Key 'appearanceLightChromeTheme'

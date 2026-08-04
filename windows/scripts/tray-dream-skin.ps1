@@ -171,6 +171,19 @@ try {
       $null = Add-DreamSkinTrayItem -Items $menu.Items -Text '暂停皮肤' -Action {
         # Match macOS pause: marker + live remove with in-window loading / result.
         $removal = Invoke-DreamSkinTrayThemeOperation -Action {
+          $liveState = Read-DreamSkinState -Path $paths.State
+          if ($null -ne $liveState -and "$($liveState.windowMaterial)" -ceq 'acrylic') {
+            $null = Stop-DreamSkinRecordedAcrylicMonitor `
+              -State $liveState -StateRoot $StateRoot
+            $liveState.windowMaterial = 'system'
+            $liveState.acrylicMonitorPid = $null
+            $liveState.acrylicMonitorStartedAt = $null
+            $liveState.acrylicMonitorPath = $null
+            $liveState.acrylicMonitorStopFile = $null
+            $liveState.acrylicMonitorArmFile = $null
+            $liveState.startupPhase = 'paused'
+            Write-DreamSkinState -Path $paths.State -State $liveState
+          }
           Set-DreamSkinPaused -Paused $true -StateRoot $StateRoot | Out-Null
           Invoke-DreamSkinLiveRemove -StateRoot $StateRoot
         }

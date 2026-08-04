@@ -3,6 +3,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import vm from "node:vm";
 
+const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
+const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
+const messageSelector = ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])';
+
 function styleDeclaration() {
   const values = new Map();
   return {
@@ -118,14 +122,14 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     partFixtures.composer = makeDomNode("composer", partFixtures.main);
     partFixtures.composerToolbar = makeDomNode("composer-toolbar", partFixtures.composer);
     register("aside.app-shell-left-panel", partFixtures.sidebar);
-    register(":is(main.main-surface, main[data-app-shell-main-surface])", partFixtures.main);
-    register(":is(header.app-header-tint, header[data-app-shell-application-menu-bar])", partFixtures.header);
+    register(shellSelector, partFixtures.main);
+    register(headerSelector, partFixtures.header);
     register('[data-testid="home-icon"]', partFixtures.homeIcon);
     register('[role="main"]:has([data-testid="home-icon"])', partFixtures.home);
     register('[role="main"]', partFixtures.home);
     register(".group\\/project-selector", partFixtures.projectList);
     register(".thread-scroll-container", partFixtures.thread);
-    register('[data-message-author-role]', partFixtures.message);
+    register(messageSelector, partFixtures.message);
     register(".composer-surface-chrome", partFixtures.composer);
     register('.composer-surface-chrome [class*="_footer_"]', partFixtures.composerToolbar);
   }
@@ -218,8 +222,8 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     }
   };
   const addDynamicMessage = () => {
-    const node = makeDomNode(`message-${(selectorNodes.get('[data-message-author-role]') || []).length + 1}`, partFixtures.thread || body);
-    register('[data-message-author-role]', node);
+    const node = makeDomNode(`message-${(selectorNodes.get(messageSelector) || []).length + 1}`, partFixtures.thread || body);
+    register(messageSelector, node);
     return node;
   };
   const addDynamicFloatingSidebar = () => {
@@ -300,8 +304,8 @@ export async function runRendererRuntimeTest(assetRoot) {
   // Home gating must stay single-level: CSS forbids :has() inside :has(),
   // and Chromium drops any rule that nests it (the v1.3.1 regression).  The
   // canonical CSS therefore gates on the :has()-free home-route-css alias.
-  assert.match(css, /:is\(main\.main-surface, main\[data-app-shell-main-surface\]\):has\(\[role="main"\]\)/);
-  assert.match(css, /:is\(main\.main-surface, main\[data-app-shell-main-surface\]\):not\(:has\(\[role="main"\]\)\)/);
+  assert.ok(css.includes(`${shellSelector}:has([role="main"])`));
+  assert.ok(css.includes(`${shellSelector}:not(:has([role="main"]))`));
   assert.doesNotMatch(css, /:has\([^()]*:has\(/);
   assert.match(css, /content:\s*var\(--dream-skin-name[\s\S]{0,180}var\(--dream-skin-brand-subtitle/);
   assert.match(css, /content:\s*var\(--dream-skin-status/);

@@ -17,11 +17,13 @@ const win32WindowEvidence = {
 };
 
 const selectors = {
-  shell: ":is(main.main-surface, main[data-app-shell-main-surface])",
+  shell: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])',
   sidebar: "aside.app-shell-left-panel",
+  header: 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])',
   composer: ".composer-surface-chrome",
   home: '[role="main"]:has([data-testid="home-icon"])',
-  settings: 'input[name="appearance-theme"]',
+  settings: '[data-settings-panel-slug="general-settings"]',
+  legacySettings: 'input[name="appearance-theme"]',
   themePreview: '[data-testid="theme-preview"]',
 };
 
@@ -82,7 +84,8 @@ function makeDomFixture({
       if (selector === selectors.sidebar) return sidebar;
       if (selector === selectors.composer) return composer;
       if (selector === selectors.home) return home;
-      if (selector === selectors.settings || selector === selectors.themePreview) return settings;
+      if (selector === selectors.settings || selector === selectors.legacySettings ||
+        selector === selectors.themePreview) return settings;
       return null;
     },
     querySelectorAll: () => [],
@@ -136,7 +139,7 @@ function makeSession({
   };
 }
 
-async function verify(overrides = {}, nativeFallback = null) {
+async function verify(overrides = {}, nativeFallback = null, allowHiddenDocument = false) {
   const session = makeSession(overrides);
   const result = await verifySession(
     session,
@@ -144,6 +147,7 @@ async function verify(overrides = {}, nativeFallback = null) {
     "fixture-theme",
     "fixture-revision",
     nativeFallback,
+    allowHiddenDocument,
   );
   return { result, session };
 }
@@ -158,6 +162,9 @@ test("normal L1 renderer requires and records the exact target window binding", 
     structurePass: true,
     nativeWindowPass: true,
     fallbackWindowPass: false,
+    hiddenDocumentAllowed: false,
+    hiddenDocumentPass: false,
+    effectiveDocumentPass: true,
   });
   assert.deepEqual(session.calls, [
     { method: "Browser.getWindowForTarget", params: { targetId: "page-main" } },
@@ -333,6 +340,56 @@ test("hidden documents and unreasonable viewports cannot pass", async () => {
   });
   assert.equal(tiny.result.pass, false);
   assert.equal(tiny.result.readiness.viewportPass, false);
+});
+
+test("startup-only hidden-document allowance still requires exact native and renderer readiness", async () => {
+  const bindingError = new Error("No window with given target found (-32000)");
+  const hiddenDom = makeDomFixture({ visibilityState: "hidden", hidden: true });
+  const allowed = await verify({ bindingError, dom: hiddenDom }, win32WindowEvidence, true);
+  assert.equal(allowed.result.pass, true);
+  assert.equal(allowed.result.documentVisibility, "hidden");
+  assert.equal(allowed.result.readiness.documentPass, false);
+  assert.equal(allowed.result.readiness.hiddenDocumentAllowed, true);
+  assert.equal(allowed.result.readiness.hiddenDocumentPass, true);
+  assert.equal(allowed.result.readiness.effectiveDocumentPass, true);
+  assert.equal(allowed.result.readiness.fallbackWindowPass, true);
+
+  const noNative = await verify({ bindingError, dom: hiddenDom }, null, true);
+  assert.equal(noNative.result.pass, false);
+  assert.equal(noNative.result.readiness.windowPass, false);
+
+  const noStructure = await verify({
+    bindingError,
+    dom: makeDomFixture({
+      visibilityState: "hidden",
+      hidden: true,
+      shell: null,
+      sidebar: null,
+    }),
+  }, win32WindowEvidence, true);
+  assert.equal(noStructure.result.pass, false);
+  assert.equal(noStructure.result.readiness.structurePass, false);
+
+  const tiny = await verify({
+    bindingError,
+    dom: makeDomFixture({
+      visibilityState: "hidden",
+      hidden: true,
+      viewportWidth: 319,
+      viewportHeight: 239,
+    }),
+  }, win32WindowEvidence, true);
+  assert.equal(tiny.result.pass, false);
+  assert.equal(tiny.result.readiness.viewportPass, false);
+
+  for (const dom of [
+    makeDomFixture({ visibilityState: "prerender", hidden: true }),
+    makeDomFixture({ visibilityState: "hidden", hidden: false }),
+  ]) {
+    const inconsistent = await verify({ bindingError, dom }, win32WindowEvidence, true);
+    assert.equal(inconsistent.result.pass, false);
+    assert.equal(inconsistent.result.readiness.hiddenDocumentPass, false);
+  }
 });
 
 test("zero-size and CSS-hidden shell anchors cannot satisfy L1", async () => {

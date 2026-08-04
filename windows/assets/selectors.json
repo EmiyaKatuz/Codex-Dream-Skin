@@ -26,10 +26,11 @@
     "config": "依赖用户配置才出现（如未配置项目则无项目选择器）"
   },
   "selectors": [
-    { "key": "shell-main", "selector": ":is(main.main-surface, main[data-app-shell-main-surface])", "tier": "L1", "scope": "all", "required": true, "notes": "全局主表面。26.727+ 使用 data-app-shell-main-surface；保留旧 main-surface。mac 设置页缺失（win 存在），缺失时整页仅 L0" },
+    { "key": "shell-main", "selector": "main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])", "tier": "L1", "scope": "all", "required": true, "notes": "全局主表面。兼容旧版语义类与 Codex 26.727 的 app-shell data 属性/CSS Modules 前缀；mac 设置页缺失（win 存在），缺失时整页仅 L0" },
     { "key": "left-panel", "selector": "aside.app-shell-left-panel", "tier": "L1", "scope": "all", "required": true, "notes": "左侧栏；收起/重建时会移除节点，勿在其消失时清皮" },
     { "key": "floating-left-panel", "selector": "[data-testid=\"app-shell-floating-left-panel\"]", "tier": "L2", "scope": "all", "required": false, "notes": "收起固定栏后按需挂载的悬浮侧栏；与 left-panel 共享公开 sidebar 主题部件，不参与 L1 shell 判定" },
-    { "key": "header-tint", "selector": ":is(header.app-header-tint, header[data-app-shell-application-menu-bar])", "tier": "L1", "scope": "all", "required": true, "notes": "顶栏。26.727+ 使用 data-app-shell-application-menu-bar；保留旧 app-header-tint。皮肤不得覆盖其 position/z-index（既有回归约束）" },
+    { "key": "header-tint", "selector": "header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*=\"_Header_\"])", "tier": "L1", "scope": "all", "required": true, "notes": "顶栏。兼容旧版语义类与 Codex 26.727 的 edge-scroll/application-menu/CSS Modules 标记；不得覆盖其 position/z-index" },
+    { "key": "main-content-top-fade", "selector": ":is(.app-shell-main-content-top-fade, [data-app-shell-main-content-top-fade], [class*=\"_MainContentTopFade_\"])", "tier": "L2", "scope": "all", "required": false, "notes": "Codex 26.727 主区顶部渐隐遮罩；主题背景启用时需移除原生白色 fade" },
     { "key": "home-icon", "selector": "[data-testid=\"home-icon\"]", "tier": "L1", "scope": "home", "required": true, "notes": "首页判定信号，双端一致" },
     { "key": "home-route", "selector": "[role=\"main\"]:has([data-testid=\"home-icon\"])", "tier": "L1", "scope": "home", "required": true, "notes": "首页容器。实测 [role=main] 仅存在于首页——它不是通用路由锚点，thread 页没有" },
     { "key": "home-route-css", "selector": "[role=\"main\"]", "tier": "L1", "scope": "home", "required": true, "notes": "home-route 的 CSS 可组合别名：不含 :has()。CSS 禁止 :has() 嵌套，home-route 原选择器一旦写进 :has()/:not(:has()) 整条规则会被解析器丢弃（v1.3.1 全窗口首页与任务页氛围背景因此失效）。依据与 home-route 相同的实测：[role=main] 仅存在于首页；该锚点缺失时 CSS 路由门控整体失效，故必须按 L1 必需项监控" },
@@ -42,8 +43,9 @@
     { "key": "project-selector", "selector": ".group\\/project-selector", "tier": "L2", "scope": "home config", "required": false, "notes": "依赖用户项目配置；win 快照未出现（该机可能未配置项目），不算平台差异" },
     { "key": "markdown", "selector": "[class*=\"_markdown\"]", "tier": "L2", "scope": "thread", "required": false, "notes": "会话内容块，单页可达 100+ 个，样式规则注意性能" },
     { "key": "thread-surface", "selector": ".thread-scroll-container", "tier": "L2", "scope": "thread", "required": false, "notes": "会话滚动表面；双端活动会话快照均存在" },
-    { "key": "message", "selector": "[data-message-author-role]", "tier": "L2", "scope": "thread", "required": false, "notes": "用户与助手消息的稳定语义边界；运行时对子节点变更做合并刷新" },
-    { "key": "appearance-radio", "selector": "input[name=\"appearance-theme\"]", "tier": "L2", "scope": "settings", "required": false, "notes": "外观三选一；theme-preview testid 同屏出现" },
+    { "key": "message", "selector": ":is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])", "tier": "L2", "scope": "thread", "required": false, "notes": "用户与助手消息的稳定语义边界；兼容旧版 role 属性与 Codex 26.727 的本地会话锚点" },
+    { "key": "settings-panel", "selector": "[data-settings-panel-slug=\"general-settings\"]", "tier": "L2", "scope": "settings", "required": false, "notes": "Codex 26.727 设置页的稳定 General 面板标记；不再假设 appearance-theme 或 theme-preview 一定存在" },
+    { "key": "appearance-radio", "selector": "input[name=\"appearance-theme\"]", "tier": "L2", "scope": "settings", "required": false, "notes": "旧版外观三选一；新版设置页可能仅有 settings-panel" },
     { "key": "overlay-menu", "selector": "[role=\"menu\"]", "tier": "L2", "scope": "overlay", "required": false },
     { "key": "overlay-dialog", "selector": "[role=\"dialog\"]", "tier": "L2", "scope": "overlay", "required": false },
     { "key": "overlay-popper", "selector": "[data-radix-popper-content-wrapper]", "tier": "L2", "scope": "overlay", "required": false }

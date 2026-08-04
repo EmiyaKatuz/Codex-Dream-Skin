@@ -52,15 +52,20 @@ assert.match(livingLayer, /@container angel-stage \(max-height: 620px\)[\s\S]*?d
 assert.match(livingLayer, /dream-choten-art:not\(\.dream-home-side-open\):not\(\.dream-home-bottom-open\)[\s\S]*?dream-angel-dose-strip[\s\S]*?bottom:\s*180px/);
 assert.match(livingLayer, /dream-choten-art:not\(\.dream-home-side-open\):not\(\.dream-home-bottom-open\)[\s\S]*?dream-angel-webcam-card[\s\S]*?bottom:\s*172px/);
 
-const fallbackStart = css.indexOf("/* The auxiliary launcher can paint before renderer classification.");
-const fallbackEnd = css.indexOf("/* A live side conversation replaces the launcher DOM entirely.", fallbackStart);
-assert.notEqual(fallbackStart, -1, "side-workspace first-frame fallback marker is missing");
-assert.notEqual(fallbackEnd, -1, "side-workspace fallback section has no stable end marker");
+const workspaceStart = css.indexOf("/* The renderer assigns the durable workspace class");
+const workspaceEnd = css.indexOf("/* A live side conversation replaces the launcher DOM entirely.", workspaceStart);
+assert.notEqual(workspaceStart, -1, "durable side-workspace marker is missing");
+assert.notEqual(workspaceEnd, -1, "durable side-workspace section has no stable end marker");
 
-const fallbackSection = css.slice(fallbackStart, fallbackEnd);
-assert.match(fallbackSection, /main\.main-surface aside > \[class\*="contain:layout_paint"\][\s\S]*?:has\(button kbd\)/);
-assert.match(fallbackSection, /:not\(:has\(\.xterm\)\):not\(:has\(\.thread-scroll-container\)\)/);
-assert.match(fallbackSection, /SIDE CHANNEL \/\/ ANGEL RELAY/);
-assert.match(fallbackSection, /AFFECTION\s+9999\+/);
+const workspaceSection = css.slice(workspaceStart, workspaceEnd);
+assert.match(workspaceSection, /html\.codex-dream-skin \.dream-side-workspace\s*\{/);
+assert.doesNotMatch(
+  workspaceSection,
+  /contain:layout_paint[^}]*:has\(/,
+  "The scrolling task hot path must not restore the deep structural workspace fallback",
+);
+assert.match(workspaceSection, /SIDE CHANNEL \/\/ ANGEL RELAY/);
+assert.match(workspaceSection, /AFFECTION\s+9999\+/);
+assert.match(workspaceSection, /\.dream-side-workspace-brand\s*\{/);
 
-console.log("PASS: Home layouts adapt to split panels and the side relay has a first-frame theme fallback.");
+console.log("PASS: Home layouts adapt to split panels and the side relay uses durable renderer classes.");

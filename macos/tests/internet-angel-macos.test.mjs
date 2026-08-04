@@ -19,6 +19,7 @@ const appDelegatePath = path.join(
 const overlayCssPath = path.join(macosRoot, "assets", "internet-angel-extension.css");
 const overlayScriptPath = path.join(macosRoot, "assets", "internet-angel-extension.js");
 const windowsRoot = path.resolve(macosRoot, "..", "windows");
+const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
 
 async function isFile(filePath) {
   try {
@@ -165,7 +166,7 @@ assert.ok(
 );
 assert.ok(
   overlayCss.includes(
-    '[data-dream-art-wide="true"]:not(:has(:is(main.main-surface, main[data-app-shell-main-surface]) [role="main"])) :is(main.main-surface, main[data-app-shell-main-surface]) .composer-surface-chrome[data-angel-component="composer"]',
+    `[data-dream-art-wide="true"]:not(:has(${shellSelector} [role="main"])) ${shellSelector} .composer-surface-chrome[data-angel-component="composer"]`,
   ),
   "Task composer styling must outrank the canonical immersive reset without widening theme scope.",
 );
@@ -662,7 +663,7 @@ function makeOverlayFixture() {
   const documentQueries = new Map([
     [".composer-surface-chrome", [composer]],
     [".composer-surface-chrome button", [send, goalMode]],
-    [':is(main.main-surface, main[data-app-shell-main-surface]) [class~="sticky"][class~="bottom-0"]', [sticky]],
+    [`${shellSelector} [class~="sticky"][class~="bottom-0"]`, [sticky]],
     ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [
       environment,
       radixEnvironment,
@@ -693,7 +694,7 @@ function makeOverlayFixture() {
   const document = {
     body,
     querySelector(selector) {
-      if (selector === ":is(main.main-surface, main[data-app-shell-main-surface])") return shell;
+      if (selector === shellSelector) return shell;
       return (documentQueries.get(selector) || [])[0] || null;
     },
     querySelectorAll(selector) {
@@ -973,7 +974,9 @@ assert.notEqual(
   fixture.listeners.get("click"),
   "Window resize must not share the mutation debounce that can retain stale portal coordinates.",
 );
-assert.equal(typeof fixture.listeners.get("transitionend"), "function");
+assert.equal(fixture.listeners.has("transitionend"), false);
+assert.equal(typeof fixture.listeners.get("compositionstart"), "function");
+assert.equal(typeof fixture.listeners.get("compositionend"), "function");
 
 vm.runInNewContext(
   overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "false"),
@@ -989,5 +992,7 @@ assert.equal(fixture.timers.size, 0);
 assert.equal(fixture.listeners.has("click"), false);
 assert.equal(fixture.listeners.has("resize"), false);
 assert.equal(fixture.listeners.has("transitionend"), false);
+assert.equal(fixture.listeners.has("compositionstart"), false);
+assert.equal(fixture.listeners.has("compositionend"), false);
 
 console.log("PASS: Internet Angel macOS overlay activation is exact and isolated.");
