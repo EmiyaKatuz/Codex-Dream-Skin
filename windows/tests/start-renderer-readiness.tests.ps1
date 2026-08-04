@@ -80,6 +80,10 @@ function Initialize-DreamSkinThemeStore {
 }
 function Test-DreamSkinPaused { param([string]$StateRoot); return $false }
 function Read-DreamSkinState { param([string]$Path); return $null }
+function Get-DreamSkinRecordedStateSessionOwnership {
+  param([AllowNull()][object]$State, [string]$StateRoot)
+  return [pscustomobject]@{ IsLive = $false; SessionId = $null; Sources = @() }
+}
 function Get-DreamSkinCodexStatePathCandidate { param([object]$State); return $null }
 function Get-DreamSkinCodexInstallFromState { param([object]$State); return $null }
 function Get-DreamSkinCodexProcesses { param([object]$Codex); return @() }
@@ -103,6 +107,7 @@ function Stop-DreamSkinRecordedAcrylicMonitor {
   return $true
 }
 function Set-DreamSkinPaused { param([bool]$Paused, [string]$StateRoot); return $true }
+function Invoke-DreamSkinCodexWindowActivation { param([object]$Codex); return $true }
 function ConvertTo-DreamSkinProcessArgument { param([string]$Value); return $Value }
 function Start-Process {
   [CmdletBinding()]
@@ -161,11 +166,13 @@ function Write-Host {
 $originalLocalAppData = $env:LOCALAPPDATA
 $env:LOCALAPPDATA = Join-Path ([System.IO.Path]::GetTempPath()) 'dreamskin-start-readiness-fixture'
 $failed = $false
+$failureMessage = '(startup did not throw)'
 try {
   $startBlock = [scriptblock]::Create($source)
   try {
     & $startBlock -Port 9335
   } catch {
+    $failureMessage = $_.Exception.Message
     $failed = $_.Exception.Message -like 'Dream Skin verification failed.*'
   }
 } finally {
@@ -180,7 +187,20 @@ if (-not $failed -or $script:verifyCalls -ne 1 -or -not $script:verifyAllowedHid
   -not $script:stateWritten -or -not $script:stateRemoved -or
   -not $script:daemonStopped -or -not $script:daemon.HasExited -or
   -not $script:lockExited -or $announcedActive) {
-  throw 'A failed renderer readiness check did not stop startup and run the existing rollback path.'
+  $detail = [ordered]@{
+    failureMessage = $failureMessage
+    failed = $failed
+    verifyCalls = $script:verifyCalls
+    verifyAllowedHidden = $script:verifyAllowedHidden
+    removeCalls = $script:removeCalls
+    stateWritten = $script:stateWritten
+    stateRemoved = $script:stateRemoved
+    daemonStopped = $script:daemonStopped
+    daemonHasExited = $script:daemon.HasExited
+    lockExited = $script:lockExited
+    announcedActive = $announcedActive
+  } | ConvertTo-Json -Compress
+  throw "A failed renderer readiness check did not stop startup and run the existing rollback path: $detail"
 }
 
 Write-Output 'PASS: renderer readiness failure stops Windows startup and clears transient state.'

@@ -39,7 +39,7 @@ const stableTestidLiteral = (testid) => {
   }
   return JSON.stringify(`[data-testid="${testid}"]`);
 };
-const SKIN_VERSION = "1.5.9";
+const SKIN_VERSION = "1.5.12";
 const INTERNET_ANGEL_EXTENSION_THEME_IDS = new Set([
   "preset-internet-angel",
   "preset-internet-angel-default",
@@ -659,8 +659,8 @@ async function loadSafeCss(themeRoot) {
     if (!sameFileStat(before, after) || bytes.length !== after.size) {
       throw new Error("Theme Safe CSS changed while being loaded");
     }
-    const { source, validation } = decodeAndValidateSafeCss(bytes);
-    return { path: cssPath, source, stat: after, validation };
+    const { source, runtimeSource, validation } = decodeAndValidateSafeCss(bytes);
+    return { path: cssPath, runtimeSource, source, stat: after, validation };
   } finally {
     await handle.close();
   }
@@ -691,24 +691,17 @@ export async function loadTheme(themeDir) {
     throw new Error("Theme image cannot escape through a link or junction");
   }
   const art = raw.art && typeof raw.art === "object" && !Array.isArray(raw.art) ? raw.art : {};
-  const palette = raw.palette && typeof raw.palette === "object" && !Array.isArray(raw.palette)
-    ? raw.palette : {};
   const rawColors = raw.colors && typeof raw.colors === "object" && !Array.isArray(raw.colors)
     ? raw.colors : null;
   const colorKeys = [
     "background", "panel", "panelAlt", "accent", "accentAlt", "secondary",
     "highlight", "text", "muted", "line",
   ];
-  const paletteAccent = typeof palette.accent === "string" && palette.accent.trim()
-    ? palette.accent.trim() : "";
-  if (paletteAccent && !/^(?:#[\da-f]{3,8}|(?:rgb|hsl|oklch|oklab)\([^;{}]{1,96}\))$/i.test(paletteAccent)) {
-    throw new Error("palette.accent is not a supported CSS color");
-  }
   const colors = {
     background: normalizeThemeColor(rawColors?.background, "#071116"),
     panel: normalizeThemeColor(rawColors?.panel, "#0b1a20"),
     panelAlt: normalizeThemeColor(rawColors?.panelAlt, "#10272c"),
-    accent: normalizeThemeColor(rawColors?.accent, normalizeThemeColor(paletteAccent, "#7cff46")),
+    accent: normalizeThemeColor(rawColors?.accent, "#7cff46"),
     accentAlt: normalizeThemeColor(rawColors?.accentAlt, "#b8ff3d"),
     secondary: normalizeThemeColor(rawColors?.secondary, "#36d7e8"),
     highlight: normalizeThemeColor(rawColors?.highlight, "#642a8c"),
@@ -733,14 +726,10 @@ export async function loadTheme(themeDir) {
       safeArea: normalizedChoice(art.safeArea, "art.safeArea", THEME_CHOICES.safeArea, "auto"),
       taskMode: normalizedChoice(art.taskMode, "art.taskMode", THEME_CHOICES.taskMode, "auto"),
     },
-    colorMode: rawColors ? "explicit" : (paletteAccent ? "explicit" : "auto"),
-    explicitColorKeys: rawColors
-      ? colorKeys.filter((key) => Object.hasOwn(rawColors, key))
-      : (paletteAccent ? ["accent"] : []),
+    colorMode: rawColors ? "explicit" : "auto",
+    explicitColorKeys: rawColors ? colorKeys.filter((key) => Object.hasOwn(rawColors, key)) : [],
     colors,
-    palette: {},
   };
-  if (paletteAccent) theme.palette.accent = paletteAccent;
   const [themeStat, imageStat, safeCss] = await Promise.all([
     fs.stat(themePath),
     fs.stat(realImagePath),
@@ -773,6 +762,7 @@ export async function loadTheme(themeDir) {
     imagePath: realImagePath,
     imageBytes,
     safeCss: safeCss?.source ?? "",
+    safeCssRuntime: safeCss?.runtimeSource ?? "",
     safeCssPath: safeCss?.path ?? null,
     safeCssStatus: safeCss ? "validated" : "none",
     fingerprint,
@@ -804,9 +794,10 @@ export async function loadPayload(
   // after clicks and mutations even though none of its data markers are used.
   const internetAngelClassifier = internetAngelExtension && !acrylicOverlay;
   const themedCss = internetAngelExtension ? `${baseCss}\n${internetAngelCss}` : baseCss;
-  const themedAndSafeCss = loadedTheme.safeCss ? `${themedCss}\n${loadedTheme.safeCss}\n` : themedCss;
-  const acrylicAndSafeCss = loadedTheme.safeCss
-    ? `${baseCss}\n${loadedTheme.safeCss}\n${acrylicCss}\n`
+  const themedAndSafeCss = loadedTheme.safeCssRuntime
+    ? `${themedCss}\n${loadedTheme.safeCssRuntime}\n` : themedCss;
+  const acrylicAndSafeCss = loadedTheme.safeCssRuntime
+    ? `${baseCss}\n${loadedTheme.safeCssRuntime}\n${acrylicCss}\n`
     : `${baseCss}\n${acrylicCss}\n`;
   const extension = path.extname(loadedTheme.imagePath).toLowerCase();
   const mime = extension === ".jpg" || extension === ".jpeg" ? "image/jpeg"
@@ -918,11 +909,11 @@ async function probeSession(session) {
     const settings = Boolean(document.querySelector(${selectorLiteral("settings-panel")})) ||
       Boolean(document.querySelector(${selectorLiteral("appearance-radio")})) ||
       Boolean(document.querySelector(${stableTestidLiteral("theme-preview")}));
-    return {
-      markers,
-      codex: location.protocol === 'app:' &&
-        ((markers.shell && (markers.sidebar || (markers.header && markers.composer))) ||
-          settings || markers.main || markers.generic),
+      return {
+        markers,
+        codex: location.protocol === 'app:' &&
+          ((markers.shell && (markers.sidebar || (markers.header && markers.composer))) ||
+            settings || markers.main || markers.generic),
     };
   })()`);
 }
@@ -1390,12 +1381,30 @@ export async function verifySession(
     const homeSignal = homeIndicator ?? document.querySelector(${selectorLiteral("game-source")}) ??
       document.querySelector(${selectorLiteral("home-suggestions")});
     const homeRoute = homeSignal?.closest('[role="main"]') ?? null;
+    // Codex 26.721.x can render semantic home content before home-icon.
     const home = document.querySelector(${selectorLiteral("home-route")}) ?? homeRoute;
     const settingsAnchor = document.querySelector(${selectorLiteral("settings-panel")}) ||
       document.querySelector(${selectorLiteral("appearance-radio")}) ||
       document.querySelector(${stableTestidLiteral("theme-preview")});
     const suggestions = home?.querySelector(${selectorLiteral("home-suggestions")}) ?? null;
-    const cards = suggestions ? [...suggestions.querySelectorAll('button')].map(box) : [];
+    const cardButtons = suggestions ? [...suggestions.querySelectorAll('button')] : [];
+    const cards = cardButtons.map(box);
+    const visibleCards = cards.filter((item) => item?.visible);
+    const suggestionLabels = cardButtons.flatMap((button) => {
+      const expectedColor = getComputedStyle(button).color;
+      return [...button.querySelectorAll('*')]
+        .filter((node) => [...node.childNodes].some((child) =>
+          child.nodeType === 3 && child.textContent.trim()))
+        .map((node) => ({
+          ...box(node),
+          text: String(node.textContent ?? "").trim().slice(0, 80),
+          color: getComputedStyle(node).color,
+          expectedColor,
+        }));
+    });
+    const visibleSuggestionLabels = suggestionLabels.filter((item) => item?.visible);
+    const suggestionLabelColorsMatch = visibleSuggestionLabels.every((item) =>
+      item.color === item.expectedColor);
     const runtime = window.__CODEX_DREAM_SKIN_STATE__;
     const adopted = runtime?.styleMode === 'adopted' &&
       [...document.adoptedStyleSheets].includes(runtime.styleSheet);
@@ -1437,6 +1446,9 @@ export async function verifySession(
       settingsAnchor: box(settingsAnchor),
       hero,
       cards,
+      visibleCardCount: visibleCards.length,
+      suggestionLabels,
+      suggestionLabelColorsMatch,
       composer: box(document.querySelector(${selectorLiteral("composer-chrome")})),
       shell: box(document.querySelector(${selectorLiteral("shell-main")})),
       sidebar: box(document.querySelector(${selectorLiteral("left-panel")})),
@@ -1451,17 +1463,20 @@ export async function verifySession(
         x: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         y: document.documentElement.scrollHeight > document.documentElement.clientHeight,
       },
-    };
-    const homeScope = result.scope?.baseState === 'home' || result.homePresent;
-    const l1ScopePass = result.scope?.level === 'L1';
-    const genericStructurePass = l1ScopePass && Boolean(result.genericMain?.visible) &&
-      Boolean(result.genericInput?.visible || (homeScope && result.homeSurface?.visible));
-    const settingsStructurePass = Boolean(result.settingsAnchor?.visible);
-    const l0HomeStructurePass = result.scope?.level === 'L0' && Boolean(result.homeSurface?.visible);
-    const structurePass = settingsStructurePass || l0HomeStructurePass || (l1ScopePass && (
-      Boolean(result.shell?.visible && (result.sidebar?.visible || result.header?.visible)) ||
-      genericStructurePass
-    ));
+      };
+      const homeScope = result.scope?.baseState === 'home' || result.homePresent;
+      const l1ScopePass = result.scope?.level === 'L1' &&
+        Array.isArray(result.scope?.missingL1) && result.scope.missingL1.length === 0;
+      const genericStructurePass = l1ScopePass && Boolean(result.genericMain?.visible) &&
+        Boolean(result.genericInput?.visible || (homeScope && result.homeSurface?.visible));
+      const settingsStructurePass = Boolean(result.settingsAnchor?.visible);
+      const l0HomeStructurePass = result.scope?.level === 'L0' && Boolean(result.homeSurface?.visible);
+      const structurePass = settingsStructurePass || l0HomeStructurePass || (l1ScopePass && (
+        Boolean(result.shell?.visible && (
+          result.sidebar?.visible || (result.header?.visible && result.composer?.visible)
+        )) ||
+        genericStructurePass
+      ));
     const documentPass = result.documentVisibility === 'visible' && !result.documentHidden;
     const hiddenDocumentPass = ${JSON.stringify(allowHiddenDocument)} &&
       result.documentVisibility === 'hidden' && result.documentHidden;
@@ -1482,19 +1497,27 @@ export async function verifySession(
       (!expectedRevision || result.revision === expectedRevision);
     result.expectedThemeId = expectedThemeId;
     result.expectedRevision = expectedRevision;
-    result.readiness = {
+      result.readiness = {
       windowPass, documentPass, viewportPass, structurePass,
       nativeWindowPass, fallbackWindowPass,
       hiddenDocumentAllowed: ${JSON.stringify(allowHiddenDocument)},
       hiddenDocumentPass,
-      effectiveDocumentPass,
-    };
-    result.pass = result.installed && result.version === result.expectedVersion &&
-      result.stylePresent && windowPass &&
-      effectiveDocumentPass && viewportPass && structurePass &&
-      payloadPass &&
-      (!result.homePresent || (Boolean(result.homeSurface?.visible && result.hero?.visible) &&
-        (!result.suggestionsPresent || (result.cards.length >= 2 && result.cards.length <= 4))));
+        effectiveDocumentPass,
+      };
+      const internetAngelExpected = ${JSON.stringify(INTERNET_ANGEL_EXTENSION_THEME_IDS.has(expectedThemeId))};
+      const homePass = !homeScope || (
+      result.homePresent && Boolean(result.homeSurface?.visible) &&
+      ((result.hero?.visible && result.hero.width >= 280 && result.hero.height >= 120) ||
+        Boolean(result.genericMain?.visible)) &&
+        (!result.suggestionsPresent || result.visibleCardCount === 0 || (
+          result.suggestionLabels.filter((item) => item?.visible).length >= result.visibleCardCount &&
+          (internetAngelExpected || result.suggestionLabelColorsMatch)
+        ))
+      );
+      result.pass = result.installed && result.version === result.expectedVersion &&
+        result.stylePresent && windowPass &&
+        effectiveDocumentPass && viewportPass && structurePass &&
+        payloadPass && homePass;
     return result;
   })()`);
 }
@@ -2064,6 +2087,10 @@ if (path.resolve(process.argv[1] || "") === path.resolve(scriptPath)) {
       payloadBytes: Buffer.byteLength(loaded.payload),
       themeId: loaded.theme.id,
       appearance: loaded.theme.appearance,
+      colorMode: loaded.theme.colorMode,
+      explicitColorKeys: loaded.theme.explicitColorKeys,
+      hasColors: !!loaded.theme.colors && typeof loaded.theme.colors === "object",
+      hasPalette: Object.hasOwn(loaded.theme, "palette"),
       art: loaded.theme.art,
       artMetadata: loaded.theme.artMetadata ?? null,
       safeCssStatus: loaded.safeCssStatus,

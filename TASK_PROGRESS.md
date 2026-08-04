@@ -1,5 +1,19 @@
 # Task Progress
 
+Updated: 2026-08-05 CST (Asia/Shanghai)
+
+## Sync upstream v1.5.11 and publish fork v1.5.12
+
+- [goal] Merge `upstream/main` at `1c7a859ed51bcfe4923f6483a5625a6e63f97657` into the fork, resolve conflicts in favor of this repository's INTERNET ANGEL, Linux, floating-sidebar, Windows Acrylic and exact-process/HWND architecture, then publish a verified `v1.5.12` Release.
+- [workspace] Isolated worktree `F:\Codex-Dream-Skin-Needy-Girl-Overdose-release-v1.5.12` on branch `agent/sync-upstream-release-v1.5.12`; the original dirty worktree and its unrelated changes remain untouched.
+- [upstream] Fixed merge inputs: fork `origin/main` at `26245e173220969259ce696b07f1052a0aeca70f`, upstream `main` at `1c7a859ed51bcfe4923f6483a5625a6e63f97657`; divergence was 81 fork-only / 8 upstream-only commits.
+- [complete] All 33 textual conflicts were resolved without residual conflict markers. The merge retains fork product behavior while integrating upstream Safe CSS runtime compilation, transactional theme replacement recovery, generic renderer fallbacks, Codex 26.727 Settings detection, multiline TOML coverage and immutable Release SHA binding.
+- [release] Target version is `1.5.12`; no origin tag or Release with that version existed at preflight. Six guarded macOS/Windows version sources and three fork Linux version sources are synchronized.
+- [verified] Shared runtime sync, selector doctor, three-platform payload checks, all 24 Windows Node tests, Windows PowerShell 5.1 and PowerShell 7 full regressions, and installer static tests under both PowerShell hosts pass. Release workflow immutable-SHA and retry binding tests pass.
+- [environment] Windows cannot execute the macOS publish/stage tests that require POSIX directory fsync, symlinks and `/bin/bash`; WSL has no installed distribution. Swift and Inno Setup are also unavailable locally. Ubuntu, Windows and macOS CI must provide these filesystem, native build, DMG and Setup.exe results.
+- [blocked] Local merge commit is ready, but the active GitHub fine-grained PAT returns HTTP 403 for both Git push and the create-reference API despite the account having repository admin role. The credential must gain Contents, Pull requests and Workflows write access (or be replaced through `gh auth refresh -h github.com -s repo,workflow`) before push, PR, merge and Release can continue.
+- [pending] After GitHub authorization is fixed, push the prepared commit, open a PR, wait for green CI, merge, and verify the public Release plus DMG, Setup.exe and `SHA256SUMS.txt` downloads.
+
 Updated: 2026-08-02 CST (Asia/Shanghai)
 
 ## macOS DMG build from MacOS-Fix

@@ -3,8 +3,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 import vm from "node:vm";
+import { fileURLToPath } from "node:url";
 import { loadPayload } from "../scripts/injector.mjs";
 
 // Regression for the payload template substitution bug.
@@ -179,14 +179,44 @@ test("an ordinary theme name is unaffected by the fix", async () => {
   );
 });
 
-test("validated Safe CSS reaches the renderer style argument", async () => {
-  const safeCss = '[data-ds-part="sidebar"] { color: #123456; }\n';
-  const loaded = await buildWith({}, safeCss);
+test("Windows payload uses the same compiled Safe CSS cascade as macOS", async () => {
+  const source = `[data-ds-part="sidebar"] {
+  background-color: #123456;
+}
+[data-ds-part="header"] {
+  color: var(--ds-theme-color-text);
+}
+[data-ds-part="home-hero"] {
+  font-weight: 700;
+}
+[data-ds-part="composer"] {
+  border-radius: 17px;
+}
+[data-ds-part="composer-toolbar"] {
+  color: #abcdef;
+}`;
+  const loaded = await buildWith({ name: "Safe CSS cascade" }, source);
+  const captured = extractRendererArguments(loaded.payload);
   assert.equal(loaded.safeCssStatus, "validated");
-  assert.ok(
-    extractRendererArguments(loaded.payload).cssText.includes(safeCss),
-    "the final renderer IIFE must receive validated Safe CSS",
-  );
+  assert.equal(loaded.safeCss, source,
+    "The validated author source must remain available for fingerprinting and diagnostics.");
+  assert.match(loaded.safeCssRuntime, /@layer dreamskin-community\s*\{/);
+  assert.match(captured.cssText, /@layer dreamskin-accessibility, dreamskin-community;/);
+  for (const declaration of [
+    "background-color: #123456 !important;",
+    "color: var(--ds-theme-color-text) !important;",
+    "font-weight: 700 !important;",
+    "border-radius: 17px !important;",
+    "color: #abcdef !important;",
+  ]) {
+    assert.ok(loaded.safeCssRuntime.includes(declaration), declaration);
+    assert.ok(captured.cssText.includes(declaration),
+      `The final renderer IIFE must receive compiled Safe CSS: ${declaration}`);
+  }
+  assert.ok(captured.cssText.includes("background-image: none !important;"));
+  assert.match(captured.cssText, /composer-toolbar[^\n]+:where\(button:not/);
+  assert.ok(!captured.cssText.includes("background-color: #123456;\n"),
+    "The original unprioritized author source must not be appended to the payload.");
 });
 
 test("the payload build refuses to emit a corrupted script", async () => {
