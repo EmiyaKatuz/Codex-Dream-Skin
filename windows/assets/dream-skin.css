@@ -2706,6 +2706,27 @@ html.codex-dream-skin [role="listbox"] {
   backdrop-filter: blur(18px) saturate(1.16) !important;
 }
 
+/* Radix dialogs can mount without role=dialog on the visible surface; keep
+   aria-modal/content markers themed too so New Chat and similar overlays never
+   fall back to the native dark/light frame. */
+html.codex-dream-skin [aria-modal="true"],
+html.codex-dream-skin [data-radix-dialog-content] {
+  color: var(--dream-text) !important;
+  border: 2px solid var(--angel-blue) !important;
+  border-radius: 6px !important;
+  background: color-mix(in oklab, var(--dream-surface-raised) 96%, transparent) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--angel-cyan) 44%, transparent),
+    5px 5px 0 color-mix(in oklab, var(--angel-pink) 58%, var(--angel-ink)),
+    0 20px 52px color-mix(in oklab, var(--angel-ink) 34%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(1.16) !important;
+}
+
+html.codex-dream-skin [aria-modal="true"] [class*="bg-token-main-surface-primary"],
+html.codex-dream-skin [data-radix-dialog-content] [class*="bg-token-main-surface-primary"] {
+  background: color-mix(in oklab, var(--dream-surface) 72%, transparent) !important;
+}
+
 /* Composer Add and slash-command palettes use a bespoke Codex surface rather
    than role=menu. Theme both the classified node and its first mounted frame. */
 html.codex-dream-skin .dream-composer-palette {
@@ -3062,7 +3083,7 @@ html.codex-dream-skin :where(
    positioning shell; Codex paints a second dropdown surface inside it. Skin
    both layers so no olive native rectangle can cover the themed frame. */
 html.codex-dream-skin .dream-turn-preview-tooltip {
-  padding: 5px !important;
+  padding: 0 !important;
   border: 1.5px solid var(--angel-cyan) !important;
   border-radius: 13px !important;
   background:
@@ -3143,6 +3164,29 @@ html.codex-dream-skin :where(
   color: color-mix(in oklab, var(--dream-text-muted) 78%, var(--angel-cyan)) !important;
   border-left: 2px solid color-mix(in oklab, var(--angel-pink) 76%, var(--angel-violet)) !important;
   line-height: 1.48 !important;
+}
+
+html.codex-dream-skin.dream-theme-light :where(
+  .dream-turn-preview-title,
+  [role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"] [class~="font-medium"]
+) {
+  color: var(--dream-text) !important;
+  text-shadow: none !important;
+}
+
+html.codex-dream-skin.dream-theme-light :where(
+  .dream-turn-preview-surface,
+  [role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]
+) {
+  background:
+    radial-gradient(circle at 92% 14%, color-mix(in oklab, var(--angel-pink) 18%, transparent) 0 2px, transparent 3px),
+    linear-gradient(108deg,
+      color-mix(in oklab, var(--dream-surface-raised) 92%, var(--angel-blue) 8%),
+      color-mix(in oklab, var(--dream-surface-raised) 90%, var(--angel-violet) 10%) 58%,
+      color-mix(in oklab, var(--dream-surface-raised) 94%, var(--angel-pink) 6%)) !important;
+  box-shadow:
+    inset 3px 0 color-mix(in oklab, var(--angel-cyan) 74%, transparent),
+    inset 0 -2px color-mix(in oklab, var(--angel-pink) 48%, transparent) !important;
 }
 
 /* The left conversation navigator is a dense set of fixed-size hit targets.
@@ -3282,6 +3326,17 @@ html.codex-dream-skin input::placeholder,
 html.codex-dream-skin textarea::placeholder {
   color: var(--dream-text-muted) !important;
   opacity: .9;
+}
+
+/* Some native inputs omit type="text"/"search"; in light mode they would stay
+   on the dark default surface. Keep every editable input adaptive. */
+html.codex-dream-skin.dream-theme-light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface-raised) 88%, transparent) !important;
+}
+
+html.codex-dream-skin.dream-theme-light input::placeholder {
+  color: var(--dream-text-muted) !important;
 }
 
 html.codex-dream-skin [role="checkbox"],
@@ -6436,9 +6491,13 @@ html.codex-dream-skin DIFFS-CONTAINER {
 /* Side chat and generic composers: remove nested inner frames. */
 html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutFooter_"],
 html.codex-dream-skin [data-ds-part="composer"] [class*="_RichTextInput_"],
+html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutBody_"],
+html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutAttachments_"],
 html.codex-dream-skin [data-ds-part="composer"] [class*="rounded-2xl"],
 html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_ComposerLayoutFooter_"],
 html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_RichTextInput_"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_ComposerLayoutBody_"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_ComposerLayoutAttachments_"],
 html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="rounded-2xl"] {
   background: transparent !important;
   border: 0 !important;

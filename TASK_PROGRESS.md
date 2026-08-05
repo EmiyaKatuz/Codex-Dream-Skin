@@ -76,6 +76,13 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
   renderer now themes its host, file, code, gutter and line-number surfaces
   with inline styles plus a small shadow style for scrollbars and selection,
   so source files follow the active Dream Skin theme in dark and light modes.
+- [complete] Eighth follow-up: light mode no longer leaves native dark
+  surfaces behind. Windows CSS now themes route frames, the new-chat composer
+  body, dialog/Radix overlays, user/assistant bubbles, edited-card badges and
+  file rows, environment panels, the left sidebar surface/rows/icons, source
+  tooltips, and the scroll-to-bottom hover state with adaptive Dream colors.
+  Appearance detection also prefers root classes and light before data
+  attributes, so stale debug attributes cannot force light mode back to dark.
 - [verified] Live CDP after hot injection: side chat composer is marked
   `data-ds-part="composer"`, the Projects page surface is a translucent theme
   gradient instead of `rgb(24,24,24)`, and the source-code viewer background is
@@ -85,9 +92,9 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
   before reporting "already contains fixes", so an older installed engine is
   upgraded in place to this revision. Rebuilt
   `release/CodexDreamSkin-QuickFix-v1.5.12.zip`
-  (`035076274D46911DB2FC357B3F63DDE3D45C60D289068218E302B755951E4BBF`) and
+  (`32691827C1127A1716201B17004B7308630515D60E9480443711A22A0B224162`) and
   `release/CodexDreamSkin-Setup-v1.5.12.exe`
-  (`0ED678B348DC15E4DC63F8531C84CEFB217F9C57BC9FC8AF856DCDE7BE00F587`).
+  (`F4ABD8B32448FA1CF77A4FB57F03A498CD08C8A60526837FC4797453E7266D16`).
 
 ## Sync latest upstream and publish fork v1.5.12
 

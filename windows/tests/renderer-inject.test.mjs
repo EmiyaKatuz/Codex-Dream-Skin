@@ -12,6 +12,10 @@ const linuxTemplate = await fs.readFile(
   "utf8",
 );
 const css = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
+const extensionCss = await fs.readFile(
+  path.join(windowsRoot, "assets", "internet-angel-extension.css"),
+  "utf8",
+);
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
 const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
 const sidebarSelector = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
@@ -36,6 +40,7 @@ assert.ok(template.includes("hasGenericComposerNode")
   && template.includes("const themeDiffsContainers = () =>")
   && template.includes('all("diffs-container")')
   && template.includes("DIFFS_THEME_STYLE_ID")
+  && template.includes("const appearanceFromClasses = (classes) =>")
   && template.includes("const sidebarInteraction = Boolean(event?.target?.closest?.('aside'))")
   && template.includes("scheduleEnsure(64)")
   && template.includes('[contenteditable], [role="textbox"], [data-placeholder]')
@@ -54,7 +59,11 @@ assert.ok(css.includes('html.codex-dream-skin [data-ds-part="composer"]')
   && css.includes('aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"]')
   && css.includes('[class*="_MainContentFrame_"] [class~="bg-token-main-surface-primary"]')
   && css.includes('[class*="_MainContentFrame_"] [class*="bg-token-input-background"]')
-  && css.includes("diffs-container"),
+  && css.includes("diffs-container")
+  && css.includes('[aria-modal="true"]')
+  && css.includes('[class*="_ComposerLayoutBody_"]')
+  && extensionCss.includes(".dream-theme-light")
+  && extensionCss.includes("[data-angel-component]"),
   "Windows CSS must style generic/side-chat composers, right sidebar, and keep the wallpaper visible.");
 assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
   && css.includes("data-app-shell-main-content-top-fade")

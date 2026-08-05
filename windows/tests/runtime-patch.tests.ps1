@@ -49,8 +49,10 @@ try {
   $installedPatch = Join-Path $scriptsRoot 'patch-dream-skin.ps1'
   $sourceRenderer = Join-Path $Root 'assets\renderer-inject.js'
   $sourceCss = Join-Path $Root 'assets\dream-skin.css'
+  $sourceExtensionCss = Join-Path $Root 'assets\internet-angel-extension.css'
   $installedRenderer = Join-Path $assetsRoot 'renderer-inject.js'
   $installedCss = Join-Path $assetsRoot 'dream-skin.css'
+  $installedExtensionCss = Join-Path $assetsRoot 'internet-angel-extension.css'
   if ((Get-FileHash -LiteralPath $installedCommon -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceCommon -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedStart -Algorithm SHA256).Hash -cne
@@ -61,6 +63,8 @@ try {
       (Get-FileHash -LiteralPath $sourceRenderer -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedCss -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceCss -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedExtensionCss -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceExtensionCss -Algorithm SHA256).Hash -or
     [System.IO.File]::ReadAllText($sentinel) -cne 'keep') {
     throw 'Runtime patch did not replace the launcher files, renderer/css assets, and patch script while preserving the sentinel file.'
   }
@@ -73,7 +77,9 @@ try {
     (Get-FileHash -LiteralPath $installedRenderer -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceRenderer -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedCss -Algorithm SHA256).Hash -cne
-      (Get-FileHash -LiteralPath $sourceCss -Algorithm SHA256).Hash) {
+      (Get-FileHash -LiteralPath $sourceCss -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedExtensionCss -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceExtensionCss -Algorithm SHA256).Hash) {
     throw 'Applying the runtime patch twice changed the already patched files.'
   }
 

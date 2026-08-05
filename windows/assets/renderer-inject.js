@@ -396,11 +396,20 @@
   const detectShellAppearance = () => {
     const root = document.documentElement;
     const body = document.body;
-    const classes = `${root?.className || ""} ${body?.className || ""}`
-      .toLowerCase()
-      .replace(/\bdream-theme-(?:dark|light)\b/g, "");
-    if (/\b(dark|electron-dark|theme-dark|appearance-dark)\b/.test(classes)) return "dark";
-    if (/\b(light|electron-light|theme-light|appearance-light)\b/.test(classes)) return "light";
+    const appearanceFromClasses = (classes) => {
+      const normalized = `${classes || ""}`
+        .toLowerCase()
+        .replace(/\bdream-theme-(?:dark|light)\b/g, "");
+      if (/\belectron-light\b|\btheme-light\b|\bappearance-light\b|\blight\b/.test(normalized)) {
+        return "light";
+      }
+      if (/\belectron-dark\b|\btheme-dark\b|\bappearance-dark\b|\bdark\b/.test(normalized)) {
+        return "dark";
+      }
+      return null;
+    };
+    const rootAppearance = appearanceFromClasses(root?.className);
+    if (rootAppearance) return rootAppearance;
 
     const dataTheme = (
       root?.getAttribute?.("data-theme") ||
@@ -410,8 +419,10 @@
       body?.getAttribute?.("data-appearance") ||
       ""
     ).toLowerCase();
-    if (dataTheme.includes("dark")) return "dark";
     if (dataTheme.includes("light")) return "light";
+    if (dataTheme.includes("dark")) return "dark";
+    const bodyAppearance = appearanceFromClasses(body?.className);
+    if (bodyAppearance) return bodyAppearance;
 
     try {
       const hadSkin = root?.classList?.contains?.("codex-dream-skin");
