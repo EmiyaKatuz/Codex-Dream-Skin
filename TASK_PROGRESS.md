@@ -11,8 +11,9 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
 - [release] Target version is `1.5.12`; no origin tag or Release with that version existed at preflight. Six guarded macOS/Windows version sources and three fork Linux version sources are synchronized.
 - [verified] Shared runtime sync, selector doctor, three-platform payload checks, all 24 Windows Node tests, Windows PowerShell 5.1 and PowerShell 7 full regressions, and installer static tests under both PowerShell hosts pass. Release workflow immutable-SHA and retry binding tests pass.
 - [environment] Windows cannot execute the macOS publish/stage tests that require POSIX directory fsync, symlinks and `/bin/bash`; WSL has no installed distribution. Swift and Inno Setup are also unavailable locally. Ubuntu, Windows and macOS CI must provide these filesystem, native build, DMG and Setup.exe results.
-- [blocked] Local merge commit is ready, but the active GitHub fine-grained PAT returns HTTP 403 for both Git push and the create-reference API despite the account having repository admin role. The credential must gain Contents, Pull requests and Workflows write access (or be replaced through `gh auth refresh -h github.com -s repo,workflow`) before push, PR, merge and Release can continue.
-- [pending] After GitHub authorization is fixed, push the prepared commit, open a PR, wait for green CI, merge, and verify the public Release plus DMG, Setup.exe and `SHA256SUMS.txt` downloads.
+- [github] Fine-grained PAT permissions were corrected; branch `agent/sync-upstream-release-v1.5.12` was pushed and draft PR #20 was opened against `main`: `https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/pull/20`.
+- [ci] PR #20 is mergeable. `Static checks` passed; Windows PowerShell 5.1, PowerShell 7, and macOS repository regressions are in progress.
+- [pending] Wait for all PR checks, mark the PR ready, merge it, then verify the public Release plus DMG, Setup.exe and `SHA256SUMS.txt` downloads.
 
 Updated: 2026-08-02 CST (Asia/Shanghai)
 
