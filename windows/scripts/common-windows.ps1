@@ -922,12 +922,31 @@ function Invoke-DreamSkinNative {
   }
 }
 
+function Import-DreamSkinPowerShellSecurityModule {
+  $command = Get-Command Get-AuthenticodeSignature -CommandType Cmdlet -ErrorAction SilentlyContinue
+  if ($command) { return }
+  try {
+    Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
+  } catch {
+    $modulePath = Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1'
+    if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+      throw "PowerShell security module is unavailable: $($_.Exception.Message)"
+    }
+    Import-Module $modulePath -ErrorAction Stop
+  }
+  $command = Get-Command Get-AuthenticodeSignature -CommandType Cmdlet -ErrorAction SilentlyContinue
+  if (-not $command) {
+    throw 'PowerShell security module loaded, but Get-AuthenticodeSignature is unavailable.'
+  }
+}
+
 function Assert-DreamSkinTrustedNodeImage {
   param([Parameter(Mandatory = $true)][string]$Path)
 
   # Runs BEFORE the binary is ever executed. Get-DreamSkinValidatedNodeRuntime
   # learns the version by running `node -p`, so any authenticity check placed
   # after that point would already have executed attacker-controlled code.
+  Import-DreamSkinPowerShellSecurityModule
   $signature = Get-AuthenticodeSignature -LiteralPath $Path -ErrorAction Stop
   if ("$($signature.Status)" -ine 'Valid') {
     throw "The Node.js runtime is not validly signed: $Path ($($signature.Status))."
@@ -1842,8 +1861,13 @@ function Stop-DreamSkinRecordedInjector {
   param([AllowNull()][object]$State)
   if ($null -eq $State -or -not $State.injectorPid) { return $true }
   $processId = [int]$State.injectorPid
+  $processHandle = Get-Process -Id $processId -ErrorAction SilentlyContinue
+  if (-not $processHandle) { return $true }
   $process = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction SilentlyContinue
-  if (-not $process) { return $true }
+  if (-not $process) {
+    if ($processHandle.HasExited) { return $true }
+    throw "The recorded injector PID $processId is running, but its identity cannot be inspected. State was preserved."
+  }
 
   $expectedInjector = if ($State.injectorPath) {
     "$($State.injectorPath)"
@@ -1873,7 +1897,12 @@ function Stop-DreamSkinRecordedInjector {
     $browserPattern = '(?:^|\s)(?i:--browser-id)(?:=|\s+)' + [regex]::Escape("$($State.browserId)") + '(?=$|\s)'
     $injectorMatches = $injectorMatches -and [regex]::IsMatch($commandLine, $browserPattern)
   }
-  $startedAt = Get-DreamSkinProcessStartedAt -ProcessId $processId
+  try {
+    $startedAt = $processHandle.StartTime.ToUniversalTime().ToString('o')
+  } catch {
+    if ($processHandle.HasExited) { return $true }
+    throw "The recorded injector PID $processId is running, but its start time cannot be inspected. State was preserved."
+  }
   $startMatches = -not $State.injectorStartedAt -or $startedAt -eq "$($State.injectorStartedAt)"
   $identityMatches = [bool]($isNodeExecutable -and $nodeMatches -and $injectorMatches -and $startMatches)
 
@@ -2604,4 +2633,17 @@ function Confirm-DreamSkinRestart {
   param([string]$Message)
   $shell = New-Object -ComObject WScript.Shell
   return $shell.Popup($Message, 0, 'Codex Dream Skin', 52) -eq 6
+}
+
+function Invoke-DreamSkinCodexWindowActivation {
+  param([Parameter(Mandatory = $true)][object]$Codex)
+  $processes = @(Get-DreamSkinCodexProcesses -Codex $Codex)
+  if ($processes.Count -eq 0) { return $false }
+  $shell = New-Object -ComObject WScript.Shell
+  foreach ($process in $processes) {
+    try {
+      if ($shell.AppActivate([int]$process.ProcessId)) { return $true }
+    } catch {}
+  }
+  return $false
 }

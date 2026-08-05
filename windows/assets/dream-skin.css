@@ -1,3 +1,5 @@
+@layer dreamskin-accessibility, dreamskin-community;
+
 :root.codex-dream-skin {
   color-scheme: light;
   --dream-accent: oklch(0.66 0.15 18);
@@ -129,6 +131,41 @@ html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [cla
   backdrop-filter: blur(12px) saturate(1.05) !important;
 }
 
+/* A future Codex shell may temporarily lose the exact selector contract. The
+   renderer exposes these parts only after finding one coherent app structure;
+   keep the minimum fork palette usable until the contract is updated. */
+html.codex-dream-skin:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]))) [data-ds-part="sidebar"] {
+  color: var(--dream-text) !important;
+  background: var(--dream-sidebar) !important;
+  border: 1px solid var(--dream-line-soft) !important;
+  box-shadow: inset -1px 0 var(--dream-line-soft) !important;
+  backdrop-filter: none !important;
+}
+
+html.codex-dream-skin:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]))) [data-ds-part="main"],
+html.codex-dream-skin:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])))
+  :not(:has([data-ds-part="main"])) > [data-ds-part="home"] {
+  position: relative !important;
+  isolation: isolate;
+  overflow: hidden !important;
+  color: var(--dream-text) !important;
+  background: var(--dream-surface) !important;
+  border: 1px solid var(--dream-line-soft) !important;
+  box-shadow: inset 0 1px color-mix(in oklab, var(--dream-surface-raised) 72%, transparent) !important;
+}
+
+html.codex-dream-skin:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]))) [data-ds-part="composer"] {
+  position: relative;
+  z-index: 2;
+  overflow: visible !important;
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface-raised) 94%, transparent) !important;
+  border: 1px solid var(--dream-line-soft) !important;
+  border-radius: 22px !important;
+  box-shadow: var(--dream-shadow) !important;
+  backdrop-filter: blur(14px) saturate(1.06) !important;
+}
+
 /* Wide art also reaches the native application menu, which sits outside the
    main surface and needs its own dark-theme legibility layer. */
 html.codex-dream-skin.dream-theme-dark [class~="group/application-menu-top-bar"] {
@@ -227,8 +264,24 @@ html.codex-dream-skin .dream-task > :not(header:is(.app-header-tint, [data-app-s
 }
 
 html.codex-dream-skin .dream-task article,
-html.codex-dream-skin .dream-task :is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant]) {
+html.codex-dream-skin .dream-task :is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant]),
+html.codex-dream-skin .dream-task [data-ds-part="message"] {
   color: var(--dream-text);
+}
+
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner, .dream-task-full)
+  .dream-task [class*="_markdown"] {
+  color: var(--dream-text) !important;
+  text-shadow:
+    0 1px 2px color-mix(in oklab, var(--dream-canvas) 82%, transparent),
+    0 0 10px color-mix(in oklab, var(--dream-canvas) 58%, transparent);
+}
+
+html.codex-dream-skin.dream-theme-light.dream-art-wide:is(.dream-task-ambient, .dream-task-banner, .dream-task-full)
+  .dream-task [class*="_markdown"] {
+  text-shadow:
+    0 1px 2px color-mix(in oklab, var(--dream-surface) 92%, transparent),
+    0 0 10px color-mix(in oklab, var(--dream-surface) 72%, transparent);
 }
 
 /* The home route keeps the source image expressive, with a semantic safe-area
@@ -697,12 +750,16 @@ html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html.codex-dream-skin *,
-  html.codex-dream-skin *::before,
-  html.codex-dream-skin *::after {
-    scroll-behavior: auto !important;
-    transition-duration: .01ms !important;
+@layer dreamskin-accessibility {
+  @media (prefers-reduced-motion: reduce) {
+    html.codex-dream-skin *,
+    html.codex-dream-skin *::before,
+    html.codex-dream-skin *::after {
+      scroll-behavior: auto !important;
+      transition-duration: .01ms !important;
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+    }
   }
 }
 

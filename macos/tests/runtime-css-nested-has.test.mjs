@@ -45,4 +45,26 @@ for (const file of files) {
     const findings = findNestedHas(css);
     assert.deepEqual(findings, [], `nested :has() found in ${file}`);
   });
+
+  test(`wide full-mode Markdown retains themed light text in ${file}`, () => {
+    const css = readFileSync(join(root, file), "utf8");
+    if (file.startsWith("windows/")) {
+      const windowsFullMode = '\\.dream-art-wide:is\\([^)]*\\.dream-task-full[^)]*\\)\\s+\\.dream-task \\[class\\*="_markdown"\\]';
+      assert.match(css, new RegExp(`${windowsFullMode}\\s*\\{\\s*color:\\s*var\\(--dream-text\\)\\s*!important;`),
+        "Windows full task mode must override native dark-shell Markdown foreground (#309).");
+      assert.match(css, new RegExp(`\\.dream-theme-light${windowsFullMode}\\s*\\{\\s*text-shadow:`),
+        "Windows full task mode must retain the light-shell Markdown contrast shadow (#309).");
+      return;
+    }
+    const selectorToken = file.startsWith("runtime/")
+      ? "__DREAM_SELECTOR_SHELL_MAIN__:not\\(:has\\(__DREAM_SELECTOR_HOME_ROUTE_CSS__\\)\\) __DREAM_SELECTOR_MARKDOWN__"
+      : "main:is\\(\\.main-surface, \\[data-app-shell-main-surface\\], \\[class\\*=\"_MainContentSurface_\"\\]\\):not\\(:has\\(\\[role=\"main\"\\]\\)\\) \\[class\\*=\"_markdown\"\\]";
+    const fullMode = ':is\\([^)]*\\[data-dream-task-mode="full"\\][^)]*\\[data-dream-art-task-mode="full"\\][^)]*\\)\\[data-dream-art-wide="true"\\]';
+    const markdownRule = new RegExp(`${fullMode}\\s*\\n?\\s*${selectorToken}\\s*\\{\\s*\\n?\\s*color:\\s*var\\(--ds-text\\)\\s*!important;`);
+    const lightShadowRule = new RegExp(`\\[data-dream-shell="light"\\]${fullMode}\\s*\\n?\\s*${selectorToken}\\s*\\{\\s*\\n?\\s*text-shadow:`);
+    assert.match(css, markdownRule,
+      "Full task mode must override native dark-shell Markdown foreground (#309).");
+    assert.match(css, lightShadowRule,
+      "Full task mode must retain the light-shell Markdown contrast shadow (#309).");
+  });
 }

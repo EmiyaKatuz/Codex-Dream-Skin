@@ -656,16 +656,16 @@ try {
     # and a single early miss used to tear the whole startup down.  The
     # watcher keeps applying in the background, so retry until a deadline.
     $verifyDeadline = (Get-Date).AddSeconds(90)
-    while ($true) {
+      while ($true) {
       $verifyArguments = @(
         $Injector, '--verify', '--port', "$Port",
         '--browser-id', $cdpIdentity.BrowserId, '--theme-dir', $themePaths.Active,
         '--timeout-ms', '30000', '--allow-hidden-document'
       ) + $injectorWindowArgs
       $verify = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList $verifyArguments
-      Write-DreamSkinUtf8FileAtomically -Path $VerifyPath -Content (($verify.Output -join "`r`n") + "`r`n")
-      if ($verify.ExitCode -eq 0) { break }
-      if ($daemon.HasExited) { throw "The injector exited during startup. See $StderrPath" }
+        Write-DreamSkinUtf8FileAtomically -Path $VerifyPath -Content (($verify.Output -join "`r`n") + "`r`n")
+        if ($verify.ExitCode -eq 0) { break }
+        if ($daemon.HasExited) { throw "The injector exited during startup. See $StderrPath" }
       if ((Get-Date) -ge $verifyDeadline) { throw "Dream Skin verification failed. See $VerifyPath" }
       Start-Sleep -Seconds 3
     }

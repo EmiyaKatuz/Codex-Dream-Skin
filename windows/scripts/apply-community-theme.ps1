@@ -29,6 +29,20 @@ function Show-DreamSkinCommunityMessage {
   )
 }
 
+function Format-DreamSkinCommunitySuccessMessage {
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Name,
+    [string]$CleanupWarning = ''
+  )
+  $message = "主题「$Name」已通过下载、SHA-256、主题包与 Safe CSS 校验，并已应用到 Codex。"
+  if (-not [string]::IsNullOrWhiteSpace($CleanupWarning)) {
+    $message += "`r`n`r`n主题已成功应用，但旧备份目录未能自动清理；新主题不会因此回滚。请稍后重启客户端并查看日志。"
+  }
+  return $message
+}
+
 function Confirm-DreamSkinCommunityApply {
   param([Parameter(Mandatory = $true)][object]$Metadata)
   Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
@@ -308,7 +322,12 @@ function Invoke-DreamSkinCommunityStartAndVerify {
     ' -RequireUnpaused -OperationLockTimeoutMilliseconds ' +
     "$OperationLockTimeoutMilliseconds"
   $startProcess = Start-Process -FilePath $powershell -ArgumentList $argumentLine `
-    -WindowStyle Hidden -Wait -PassThru
+    -WindowStyle Hidden -PassThru
+  if (-not $startProcess.WaitForExit($OperationLockTimeoutMilliseconds)) {
+    try { Stop-Process -InputObject $startProcess -Force -ErrorAction SilentlyContinue } catch {}
+    [void]$startProcess.WaitForExit(15000)
+    throw "Dream Skin start verification did not finish within $OperationLockTimeoutMilliseconds ms."
+  }
   if ($startProcess.ExitCode -ne 0) {
     throw "Dream Skin could not start and visibly verify the active theme (exit code $($startProcess.ExitCode))."
   }
@@ -716,6 +735,8 @@ function Invoke-DreamSkinCommunityApply {
       $imported.ContentFingerprint -cnotmatch '\A[a-f0-9]{64}\z') {
       throw 'The downloaded theme did not complete the strict ZIP and Safe CSS import.'
     }
+    $cleanupProperty = $imported.PSObject.Properties['CleanupWarning']
+    $cleanupWarning = if ($null -ne $cleanupProperty) { "$($cleanupProperty.Value)" } else { '' }
     try {
       $null = Invoke-DreamSkinCommunityThemeTransaction -Imported $imported -Paths $paths `
         -WorkRoot $workRoot -StateRoot $stateRoot
@@ -746,7 +767,11 @@ function Invoke-DreamSkinCommunityApply {
       }
       throw $transactionError
     }
-    return [pscustomobject]@{ Canceled = $false; Name = $metadata.Name }
+    return [pscustomobject]@{
+      Canceled = $false
+      Name = $metadata.Name
+      CleanupWarning = $cleanupWarning
+    }
   } finally {
     if (-not $retainWorkRoot -and $workRoot -and (Test-Path -LiteralPath $workRoot)) {
       Assert-DreamSkinNoReparseComponents -Path $workRoot
@@ -763,7 +788,8 @@ try {
   $result = Invoke-DreamSkinCommunityApply -ApplyUri $Uri
   if (-not $result.Canceled) {
     Show-DreamSkinCommunityMessage `
-      -Message "“$($result.Name)”已通过下载、SHA-256、主题包与 Safe CSS 校验，并已应用到 Codex。"
+      -Message (Format-DreamSkinCommunitySuccessMessage -Name $result.Name `
+        -CleanupWarning $result.CleanupWarning)
   }
   exit 0
 } catch {

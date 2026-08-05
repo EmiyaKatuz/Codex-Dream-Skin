@@ -786,18 +786,57 @@
     const all = (selector) => {
       try { return [...document.querySelectorAll(selector)]; } catch { return []; }
     };
+    const genericInputs = () => all('textarea, [contenteditable="true"], [role="textbox"]')
+      .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'));
+    const resolvedMain = () => {
+      const exact = all(SHELL_MAIN_SELECTOR)[0];
+      if (exact) return exact;
+      for (const input of genericInputs()) {
+        const main = input.closest?.('main, [role="main"]');
+        if (main && typeof main.setAttribute === "function") return main;
+      }
+      return all('main, [role="main"]')
+        .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
+    };
+    const fallbackSidebar = () => {
+      if (all(SIDEBAR_SELECTOR).length) return [];
+      const main = resolvedMain();
+      const mainParent = main?.parentElement;
+      if (!main || !mainParent) return [];
+      const candidate = all('aside, nav[aria-label]')
+        .filter((node) => !main.contains?.(node))
+        .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'))
+        .find((node) => node.parentElement === mainParent
+          || node.parentElement?.parentElement === mainParent
+          || node.parentElement === mainParent.parentElement);
+      return candidate ? [candidate] : [];
+    };
+    const fallbackComposer = () => {
+      if (all(".composer-surface-chrome").length) return [];
+      const main = resolvedMain();
+      for (const input of genericInputs()) {
+        if (main && !main.contains?.(input)) continue;
+        const owner = input.closest?.(
+          '[data-testid*="composer" i], [data-testid*="prompt" i], ' +
+          '[class*="composer" i], [class*="prompt" i]',
+        );
+        if (owner && (!main || main.contains?.(owner))) return [owner];
+      }
+      return [];
+    };
     add("root", [document.documentElement]);
-    add("sidebar", all(SIDEBAR_SELECTOR));
-    add("main", all(SHELL_MAIN_SELECTOR));
+    add("sidebar", [...all(SIDEBAR_SELECTOR), ...fallbackSidebar()]);
     add("header", all(HEADER_TINT_SELECTOR));
     add("home", all('[role="main"]:has([data-testid="home-icon"])'));
+    add("main", [...all(SHELL_MAIN_SELECTOR), ...(!all(SHELL_MAIN_SELECTOR).length ? [resolvedMain()].filter(Boolean) : [])]);
     add("project-list", all(".group\\/project-selector"));
     add("thread", all(".thread-scroll-container"));
     add("message", all(MESSAGE_SELECTOR));
-    add("composer", all(".composer-surface-chrome"));
+    add("composer", [...all(".composer-surface-chrome"), ...fallbackComposer()]);
     add("composer-toolbar", all('.composer-surface-chrome [class*="_footer_"]'));
     add("dialog", all('[role="dialog"]'));
-    const homeHero = document.querySelector?.('[data-testid="home-icon"]')?.parentElement;
+    const homeHero = document.querySelector?.('[data-feature="game-source"]') ??
+      document.querySelector?.('[data-testid="home-icon"]')?.parentElement;
     add("home-hero", homeHero ? [homeHero] : []);
 
     for (const node of safeCssPartNodes) {
@@ -895,8 +934,11 @@
     const settingsContent = settingsSidebar?.parentElement
       ?.querySelector?.(SETTINGS_CONTENT_SELECTOR)
       ?.parentElement || null;
-    const semanticHome = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
-    const homeMarker = shellMain.querySelector?.('[data-testid="home-icon"]') || null;
+    const homeMarker = shellMain.querySelector?.('[data-testid="home-icon"]') ||
+      shellMain.querySelector?.('[data-feature="game-source"]') ||
+      shellMain.querySelector?.('.group\\/home-suggestions') || null;
+    const semanticHome = homeMarker?.closest?.('[role="main"]') ||
+      document.querySelector('[role="main"]:has([data-testid="home-icon"])');
     const homeHeading = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
       .find((candidate) => /^(我们该构建什么|what should we build)\s*[？?]?$/i.test((candidate.textContent || "").trim()));
     const home = semanticHome

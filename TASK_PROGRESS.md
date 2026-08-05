@@ -1,5 +1,21 @@
 # Task Progress
 
+Updated: 2026-08-05 CST (Asia/Shanghai)
+
+## Sync latest upstream and publish fork v1.5.12
+
+- [goal] Merge `upstream/main` at `0a727a539fc9cd298ad4827c6cefbd4a2192db79` into the fork, resolve conflicts in favor of this repository's INTERNET ANGEL, Linux, floating-sidebar, Windows Acrylic and exact-process/HWND architecture, then publish a verified `v1.5.12` Release.
+- [workspace] Isolated worktree `F:\Codex-Dream-Skin-Needy-Girl-Overdose-release-v1.5.12` on branch `agent/sync-upstream-release-v1.5.12`; the original dirty worktree and its unrelated changes remain untouched.
+- [upstream] Initial fixed merge inputs were fork `origin/main` at `26245e173220969259ce696b07f1052a0aeca70f` and upstream `main` at `1c7a859ed51bcfe4923f6483a5625a6e63f97657`. Before CI repair, upstream advanced by two documentation commits to `0a727a539fc9cd298ad4827c6cefbd4a2192db79`; merge commit `2f176a0` records that ancestry. Per user direction, follow-up `37b0627` restores both READMEs and all affected gallery image assets byte-for-byte to this fork's pre-merge state, so no upstream showcase content enters the published tree.
+- [complete] All 33 textual conflicts were resolved without residual conflict markers. The merge retains fork product behavior while integrating upstream Safe CSS runtime compilation, transactional theme replacement recovery, generic renderer fallbacks, Codex 26.727 Settings detection, multiline TOML coverage and immutable Release SHA binding.
+- [release] Target version is `1.5.12`; no origin tag or Release with that version existed at preflight. Six guarded macOS/Windows version sources and three fork Linux version sources are synchronized.
+- [verified] Shared runtime sync, selector doctor, three-platform payload checks, all 24 Windows Node tests, Windows PowerShell 5.1 and PowerShell 7 full regressions, and installer static tests under both PowerShell hosts pass. Release workflow immutable-SHA and retry binding tests pass.
+- [environment] Windows cannot execute the macOS publish/stage tests that require POSIX directory fsync, symlinks and `/bin/bash`; WSL has no installed distribution. Swift and Inno Setup are also unavailable locally. Ubuntu, Windows and macOS CI must provide these filesystem, native build, DMG and Setup.exe results.
+- [github] Fine-grained PAT permissions were corrected; branch `agent/sync-upstream-release-v1.5.12` was pushed and draft PR #20 was opened against `main`: `https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/pull/20`.
+- [ci] PR #20 is mergeable. Run `30968153557` passed Static checks, Windows PowerShell 5.1 and macOS repository regressions. Windows PowerShell 7 failed only because the child operation-lock contention probe exceeded its 10-second process-start deadline; the product mutex uses a zero-millisecond second-owner timeout and behaved fail closed.
+- [verified] The production mutex remains unchanged. The child probe now runs non-interactively, allows 30 seconds for runner process startup, and explicitly waits for exact-process termination after a timeout kill. The focused auto-launch safety test passes under Windows PowerShell 5.1 and PowerShell 7.
+- [pending] Push the upstream merge and CI test correction, require all four PR checks on the exact new head, mark the PR ready, merge it, then verify the public Release plus DMG, Setup.exe and `SHA256SUMS.txt` downloads.
+
 Updated: 2026-08-02 CST (Asia/Shanghai)
 
 ## macOS DMG build from MacOS-Fix

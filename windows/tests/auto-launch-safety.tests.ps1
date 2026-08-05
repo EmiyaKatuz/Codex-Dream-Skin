@@ -195,9 +195,12 @@ try {
     ' } catch { exit 0 }'
   $encodedProbe = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($probeSource))
   $lockProbe = Start-Process -FilePath (Get-Command powershell.exe -ErrorAction Stop).Source `
-    -ArgumentList "-NoProfile -EncodedCommand $encodedProbe" -WindowStyle Hidden -PassThru
-  if (-not $lockProbe.WaitForExit(10000)) {
+    -ArgumentList "-NoLogo -NoProfile -NonInteractive -EncodedCommand $encodedProbe" -WindowStyle Hidden -PassThru
+  if (-not $lockProbe.WaitForExit(30000)) {
     Stop-Process -InputObject $lockProbe -Force -ErrorAction SilentlyContinue
+    if (-not $lockProbe.WaitForExit(5000)) {
+      throw 'The timed-out Global operation-lock contention probe could not be stopped.'
+    }
     throw 'The Global operation-lock contention probe did not exit in time.'
   }
   if ($lockProbe.ExitCode -ne 0) {

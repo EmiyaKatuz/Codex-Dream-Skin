@@ -3,20 +3,34 @@ import fs from "node:fs/promises";
 import { gradeDoctorResult, selectorMatchesScope } from "./doctor-selectors.mjs";
 
 const contract = JSON.parse(await fs.readFile(new URL("./selectors.json", import.meta.url), "utf8"));
+const selectorFor = (key) => contract.selectors.find((entry) => entry.key === key)?.selector;
 assert.equal(
-  contract.selectors.find(({ key }) => key === "shell-main")?.selector,
-  'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])',
-  "The shell contract must bridge legacy and Codex 26.727 main surfaces.",
+  selectorFor("shell-main"),
+  "main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])",
+  "The shell contract must support both legacy and Codex 26.727 main surfaces.",
 );
 assert.equal(
-  contract.selectors.find(({ key }) => key === "header-tint")?.selector,
-  'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])',
+  selectorFor("header-tint"),
+  "header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*=\"_Header_\"])",
   "The header contract must bridge every observed Codex 26.727 header marker.",
 );
+assert.match(selectorFor("shell-main"), /\[class\*=\"_MainContentSurface_\"\]/);
+assert.match(selectorFor("header-tint"), /\[class\*=\"_Header_\"\]/);
+assert.doesNotMatch(selectorFor("shell-main"), /_[A-Za-z]+_[a-z0-9]{4,}/);
+assert.doesNotMatch(selectorFor("header-tint"), /_[A-Za-z]+_[a-z0-9]{4,}/);
 assert.equal(
-  contract.selectors.find(({ key }) => key === "settings-panel")?.selector,
+  selectorFor("main-content-top-fade"),
+  ':is(.app-shell-main-content-top-fade, [data-app-shell-main-content-top-fade], [class*="_MainContentTopFade_"])',
+);
+assert.equal(
+  selectorFor("message"),
+  ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])',
+  "The message contract must bridge both legacy and Codex 26.727 role boundaries.",
+);
+assert.equal(
+  selectorFor("settings-panel"),
   '[data-settings-panel-slug="general-settings"]',
-  "The Settings contract must recognize the Codex 26.727 General panel.",
+  "The Settings contract must use the stable Codex 26.727 general-settings panel marker.",
 );
 const resultFor = (baseState, hits, overlay = false) => gradeDoctorResult(contract, {
   baseState,
@@ -41,6 +55,8 @@ const settings = resultFor("settings", ["settings-panel"]);
 assert.equal(settings.pass, true);
 assert.equal(settings.tiers.L1.length, 0, "Settings must not inherit home/all L1 requirements");
 assert.deepEqual(settings.tiers.L2.map(({ key }) => key), ["settings-panel", "appearance-radio"]);
+assert.equal(settings.tiers.L2.find(({ key }) => key === "settings-panel").status, "ok");
+assert.equal(settings.tiers.L2.find(({ key }) => key === "appearance-radio").status, "miss");
 
 assert.equal(selectorMatchesScope("home+thread", { baseState: "thread", overlay: false }), true);
 assert.equal(selectorMatchesScope("home config", { baseState: "home", overlay: false }), true);
