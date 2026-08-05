@@ -147,7 +147,9 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] [class~="group/
 /* Composer owns its blur; status strips attached to it stay translucent but do
    not start additional compositor passes. */
 html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
-  .composer-surface-chrome
+  .composer-surface-chrome,
+  [data-composer-surface-variant],
+  [data-ds-part="composer"]
 ) {
   background:
     linear-gradient(135deg, rgb(30 26 85 / .54), rgb(70 41 120 / .43) 58%, rgb(66 29 91 / .38)) !important;
@@ -165,6 +167,15 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   .dream-active-goal-strip
 ) {
   background: linear-gradient(100deg, rgb(32 84 255 / .18), rgb(55 40 116 / .66) 58%, rgb(255 69 200 / .10)) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  [data-composer-footer-responsive],
+  [data-ds-part="composer-toolbar"]
+) {
+  background: transparent !important;
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
@@ -234,6 +245,8 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   aside.app-shell-left-panel,
   [data-testid="app-shell-floating-left-panel"],
   .composer-surface-chrome,
+  [data-composer-surface-variant],
+  [data-ds-part="composer"],
   [role="dialog"],
   [role="menu"],
   [role="listbox"]
@@ -249,7 +262,9 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
 html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]:not(#codex-dream-skin-web-blur) :is(
   aside.app-shell-left-panel,
   [data-testid="app-shell-floating-left-panel"],
-  .composer-surface-chrome
+  .composer-surface-chrome,
+  [data-composer-surface-variant],
+  [data-ds-part="composer"]
 ) {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
@@ -321,6 +336,8 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
     main,
     header,
     .composer-surface-chrome,
+    [data-composer-surface-variant],
+    [data-ds-part="composer"],
     [role="dialog"],
     [role="menu"],
     [role="listbox"]
@@ -348,6 +365,8 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
     main,
     header,
     .composer-surface-chrome,
+    [data-composer-surface-variant],
+    [data-ds-part="composer"],
     [role="dialog"],
     [role="menu"],
     [role="listbox"]

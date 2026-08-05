@@ -1272,6 +1272,32 @@ assert.equal(configured.utilityClasses.has("dream-home-utility"), true);
 assert.equal(configured.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
 assert.equal(configured.utilityClasses.has("dream-home-utility"), false);
 
+const normalizedAccent = createFixture({
+  shellPresent: true,
+  homePresent: true,
+  utilityPresent: true,
+});
+vm.runInNewContext(buildPayload({
+  colorMode: "explicit",
+  explicitColorKeys: ["panel", "accent"],
+  colors: { panel: "#102030", accent: "#ff45c8" },
+}), normalizedAccent.context);
+assert.equal(normalizedAccent.rootStyles.get("--dream-accent"), "#ff45c8",
+  "The Windows renderer must consume a migrated explicit accent alongside partial current colors.");
+
+const adaptiveAccent = createFixture({
+  shellPresent: true,
+  homePresent: true,
+  utilityPresent: true,
+});
+vm.runInNewContext(buildPayload({
+  colorMode: "auto",
+  explicitColorKeys: [],
+  colors: { accent: "#7cff46" },
+}), adaptiveAccent.context);
+assert.equal(adaptiveAccent.rootStyles.get("--dream-accent"), "rgb(108 131 142)",
+  "An auto theme must not mistake the normalized fallback color for an explicit accent.");
+
 const headingOnlyHome = createFixture({
   shellPresent: true,
   homeHeadingPresent: true,

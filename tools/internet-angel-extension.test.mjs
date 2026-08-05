@@ -188,5 +188,15 @@ for (const durableClass of [
     `Acrylic must consume the renderer's durable .${durableClass} class`,
   );
 }
+assert.match(
+  acrylicCss,
+  /:not\(#codex-dream-skin-web-blur\)\s+:is\([^)]*\[data-composer-surface-variant\][^)]*\)\s*\{[^}]*backdrop-filter:\s*none\s*!important/s,
+  "Acrylic must disable Chromium blur on a modern-only Codex 26.730 composer.",
+);
+assert.match(
+  acrylicCss,
+  /:is\(\s*\[data-composer-footer-responsive\],[^)]*\)\s*\{[^}]*background:\s*transparent\s*!important[^}]*backdrop-filter:\s*none\s*!important/s,
+  "Acrylic must keep the responsive composer footer transparent and free of nested blur.",
+);
 
 console.log("PASS: Internet Angel overlays and animations share one three-platform runtime.");

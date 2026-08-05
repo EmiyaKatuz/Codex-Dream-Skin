@@ -123,7 +123,8 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-co
 
 /* Composer and the controls mounted inside its native hit-area geometry. */
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer"],
-html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [role="main"])) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) .composer-surface-chrome[data-angel-component="composer"] {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [role="main"])) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) .composer-surface-chrome[data-angel-component="composer"],
+html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [role="main"])) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [data-composer-surface-variant][data-angel-component="composer"] {
   position: relative !important;
   overflow: visible !important;
   color: var(--angel-paper) !important;
@@ -153,13 +154,21 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-co
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer"]:focus-within,
-html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [role="main"])) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) .composer-surface-chrome[data-angel-component="composer"]:focus-within {
+html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [role="main"])) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) .composer-surface-chrome[data-angel-component="composer"]:focus-within,
+html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [role="main"])) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [data-composer-surface-variant][data-angel-component="composer"]:focus-within {
   border-color: var(--angel-cyan) !important;
   outline-color: var(--angel-cyan) !important;
   box-shadow:
     inset 0 0 0 1px rgb(255 69 200 / .48),
     5px 5px 0 color-mix(in srgb, var(--angel-cyan) 56%, var(--angel-blue)),
     0 0 26px rgb(255 69 200 / .24) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer-footer"] {
+  color: inherit !important;
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer-input"],

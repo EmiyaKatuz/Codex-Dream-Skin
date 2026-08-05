@@ -158,6 +158,20 @@ try {
   );
   assert.deepEqual(browserSocket.sent[0].params, { discover: true });
 
+  const avatarOverlayTarget = {
+    targetId: "avatar-overlay",
+    type: "page",
+    url: "app://-/index.html?initialRoute=%2Favatar-overlay",
+  };
+  browserSocket.emit("message", {
+    data: JSON.stringify({
+      method: "Target.targetCreated",
+      params: { targetInfo: avatarOverlayTarget },
+    }),
+  });
+  assert.deepEqual(targetChanges, [],
+    "The compact avatar overlay must not wake main Codex target discovery.");
+
   const pageTarget = { targetId: "page-new", type: "page", url: "app://codex" };
   browserSocket.emit("message", {
     data: JSON.stringify({ method: "Target.targetCreated", params: { targetInfo: pageTarget } }),

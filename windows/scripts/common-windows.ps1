@@ -1339,10 +1339,47 @@ function Test-DreamSkinWebSocketUrl {
   }
 }
 
+function Get-DreamSkinUrlSearchParameterValue {
+  param([Parameter(Mandatory)][Uri]$Uri, [Parameter(Mandatory)][string]$Name)
+
+  $query = $Uri.Query
+  if ([string]::IsNullOrEmpty($query)) { return $null }
+  if ($query.StartsWith('?')) { $query = $query.Substring(1) }
+
+  # Match URLSearchParams.get(): split the raw query before percent-decoding,
+  # decode each name/value independently, compare names case-sensitively, and
+  # return the first matching value when a parameter is repeated.
+  foreach ($rawParameter in $query.Split([char]'&')) {
+    $separatorIndex = $rawParameter.IndexOf('=')
+    if ($separatorIndex -ge 0) {
+      $rawName = $rawParameter.Substring(0, $separatorIndex)
+      $rawValue = $rawParameter.Substring($separatorIndex + 1)
+    } else {
+      $rawName = $rawParameter
+      $rawValue = ''
+    }
+    $decodedName = [Uri]::UnescapeDataString($rawName.Replace('+', ' '))
+    if ($decodedName -ceq $Name) {
+      return [Uri]::UnescapeDataString($rawValue.Replace('+', ' '))
+    }
+  }
+  return $null
+}
+
 function Test-DreamSkinCdpPageTarget {
   param([AllowNull()][object]$Target, [int]$Port)
   if ($null -eq $Target -or "$($Target.type)" -cne 'page' -or
     "$($Target.url)" -notlike 'app://*') {
+    return $false
+  }
+  try {
+    $targetUrl = [Uri]"$($Target.url)"
+    $initialRoute = Get-DreamSkinUrlSearchParameterValue -Uri $targetUrl -Name 'initialRoute'
+    if ($targetUrl.Scheme -cne 'app' -or
+      $initialRoute -ceq '/avatar-overlay') {
+      return $false
+    }
+  } catch {
     return $false
   }
   if ($Target.id -isnot [string]) { return $false }

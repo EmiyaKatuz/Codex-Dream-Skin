@@ -20,6 +20,8 @@ const overlayCssPath = path.join(macosRoot, "assets", "internet-angel-extension.
 const overlayScriptPath = path.join(macosRoot, "assets", "internet-angel-extension.js");
 const windowsRoot = path.resolve(macosRoot, "..", "windows");
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
+const composerSelector = ':is(.composer-surface-chrome, [data-composer-surface-variant])';
+const composerFooterSelector = ':is([class*="_footer_"], [data-composer-footer-responsive])';
 
 async function isFile(filePath) {
   try {
@@ -65,6 +67,7 @@ assert.match(
 
 for (const component of [
   "composer",
+  "composer-footer",
   "context-strip",
   "goal-progress",
   "goal-step",
@@ -169,6 +172,12 @@ assert.ok(
     `[data-dream-art-wide="true"]:not(:has(${shellSelector} [role="main"])) ${shellSelector} .composer-surface-chrome[data-angel-component="composer"]`,
   ),
   "Task composer styling must outrank the canonical immersive reset without widening theme scope.",
+);
+assert.ok(
+  overlayCss.includes(
+    `[data-dream-art-wide="true"]:not(:has(${shellSelector} [role="main"])) ${shellSelector} [data-composer-surface-variant][data-angel-component="composer"]`,
+  ),
+  "The Codex 26.730 composer must receive the same immersive Internet Angel override.",
 );
 assert.match(overlayCss, /outline:\s*2px solid var\(--angel-blue\)\s*!important/);
 assert.ok(
@@ -396,19 +405,23 @@ class FixtureNode {
   }
 }
 
-function makeOverlayFixture() {
+function makeOverlayFixture({ modernComposer = false } = {}) {
   const nodes = [];
   const makeNode = (options) => {
     const node = new FixtureNode(options);
     nodes.push(node);
     return node;
   };
-  const composer = makeNode({ className: "composer-surface-chrome" });
+  const composer = makeNode({ className: modernComposer ? "_ComposerLayoutRoot_fixture" : "composer-surface-chrome" });
+  if (modernComposer) composer.setAttribute("data-composer-surface-variant", "default");
+  const composerFooter = makeNode({ className: modernComposer ? "flex items-center" : "_footer_fixture" });
+  if (modernComposer) composerFooter.setAttribute("data-composer-footer-responsive", "true");
   const editor = makeNode();
   const send = makeNode();
   const goalMode = makeNode({ text: "Goal" });
   goalMode.setAttribute("aria-label", "Goal mode");
   composer
+    .addQuery(composerFooterSelector, composerFooter)
     .addQuery('[contenteditable="true"]', editor)
     .addQuery("button", [send, goalMode]);
 
@@ -661,8 +674,7 @@ function makeOverlayFixture() {
   const body = makeNode();
   sidebar.parentElement = body;
   const documentQueries = new Map([
-    [".composer-surface-chrome", [composer]],
-    [".composer-surface-chrome button", [send, goalMode]],
+    [composerSelector, [composer]],
     [`${shellSelector} [class~="sticky"][class~="bottom-0"]`, [sticky]],
     ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [
       environment,
@@ -729,6 +741,7 @@ function makeOverlayFixture() {
   };
   return {
     composer,
+    composerFooter,
     context: {
       document,
       innerWidth: 1678,
@@ -856,12 +869,30 @@ vm.runInNewContext(
 );
 const component = (node) => node.getAttribute("data-angel-component");
 assert.equal(component(fixture.composer), "composer");
+assert.equal(component(fixture.composerFooter), "composer-footer");
 assert.equal(component(fixture.editor), "composer-input");
 assert.equal(component(fixture.send), "composer-action");
 assert.equal(component(fixture.contextStrip), "context-strip");
 assert.equal(component(fixture.goalStep), "goal-step");
 assert.equal(component(fixture.goalProgress), "goal-progress");
 assert.equal(component(fixture.goalMode), "goal-mode-trigger");
+
+const modernComposerFixture = makeOverlayFixture({ modernComposer: true });
+assert.equal(modernComposerFixture.composer.className.includes("composer-surface-chrome"), false,
+  "The modern-only fixture must not accidentally retain the legacy composer class.");
+assert.equal(modernComposerFixture.composerFooter.className.includes("_footer_"), false,
+  "The modern-only fixture must not accidentally retain the legacy footer class.");
+vm.runInNewContext(
+  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "true"),
+  modernComposerFixture.context,
+);
+assert.equal(component(modernComposerFixture.composer), "composer",
+  "Codex 26.730 data-composer-surface-variant must enter the Internet Angel lifecycle.");
+assert.equal(component(modernComposerFixture.composerFooter), "composer-footer",
+  "Codex 26.730 data-composer-footer-responsive must avoid a native footer paint.");
+assert.equal(component(modernComposerFixture.editor), "composer-input");
+assert.equal(component(modernComposerFixture.send), "composer-action");
+assert.equal(component(modernComposerFixture.goalMode), "goal-mode-trigger");
 assert.equal(component(fixture.environment), "environment");
 assert.equal(component(fixture.environmentSection), "environment-section");
 assert.equal(component(fixture.environmentHeader), "environment-header");

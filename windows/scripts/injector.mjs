@@ -310,6 +310,10 @@ function isValidCdpPageTarget(item, port) {
   if (item?.type !== "page" || !item.url?.startsWith("app://") || typeof item.id !== "string" ||
       !BROWSER_ID_PATTERN.test(item.id) || !item.webSocketDebuggerUrl) return false;
   try {
+    const targetUrl = new URL(item.url);
+    if (targetUrl.protocol !== "app:" || targetUrl.searchParams.get("initialRoute") === "/avatar-overlay") {
+      return false;
+    }
     const debuggerUrl = new URL(validatedDebuggerUrl(item, port));
     return debuggerUrl.pathname === `/devtools/page/${item.id}`;
   } catch {
@@ -557,6 +561,13 @@ export async function connectBrowserIdentityAnchor(port, expectedBrowserId, onTa
     const pageTargetIds = new Set();
     const wakeForPage = (params) => {
       if (params.targetInfo?.type !== "page") return;
+      try {
+        const targetUrl = new URL(params.targetInfo.url);
+        if (targetUrl.protocol !== "app:" ||
+            targetUrl.searchParams.get("initialRoute") === "/avatar-overlay") return;
+      } catch {
+        return;
+      }
       pageTargetIds.add(params.targetInfo.targetId);
       onTargetChange(params.targetInfo);
     };
@@ -693,6 +704,9 @@ export async function loadTheme(themeDir) {
   const art = raw.art && typeof raw.art === "object" && !Array.isArray(raw.art) ? raw.art : {};
   const rawColors = raw.colors && typeof raw.colors === "object" && !Array.isArray(raw.colors)
     ? raw.colors : null;
+  const rawPalette = raw.palette && typeof raw.palette === "object" && !Array.isArray(raw.palette)
+    ? raw.palette : null;
+  const legacyAccent = normalizeThemeColor(rawPalette?.accent, null);
   const colorKeys = [
     "background", "panel", "panelAlt", "accent", "accentAlt", "secondary",
     "highlight", "text", "muted", "line",
@@ -701,7 +715,7 @@ export async function loadTheme(themeDir) {
     background: normalizeThemeColor(rawColors?.background, "#071116"),
     panel: normalizeThemeColor(rawColors?.panel, "#0b1a20"),
     panelAlt: normalizeThemeColor(rawColors?.panelAlt, "#10272c"),
-    accent: normalizeThemeColor(rawColors?.accent, "#7cff46"),
+    accent: normalizeThemeColor(rawColors?.accent, legacyAccent ?? "#7cff46"),
     accentAlt: normalizeThemeColor(rawColors?.accentAlt, "#b8ff3d"),
     secondary: normalizeThemeColor(rawColors?.secondary, "#36d7e8"),
     highlight: normalizeThemeColor(rawColors?.highlight, "#642a8c"),
@@ -709,6 +723,10 @@ export async function loadTheme(themeDir) {
     muted: normalizeThemeColor(rawColors?.muted, "#9ebdb3"),
     line: normalizeThemeColor(rawColors?.line, "rgba(124, 255, 70, .28)"),
   };
+  const explicitColorKeys = rawColors
+    ? colorKeys.filter((key) =>
+      Object.hasOwn(rawColors, key) || (key === "accent" && legacyAccent !== null))
+    : (legacyAccent !== null ? ["accent"] : []);
   const theme = {
     id: normalizeThemeText(raw.id, "custom", 80, "id", themePath),
     name: normalizeThemeText(raw.name, "Codex Dream Skin", 80, "name", themePath),
@@ -726,8 +744,8 @@ export async function loadTheme(themeDir) {
       safeArea: normalizedChoice(art.safeArea, "art.safeArea", THEME_CHOICES.safeArea, "auto"),
       taskMode: normalizedChoice(art.taskMode, "art.taskMode", THEME_CHOICES.taskMode, "auto"),
     },
-    colorMode: rawColors ? "explicit" : "auto",
-    explicitColorKeys: rawColors ? colorKeys.filter((key) => Object.hasOwn(rawColors, key)) : [],
+    colorMode: rawColors || legacyAccent ? "explicit" : "auto",
+    explicitColorKeys,
     colors,
   };
   const [themeStat, imageStat, safeCss] = await Promise.all([
@@ -2054,6 +2072,7 @@ if (path.resolve(process.argv[1] || "") === path.resolve(scriptPath)) {
     { ...validPageTarget, id: "other-page" },
     { ...validPageTarget, id: 123 },
     { ...validPageTarget, type: "other" },
+    { ...validPageTarget, url: "app://-/index.html?initialRoute=%2Favatar-overlay" },
   ];
   if (!valid || browserId !== "test-browser" || !isValidCdpPageTarget(validPageTarget, options.port) ||
       invalidPageTargets.some((item) => isValidCdpPageTarget(item, options.port))) {
@@ -2089,6 +2108,7 @@ if (path.resolve(process.argv[1] || "") === path.resolve(scriptPath)) {
       appearance: loaded.theme.appearance,
       colorMode: loaded.theme.colorMode,
       explicitColorKeys: loaded.theme.explicitColorKeys,
+      accent: loaded.theme.colors?.accent ?? null,
       hasColors: !!loaded.theme.colors && typeof loaded.theme.colors === "object",
       hasPalette: Object.hasOwn(loaded.theme, "palette"),
       art: loaded.theme.art,

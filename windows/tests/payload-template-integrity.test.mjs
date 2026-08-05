@@ -179,6 +179,44 @@ test("an ordinary theme name is unaffected by the fix", async () => {
   );
 });
 
+test("legacy palette accent migrates into the normalized colors contract", async () => {
+  const loaded = await buildWith({ palette: { accent: "#ff45c8" } });
+  const emitted = extractRendererArguments(loaded.payload).rawConfig;
+  assert.equal(Object.hasOwn(loaded.theme, "palette"), false);
+  assert.equal(Object.hasOwn(emitted, "palette"), false);
+  assert.equal(loaded.theme.colors.accent, "#ff45c8");
+  assert.equal(emitted.colors.accent, "#ff45c8");
+  assert.equal(loaded.theme.colorMode, "explicit");
+  assert.deepEqual(loaded.theme.explicitColorKeys, ["accent"]);
+  assert.deepEqual(Array.from(emitted.explicitColorKeys), ["accent"]);
+
+  const colorsWin = await buildWith({
+    palette: { accent: "#ff45c8" },
+    colors: { accent: "#2468ac" },
+  });
+  assert.equal(colorsWin.theme.colors.accent, "#2468ac",
+    "The current colors contract must take precedence over a legacy palette value.");
+  assert.deepEqual(colorsWin.theme.explicitColorKeys, ["accent"]);
+
+  const mergedContracts = await buildWith({
+    palette: { accent: "#ff45c8" },
+    colors: { panel: "#102030" },
+  });
+  const mergedEmitted = extractRendererArguments(mergedContracts.payload).rawConfig;
+  assert.equal(mergedContracts.theme.colors.accent, "#ff45c8");
+  assert.equal(mergedEmitted.colors.accent, "#ff45c8");
+  assert.deepEqual(mergedContracts.theme.explicitColorKeys, ["panel", "accent"],
+    "A legacy accent must remain explicit when a partial current colors object is also present.");
+  assert.deepEqual(Array.from(mergedEmitted.explicitColorKeys), ["panel", "accent"]);
+
+  const automatic = await buildWith({});
+  const automaticEmitted = extractRendererArguments(automatic.payload).rawConfig;
+  assert.equal(automatic.theme.colorMode, "auto");
+  assert.deepEqual(automatic.theme.explicitColorKeys, []);
+  assert.deepEqual(Array.from(automaticEmitted.explicitColorKeys), [],
+    "A theme without either color contract must retain automatic color semantics.");
+});
+
 test("Windows payload uses the same compiled Safe CSS cascade as macOS", async () => {
   const source = `[data-ds-part="sidebar"] {
   background-color: #123456;

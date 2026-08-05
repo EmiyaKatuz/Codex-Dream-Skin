@@ -17,6 +17,8 @@
   const SIDEBAR_SELECTOR = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
   const SETTINGS_CONTENT_SELECTOR = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
   const MESSAGE_SELECTOR = ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])';
+  const COMPOSER_SELECTOR = ':is(.composer-surface-chrome, [data-composer-surface-variant])';
+  const COMPOSER_TOOLBAR_SELECTOR = ':is(.composer-surface-chrome [class*="_footer_"], [data-composer-surface-variant] [data-composer-footer-responsive])';
   const CHROME_ID = "codex-dream-skin-chrome";
   const FALLBACK_PRESETS_ID = "codex-dream-skin-presets";
   const SIDEBAR_CHROME_ID = "codex-dream-sidebar-ornaments";
@@ -193,9 +195,15 @@
     const hasNumber = (candidate) =>
       (typeof candidate === "number" || (typeof candidate === "string" && candidate.trim() !== "")) &&
       Number.isFinite(Number(candidate));
-    const requestedAccent = typeof config?.palette?.accent === "string"
-      ? config.palette.accent.trim()
-      : "";
+    const explicitColorKeys = Array.isArray(config.explicitColorKeys)
+      ? new Set(config.explicitColorKeys)
+      : null;
+    const colorsAccentIsExplicit = typeof config?.colors?.accent === "string" &&
+      (explicitColorKeys?.has("accent") ||
+        (!explicitColorKeys && config.colorMode === "explicit"));
+    const requestedAccent = colorsAccentIsExplicit
+      ? config.colors.accent.trim()
+      : (typeof config?.palette?.accent === "string" ? config.palette.accent.trim() : "");
     const safeAccent = /^(?:#[\da-f]{3,8}|(?:rgb|hsl|oklch|oklab)\([^;{}]{1,96}\))$/i.test(requestedAccent)
       ? requestedAccent
       : null;
@@ -632,8 +640,9 @@
   ];
 
   const writePresetToComposer = (prompt) => {
-    const editor = document.querySelector(
-      '.dream-home .composer-surface-chrome .ProseMirror[contenteditable="true"], .dream-home .composer-surface-chrome [contenteditable="true"]',
+    const composer = document.querySelector(`.dream-home ${COMPOSER_SELECTOR}`);
+    const editor = composer?.querySelector(
+      '.ProseMirror[contenteditable="true"], [contenteditable="true"]',
     );
     if (!editor) return false;
     editor.focus();
@@ -764,7 +773,7 @@
   const syncChromeGeometry = (chrome, shellMain, home) => {
     if (!chrome || !shellMain) return;
     const mainBox = shellMain.getBoundingClientRect?.();
-    const composerBox = home?.querySelector?.(".composer-surface-chrome")?.getBoundingClientRect?.();
+    const composerBox = home?.querySelector?.(COMPOSER_SELECTOR)?.getBoundingClientRect?.();
     if (mainBox?.width > 0 && mainBox?.height > 0) {
       const setGeometryProperty = (property, value) => {
         if (chrome.style?.getPropertyValue?.(property) !== value) {
@@ -806,7 +815,7 @@
       .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
   };
   const findGenericComposers = () => {
-    if (all(".composer-surface-chrome").length) return null;
+    if (all(COMPOSER_SELECTOR).length) return null;
     const main = resolvedMain();
     const owners = new Set();
     for (const input of genericInputs()) {
@@ -861,8 +870,8 @@
     add("project-list", all(".group\\/project-selector"));
     add("thread", all(".thread-scroll-container"));
     add("message", all(MESSAGE_SELECTOR));
-    add("composer", [...all(".composer-surface-chrome"), ...fallbackComposer()]);
-    add("composer-toolbar", all('.composer-surface-chrome [class*="_footer_"]'));
+    add("composer", [...all(COMPOSER_SELECTOR), ...fallbackComposer()]);
+    add("composer-toolbar", all(COMPOSER_TOOLBAR_SELECTOR));
     add("dialog", all('[role="dialog"]'));
     const homeHero = document.querySelector?.('[data-feature="game-source"]') ??
       document.querySelector?.('[data-testid="home-icon"]')?.parentElement;
@@ -880,8 +889,8 @@
 
   const incrementalSafePartRules = [
     ["message", MESSAGE_SELECTOR],
-    ["composer-toolbar", '.composer-surface-chrome [class*="_footer_"]'],
-    ["composer", '.composer-surface-chrome, [class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]'],
+    ["composer-toolbar", COMPOSER_TOOLBAR_SELECTOR],
+    ["composer", `${COMPOSER_SELECTOR}, [class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]`],
     ["thread", ".thread-scroll-container"],
     ["dialog", '[role="dialog"]'],
     ["header", HEADER_TINT_SELECTOR],
@@ -1253,7 +1262,7 @@
     goalStepControl?.classList.add("dream-goal-step");
     goalProgressGroup?.classList.add("dream-goal-progress-group");
     const goalModePattern = /^(?:\u76ee\u6807|goal)$/i;
-    const goalModeButton = [...(document.querySelectorAll('.composer-surface-chrome button') || [])]
+    const goalModeButton = [...(document.querySelectorAll(`${COMPOSER_SELECTOR} button`) || [])]
       .find((button) => /\u76ee\u6807|goal/i.test(button.getAttribute("aria-label") || "")
         || goalModePattern.test((button.textContent || "").trim()));
     goalModeButton?.classList.add("dream-goal-mode-trigger");
@@ -1450,7 +1459,7 @@
 
     const sideChatAside = [...document.querySelectorAll(`${SHELL_MAIN_SELECTOR} aside`)]
       .find((candidate) => candidate.querySelector?.(".thread-scroll-container")
-        && candidate.querySelector?.(".composer-surface-chrome"));
+        && candidate.querySelector?.(COMPOSER_SELECTOR));
     const sideChatPanel = sideChatAside?.querySelector?.(':scope > [class*="contain:layout_paint"]')
       || sideChatAside?.querySelector?.('[class*="contain:layout_paint"]')
       || sideChatAside?.firstElementChild;
@@ -1643,7 +1652,7 @@
     if (changedClipHost && changedClipHost !== changedPill) changedClipHost.classList.add(CHANGES_CLIP_HOST_CLASS);
 
     if (summaryPanel) {
-      const composerBarrier = document.querySelector(".composer-surface-chrome");
+      const composerBarrier = document.querySelector(COMPOSER_SELECTOR);
       const barrier = changedBarrier || composerBarrier;
       const panelBox = summaryPanel.getBoundingClientRect?.();
       const barrierBox = barrier?.getBoundingClientRect?.();
@@ -2079,7 +2088,7 @@
       ? event.target
       : event?.target?.parentElement;
     const composerInteraction = Boolean(target?.closest?.(
-      '.composer-surface-chrome, [contenteditable="true"], textarea, input',
+      `${COMPOSER_SELECTOR}, [contenteditable="true"], textarea, input`,
     ));
     const scrollingSurface = Boolean(target?.closest?.(
       `${SIDEBAR_SELECTOR}, .thread-scroll-container, [class~="overflow-y-auto"]`,

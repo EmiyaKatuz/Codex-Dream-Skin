@@ -6,6 +6,10 @@ import vm from "node:vm";
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
 const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
 const messageSelector = ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])';
+const composerSelector = ':is(.composer-surface-chrome, [data-composer-surface-variant])';
+const composerToolbarSelector = ':is(.composer-surface-chrome [class*="_footer_"], [data-composer-surface-variant] [data-composer-footer-responsive])';
+const composerEditorSelector = `${composerSelector} .ProseMirror[contenteditable="true"], ` +
+  `${composerSelector} [contenteditable="true"]`;
 
 function styleDeclaration() {
   const values = new Map();
@@ -34,7 +38,7 @@ function classList(initial) {
 function makeFixture({
   nativeAppearance = "dark", settings = false, settingsPanel = false, adopted = true,
   generic = false, genericComposer = true, genericHome = false, genericSearch = false,
-  modernMessages = false,
+  modernMessages = false, modernComposerEditor = false,
 } = {}) {
   const attrs = new Map();
   const rootStyle = styleDeclaration();
@@ -186,6 +190,11 @@ function makeFixture({
     partFixtures.assistantMessage = makeDomNode("assistant-message", partFixtures.thread);
     partFixtures.composer = makeDomNode("composer", partFixtures.main);
     partFixtures.composerToolbar = makeDomNode("composer-toolbar", partFixtures.composer);
+    if (modernComposerEditor) {
+      partFixtures.composer.setAttribute("data-composer-surface-variant", "default");
+      partFixtures.composerEditor = makeDomNode("composer-editor", partFixtures.composer);
+      partFixtures.composerEditor.setAttribute("contenteditable", "true");
+    }
     register("aside.app-shell-left-panel", partFixtures.sidebar);
     register(shellSelector, partFixtures.main);
     register(headerSelector, partFixtures.header);
@@ -200,8 +209,9 @@ function makeFixture({
       register(messageSelector, partFixtures.userMessage);
       register(messageSelector, partFixtures.assistantMessage);
     }
-    register(".composer-surface-chrome", partFixtures.composer);
-    register('.composer-surface-chrome [class*="_footer_"]', partFixtures.composerToolbar);
+    register(composerSelector, partFixtures.composer);
+    register(composerToolbarSelector, partFixtures.composerToolbar);
+    if (modernComposerEditor) register(composerEditorSelector, partFixtures.composerEditor);
   }
   const makeStyleNode = () => {
     const node = {
@@ -609,6 +619,28 @@ export async function runRendererRuntimeTest(assetRoot) {
   assert.equal(defaultAngelHome.attrs.get("data-dream-theme"), "internet-angel");
   assert.equal(defaultAngelHome.nodes.has("chatgpt-internet-angel-deck"), true);
   assert.equal(defaultAngelHome.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+
+  const modernComposerHome = makeFixture({
+    nativeAppearance: "dark",
+    modernComposerEditor: true,
+  });
+  vm.runInNewContext(
+    modernComposerHome.payloadFor({ id: "preset-internet-angel-default" }),
+    modernComposerHome.context,
+  );
+  assert.equal(modernComposerHome.partFixtures.composer.className, "",
+    "The modern composer fixture must not carry the legacy composer class.");
+  assert.equal(
+    modernComposerHome.partFixtures.composer.getAttribute("data-composer-surface-variant"),
+    "default",
+  );
+  const modernDeck = modernComposerHome.nodes.get("chatgpt-internet-angel-deck");
+  const modernPresetButton = modernDeck?.querySelectorAll("button.angel-preset-card")?.[0];
+  assert.equal(typeof modernPresetButton?.listeners?.get("click"), "function");
+  modernPresetButton.listeners.get("click")();
+  assert.notEqual(modernComposerHome.partFixtures.composerEditor.textContent, "",
+    "A preset card must write through the new data-attribute-only composer contract.");
+  assert.equal(modernComposerHome.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
 
   const namedCustomHome = makeFixture({ nativeAppearance: "dark", homeDeck: true });
   vm.runInNewContext(
