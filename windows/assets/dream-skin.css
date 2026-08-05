@@ -6324,6 +6324,14 @@ html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [cla
   background: transparent !important;
 }
 
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="file-diff"] div {
+  background: transparent !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="file-diff"] [class*="codeBlock"] {
+  background: color-mix(in oklab, var(--dream-surface) 42%, transparent) !important;
+}
+
 /* Side chat and generic composers: remove nested inner frames. */
 html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutFooter_"],
 html.codex-dream-skin [data-ds-part="composer"] [class*="_RichTextInput_"],
@@ -6334,7 +6342,10 @@ html.codex-dream-skin [data-ds-part="composer"] [class*="rounded-2xl"] {
   box-shadow: none !important;
 }
 
-html.codex-dream-skin [class~="scroll-mt-4"] {
+html.codex-dream-skin [class~="scroll-mt-4"],
+html.codex-dream-skin [class~="scroll-mt-4"][data-message-author-role],
+html.codex-dream-skin [class~="scroll-mt-4"][data-local-conversation-user-anchor],
+html.codex-dream-skin [class~="scroll-mt-4"][data-local-conversation-final-assistant] {
   background: transparent !important;
   border: 0 !important;
   border-radius: 0 !important;

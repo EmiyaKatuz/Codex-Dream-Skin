@@ -809,7 +809,8 @@
         return owner;
       }
     }
-    return null;
+    return all('[class*="ComposerLayoutRoot" i]')
+      .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
   };
   const safeCssPartNodes = new Set();
   const refreshSafeCssParts = () => {

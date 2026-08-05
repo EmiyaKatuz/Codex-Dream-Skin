@@ -50,6 +50,11 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
   nested inner frames inside generic/side-chat composers, and neutralized
   native black project/diff surfaces in the right sidebar. Live CDP reports no
   `rgb(0,0,0)`/`rgb(24,24,24)` surfaces in the right sidebar after the fix.
+- [complete] Second follow-up: `scroll-mt-4` message wrappers that carry
+  `data-message-author-role`/conversation anchors are now transparent and
+  borderless, so the main thread and side chat no longer draw a second frame
+  around the real message bubble; composer fallback also marks
+  `ComposerLayoutRoot` directly when no input is detected.
 
 ## Sync latest upstream and publish fork v1.5.12
 

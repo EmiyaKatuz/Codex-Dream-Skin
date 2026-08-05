@@ -34,13 +34,14 @@ assert.ok(template.includes("hasGenericComposerNode")
   && template.includes("const sidebarInteraction = Boolean(event?.target?.closest?.('aside'))")
   && template.includes("scheduleEnsure(64)")
   && template.includes('[contenteditable], [role="textbox"], [data-placeholder]')
-  && template.includes("node.closest?.('[class*=\"ComposerLayout\" i]')"),
+  && template.includes("node.closest?.('[class*=\"ComposerLayout\" i]')")
+  && template.includes('all(\'[class*="ComposerLayoutRoot" i]\')'),
   "The Windows renderer must re-run classification and mark the outermost composer, including side chat.");
 assert.ok(css.includes('html.codex-dream-skin [data-ds-part="composer"]')
   && css.includes("aside:not(.app-shell-left-panel)")
   && css.includes("color-mix(in oklab, var(--dream-surface) 68%, transparent)")
   && css.includes('[class*="file-diff"]')
-  && css.includes('html.codex-dream-skin [class~="scroll-mt-4"]')
+  && css.includes('html.codex-dream-skin [class~="scroll-mt-4"][data-message-author-role]')
   && css.includes('[data-ds-part="composer"] [class*="_ComposerLayoutFooter_"]'),
   "Windows CSS must style generic/side-chat composers, right sidebar, and keep the wallpaper visible.");
 assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
