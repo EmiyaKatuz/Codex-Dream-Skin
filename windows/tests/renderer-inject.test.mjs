@@ -25,11 +25,19 @@ assert.ok(template.includes("const missingL1 = [")
   "The Windows renderer scope must expose missingL1 so live verification can accept a generic composer.");
 assert.ok(template.includes("hasGenericComposerNode")
   && template.includes('[class*="composer" i]')
-  && template.includes("scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)"),
-  "The Windows renderer must re-run classification when a generic composer mounts.");
+  && template.includes("scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)")
+  && template.includes("composerOwnerSelector")
+  && template.includes("owner.parentElement?.closest?.(composerOwnerSelector)")
+  && template.includes("owner.closest?.('aside')")
+  && template.includes("const genericComposer = findGenericComposer()")
+  && template.includes("safeCssPartNodes.add(genericComposer)")
+  && template.includes("const sidebarInteraction = Boolean(event?.target?.closest?.('aside'))")
+  && template.includes("scheduleEnsure(64)"),
+  "The Windows renderer must re-run classification and mark the outermost composer, including side chat.");
 assert.ok(css.includes('html.codex-dream-skin [data-ds-part="composer"]')
+  && css.includes("aside:not(.app-shell-left-panel)")
   && css.includes("color-mix(in oklab, var(--dream-surface) 68%, transparent)"),
-  "Windows CSS must style the generic composer part and keep the wallpaper visible on task routes.");
+  "Windows CSS must style generic/side-chat composers, right sidebar, and keep the wallpaper visible.");
 assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
   && css.includes("data-app-shell-main-content-top-fade")
   && css.includes("data-local-conversation-user-anchor")

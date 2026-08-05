@@ -13,7 +13,9 @@ function Assert-DreamSkinPatchSource {
   $commonPath = Join-Path $Root 'scripts\common-windows.ps1'
   $startPath = Join-Path $Root 'scripts\start-dream-skin.ps1'
   $versionPath = Join-Path $Root 'VERSION'
-  foreach ($requiredPath in @($commonPath, $startPath, $versionPath)) {
+  $rendererPath = Join-Path $Root 'assets\renderer-inject.js'
+  $cssPath = Join-Path $Root 'assets\dream-skin.css'
+  foreach ($requiredPath in @($commonPath, $startPath, $versionPath, $rendererPath, $cssPath)) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
       throw "Patch source is incomplete: $requiredPath"
     }
@@ -21,9 +23,15 @@ function Assert-DreamSkinPatchSource {
 
   $commonText = Read-DreamSkinUtf8File -Path $commonPath
   $startText = Read-DreamSkinUtf8File -Path $startPath
+  $rendererText = Read-DreamSkinUtf8File -Path $rendererPath
+  $cssText = Read-DreamSkinUtf8File -Path $cssPath
   if (-not $commonText.Contains('Resolve-DreamSkinStartPort') -or
-    -not $startText.Contains('Resolve-DreamSkinStartPort -Port $Port')) {
-    throw 'Patch source does not contain the stale CDP listener fix.'
+    -not $startText.Contains('Resolve-DreamSkinStartPort -Port $Port') -or
+    -not $rendererText.Contains('composerOwnerSelector') -or
+    -not $rendererText.Contains("owner.closest?.('aside')") -or
+    -not $cssText.Contains('[data-ds-part="composer"]') -or
+    -not $cssText.Contains('aside:not(.app-shell-left-panel)')) {
+    throw 'Patch source does not contain the required Codex 26.730 runtime fixes.'
   }
 }
 
@@ -34,6 +42,8 @@ $sourceRoot = [System.IO.Path]::GetFullPath($SourceRoot)
 $commonSourcePath = Join-Path $sourceRoot 'scripts\common-windows.ps1'
 $startSourcePath = Join-Path $sourceRoot 'scripts\start-dream-skin.ps1'
 $patchSourcePath = Join-Path $sourceRoot 'scripts\patch-dream-skin.ps1'
+$rendererSourcePath = Join-Path $sourceRoot 'assets\renderer-inject.js'
+$cssSourcePath = Join-Path $sourceRoot 'assets\dream-skin.css'
 
 . (Join-Path $sourceRoot 'scripts\common-windows.ps1')
 . (Join-Path $sourceRoot 'scripts\theme-windows.ps1')
@@ -56,17 +66,24 @@ Assert-DreamSkinPatchSource -Root $sourceRoot
 $installedCommon = Join-Path $engine.Scripts 'common-windows.ps1'
 $installedStart = Join-Path $engine.Scripts 'start-dream-skin.ps1'
 $installedPatch = Join-Path $engine.Scripts 'patch-dream-skin.ps1'
+$installedRenderer = Join-Path $engine.Root 'assets\renderer-inject.js'
+$installedCss = Join-Path $engine.Root 'assets\dream-skin.css'
 $alreadyPatched = (Test-Path -LiteralPath $installedCommon -PathType Leaf) -and
   (Test-Path -LiteralPath $installedStart -PathType Leaf) -and
   (Test-Path -LiteralPath $installedPatch -PathType Leaf) -and
+  (Test-Path -LiteralPath $installedRenderer -PathType Leaf) -and
+  (Test-Path -LiteralPath $installedCss -PathType Leaf) -and
   (Read-DreamSkinUtf8File -Path $installedCommon).Contains('Resolve-DreamSkinStartPort') -and
-  (Read-DreamSkinUtf8File -Path $installedStart).Contains('Resolve-DreamSkinStartPort -Port $Port')
+  (Read-DreamSkinUtf8File -Path $installedStart).Contains('Resolve-DreamSkinStartPort -Port $Port') -and
+  (Read-DreamSkinUtf8File -Path $installedPatch).Contains('assets\renderer-inject.js') -and
+  (Read-DreamSkinUtf8File -Path $installedRenderer).Contains('composerOwnerSelector') -and
+  (Read-DreamSkinUtf8File -Path $installedCss).Contains('aside:not(.app-shell-left-panel)')
 if ($alreadyPatched) {
-  Write-Host "The installed Dream Skin runtime at $($engine.Root) already contains the stale-listener fix."
+  Write-Host "The installed Dream Skin runtime at $($engine.Root) already contains the Codex 26.730 fixes."
   return
 }
 if ($DryRun) {
-  Write-Host "Dry run: would patch $installedCommon, $installedStart, and $installedPatch from $sourceRoot."
+  Write-Host "Dry run: would patch launcher scripts and renderer/css assets from $sourceRoot."
   return
 }
 
@@ -76,13 +93,19 @@ try {
   $stagingRoot = Join-Path $stateRoot ".engine-patch-$token"
   $backupRoot = Join-Path $stateRoot ".engine-patch-backup-$token"
   New-Item -ItemType Directory -Path (Join-Path $stagingRoot 'scripts') -Force | Out-Null
+  New-Item -ItemType Directory -Path (Join-Path $stagingRoot 'assets') -Force | Out-Null
   New-Item -ItemType Directory -Path (Join-Path $backupRoot 'scripts') -Force | Out-Null
+  New-Item -ItemType Directory -Path (Join-Path $backupRoot 'assets') -Force | Out-Null
   $stagedCommon = Join-Path $stagingRoot 'scripts\common-windows.ps1'
   $stagedStart = Join-Path $stagingRoot 'scripts\start-dream-skin.ps1'
   $stagedPatch = Join-Path $stagingRoot 'scripts\patch-dream-skin.ps1'
+  $stagedRenderer = Join-Path $stagingRoot 'assets\renderer-inject.js'
+  $stagedCss = Join-Path $stagingRoot 'assets\dream-skin.css'
   Copy-Item -LiteralPath $commonSourcePath -Destination $stagedCommon -Force
   Copy-Item -LiteralPath $startSourcePath -Destination $stagedStart -Force
   Copy-Item -LiteralPath $patchSourcePath -Destination $stagedPatch -Force
+  Copy-Item -LiteralPath $rendererSourcePath -Destination $stagedRenderer -Force
+  Copy-Item -LiteralPath $cssSourcePath -Destination $stagedCss -Force
   foreach ($stagedScript in @($stagedCommon, $stagedStart, $stagedPatch)) {
     Unblock-File -LiteralPath $stagedScript -ErrorAction Stop
   }
@@ -105,6 +128,18 @@ try {
       Source = $patchSourcePath
       Staged = $stagedPatch
       Installed = $installedPatch
+    },
+    @{
+      Relative = 'assets\renderer-inject.js'
+      Source = $rendererSourcePath
+      Staged = $stagedRenderer
+      Installed = $installedRenderer
+    },
+    @{
+      Relative = 'assets\dream-skin.css'
+      Source = $cssSourcePath
+      Staged = $stagedCss
+      Installed = $installedCss
     }
   )
   foreach ($pair in $patchPairs) {

@@ -11,7 +11,9 @@ try {
   $stateRoot = Join-Path $temporaryRoot 'state'
   $engineRoot = Join-Path $stateRoot 'engine'
   $scriptsRoot = Join-Path $engineRoot 'scripts'
+  $assetsRoot = Join-Path $engineRoot 'assets'
   New-Item -ItemType Directory -Path $scriptsRoot -Force | Out-Null
+  New-Item -ItemType Directory -Path $assetsRoot -Force | Out-Null
   [System.IO.File]::WriteAllText(
     (Join-Path $engineRoot 'VERSION'),
     "1.5.9`r`n",
@@ -45,21 +47,33 @@ try {
   $sourceStart = Join-Path $Root 'scripts\start-dream-skin.ps1'
   $sourcePatch = Join-Path $Root 'scripts\patch-dream-skin.ps1'
   $installedPatch = Join-Path $scriptsRoot 'patch-dream-skin.ps1'
+  $sourceRenderer = Join-Path $Root 'assets\renderer-inject.js'
+  $sourceCss = Join-Path $Root 'assets\dream-skin.css'
+  $installedRenderer = Join-Path $assetsRoot 'renderer-inject.js'
+  $installedCss = Join-Path $assetsRoot 'dream-skin.css'
   if ((Get-FileHash -LiteralPath $installedCommon -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceCommon -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedStart -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceStart -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedPatch -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourcePatch -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedRenderer -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceRenderer -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedCss -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceCss -Algorithm SHA256).Hash -or
     [System.IO.File]::ReadAllText($sentinel) -cne 'keep') {
-    throw 'Runtime patch did not replace the launcher files and patch script while preserving the sentinel file.'
+    throw 'Runtime patch did not replace the launcher files, renderer/css assets, and patch script while preserving the sentinel file.'
   }
 
   & $patchScript -SourceRoot $Root -StateRoot $stateRoot
   if ((Get-FileHash -LiteralPath $installedCommon -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceCommon -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedStart -Algorithm SHA256).Hash -cne
-      (Get-FileHash -LiteralPath $sourceStart -Algorithm SHA256).Hash) {
+      (Get-FileHash -LiteralPath $sourceStart -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedRenderer -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceRenderer -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedCss -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceCss -Algorithm SHA256).Hash) {
     throw 'Applying the runtime patch twice changed the already patched files.'
   }
 
@@ -72,4 +86,4 @@ try {
   Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output 'PASS: runtime patch replaces launcher files in place and preserves state and themes.'
+Write-Output 'PASS: runtime patch replaces launcher files and renderer/css assets in place and preserves state and themes.'

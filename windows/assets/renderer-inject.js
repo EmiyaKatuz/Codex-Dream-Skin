@@ -773,6 +773,42 @@
     chrome.classList.toggle("dream-home-shell", Boolean(home));
   };
 
+  const all = (selector) => {
+    try { return [...document.querySelectorAll(selector)]; } catch { return []; }
+  };
+  const genericInputs = () => all('textarea, [contenteditable="true"], [role="textbox"]')
+    .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'));
+  const composerOwnerSelector =
+    '[data-testid*="composer" i], [data-testid*="prompt" i], ' +
+    '[class*="composer" i], [class*="prompt" i]';
+  const resolvedMain = () => {
+    const exact = all(SHELL_MAIN_SELECTOR)[0];
+    if (exact) return exact;
+    for (const input of genericInputs()) {
+      const main = input.closest?.('main, [role="main"]');
+      if (main && typeof main.setAttribute === "function") return main;
+    }
+    return all('main, [role="main"]')
+      .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
+  };
+  const findGenericComposer = () => {
+    if (all(".composer-surface-chrome").length) return null;
+    const main = resolvedMain();
+    for (const input of genericInputs()) {
+      if (main && !main.contains?.(input) &&
+        !input.closest?.('aside, [class*="ComposerLayout" i]')) continue;
+      let owner = input.closest?.(composerOwnerSelector);
+      while (owner) {
+        const next = owner.parentElement?.closest?.(composerOwnerSelector);
+        if (!next || next === owner) break;
+        owner = next;
+      }
+      if (owner && (!main || main.contains?.(owner) || owner.closest?.('aside'))) {
+        return owner;
+      }
+    }
+    return null;
+  };
   const safeCssPartNodes = new Set();
   const refreshSafeCssParts = () => {
     const desired = new Map();
@@ -782,21 +818,6 @@
           desired.set(node, part);
         }
       }
-    };
-    const all = (selector) => {
-      try { return [...document.querySelectorAll(selector)]; } catch { return []; }
-    };
-    const genericInputs = () => all('textarea, [contenteditable="true"], [role="textbox"]')
-      .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'));
-    const resolvedMain = () => {
-      const exact = all(SHELL_MAIN_SELECTOR)[0];
-      if (exact) return exact;
-      for (const input of genericInputs()) {
-        const main = input.closest?.('main, [role="main"]');
-        if (main && typeof main.setAttribute === "function") return main;
-      }
-      return all('main, [role="main"]')
-        .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
     };
     const fallbackSidebar = () => {
       if (all(SIDEBAR_SELECTOR).length) return [];
@@ -812,17 +833,8 @@
       return candidate ? [candidate] : [];
     };
     const fallbackComposer = () => {
-      if (all(".composer-surface-chrome").length) return [];
-      const main = resolvedMain();
-      for (const input of genericInputs()) {
-        if (main && !main.contains?.(input)) continue;
-        const owner = input.closest?.(
-          '[data-testid*="composer" i], [data-testid*="prompt" i], ' +
-          '[class*="composer" i], [class*="prompt" i]',
-        );
-        if (owner && (!main || main.contains?.(owner))) return [owner];
-      }
-      return [];
+      const owner = findGenericComposer();
+      return owner ? [owner] : [];
     };
     add("root", [document.documentElement]);
     add("sidebar", [...all(SIDEBAR_SELECTOR), ...fallbackSidebar()]);
@@ -863,6 +875,13 @@
   const incrementalSafePartSelector = incrementalSafePartRules
     .map(([, selector]) => selector).join(", ");
   const classifySafeCssParts = (records) => {
+    const genericComposer = findGenericComposer();
+    if (genericComposer) {
+      if (genericComposer.getAttribute?.(PART_ATTR) !== "composer") {
+        genericComposer.setAttribute?.(PART_ATTR, "composer");
+      }
+      safeCssPartNodes.add(genericComposer);
+    }
     const roots = records
       .flatMap((record) => [...(record.addedNodes || [])])
       .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
@@ -1968,7 +1987,7 @@
     if (scheduler.navigationTimer) clearTimeout(scheduler.navigationTimer);
     scheduler.navigationTimer = setTimeout(() => {
       scheduler.navigationTimer = null;
-      scheduleEnsure();
+      scheduleEnsure(64);
     }, 48);
   };
   const navigationHandler = (event) => {
@@ -1981,7 +2000,8 @@
       '[data-settings-panel-slug], aside.app-shell-left-panel button, ' +
       'button[aria-controls], button[aria-expanded], button[aria-haspopup]',
     );
-    if (target) scheduleNavigationRefresh();
+    const sidebarInteraction = Boolean(event?.target?.closest?.('aside'));
+    if (target || sidebarInteraction) scheduleNavigationRefresh();
   };
   const interactionHandler = (event) => {
     const target = event?.target?.nodeType === 1

@@ -6268,7 +6268,7 @@ html.codex-dream-skin [data-ds-part="composer"] {
       color-mix(in oklab, var(--dream-surface-raised) 86%, transparent),
       color-mix(in oklab, var(--dream-surface-raised) 76%, var(--dream-accent) 5%)) !important;
   border: 1px solid color-mix(in oklab, var(--dream-line-soft) 92%, var(--dream-accent) 8%) !important;
-  border-radius: 22px !important;
+  border-radius: 25px !important;
   box-shadow: var(--dream-shadow) !important;
   backdrop-filter: blur(12px) saturate(1.08) !important;
 }
@@ -6295,6 +6295,24 @@ html.codex-dream-skin [data-ds-part="composer"]:focus-within {
 html.codex-dream-skin [data-ds-part="composer"] .placeholder,
 html.codex-dream-skin [data-ds-part="composer"] [data-placeholder] {
   color: var(--dream-text-muted) !important;
+}
+
+/* Right sidebar and side-chat surfaces must not stay native black. */
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) {
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface) 78%, transparent) !important;
+  border-left: 1px solid var(--dream-line-soft) !important;
+  backdrop-filter: blur(10px) saturate(1.05) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class~="bg-token-main-surface-primary"] {
+  background: transparent !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class~="rounded-lg"],
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class~="rounded-md"] {
+  background: color-mix(in oklab, var(--dream-surface-raised) 62%, transparent) !important;
+  border: 1px solid var(--dream-line-soft) !important;
 }
 
 /* Keep the Internet Angel wallpaper visible on task routes while preserving reading. */

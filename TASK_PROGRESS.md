@@ -28,6 +28,25 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
   semi-transparent task `main` gradient, and a themed generic composer;
   `verify-dream-skin.ps1` passes with `genericInput` visible.
 
+## Codex 26.730 side chat, project preview, and persistent composer
+
+- [diagnosed] The right sidebar and side-chat composer kept native black
+  `bg-token-main-surface-primary`, the side composer was outside the main
+  surface and never got `data-ds-part="composer"`, and switching conversations
+  mounted a new composer that was not reclassified until a manual refresh.
+- [complete] The Windows renderer now marks the outermost generic composer
+  container, accepts side-chat composers inside `aside`, re-establishes the
+  part on every mutation batch, and schedules a fast refresh when the user
+  clicks inside any sidebar. Windows CSS now themes the right sidebar and its
+  inner token surfaces instead of leaving them black.
+- [verified] Live CDP: switching between conversations and back keeps
+  `data-ds-part="composer"` on `_ComposerLayoutRoot_yeer6_3` within ~900ms;
+  the right sidebar background is themed and its `bg-token-main-surface-primary`
+  children are transparent.
+- [complete] Built `release/CodexDreamSkin-Setup-v1.5.12.exe` and
+  `release/CodexDreamSkin-QuickFix-v1.5.12.zip`; the quick-fix package contains
+  a runnable `fix.ps1` plus the patched renderer/css/launcher files.
+
 ## Sync latest upstream and publish fork v1.5.12
 
 - [goal] Merge `upstream/main` at `0a727a539fc9cd298ad4827c6cefbd4a2192db79` into the fork, resolve conflicts in favor of this repository's INTERNET ANGEL, Linux, floating-sidebar, Windows Acrylic and exact-process/HWND architecture, then publish a verified `v1.5.12` Release.
