@@ -58,6 +58,10 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
 - [complete] Third follow-up: right-sidebar/diff theming no longer depends on
   being inside the main surface, so project previews rendered in any non-left
   `aside` (outside dialogs) are themed instead of black.
+- [complete] Fourth follow-up: `dream-terminal-panel` (the right side chat /
+  terminal surface) is now translucent and borderless, and is included in the
+  generic composer fallback so its bottom input is no longer a separate black
+  frame.
 
 ## Sync latest upstream and publish fork v1.5.12
 

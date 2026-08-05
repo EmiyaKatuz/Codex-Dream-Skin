@@ -782,7 +782,7 @@
       node.matches?.('textarea, [contenteditable], [role="textbox"]'));
   const composerOwnerSelector =
     '[data-testid*="composer" i], [data-testid*="prompt" i], ' +
-    '[class*="composer" i], [class*="prompt" i]';
+    '[class*="composer" i], [class*="prompt" i], [class*="terminal-panel" i]';
   const resolvedMain = () => {
     const exact = all(SHELL_MAIN_SELECTOR)[0];
     if (exact) return exact;
@@ -809,7 +809,7 @@
         return owner;
       }
     }
-    return all('[class*="ComposerLayoutRoot" i]')
+    return all('[class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]')
       .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
   };
   const safeCssPartNodes = new Set();

@@ -6352,6 +6352,18 @@ html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [cla
   background: color-mix(in oklab, var(--dream-surface) 42%, transparent) !important;
 }
 
+html.codex-dream-skin .dream-terminal-panel {
+  background: color-mix(in oklab, var(--dream-surface) 55%, transparent) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+html.codex-dream-skin .dream-terminal-panel .thread-scroll-container {
+  background: transparent !important;
+}
+
 /* Side chat and generic composers: remove nested inner frames. */
 html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutFooter_"],
 html.codex-dream-skin [data-ds-part="composer"] [class*="_RichTextInput_"],
