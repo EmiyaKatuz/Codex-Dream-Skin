@@ -46,6 +46,23 @@ assert.match(sourceCss, /data-angel-component/);
 assert.match(sourceCss, /prefers-reduced-motion:\s*reduce/);
 assert.match(sourceScript, /__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__/);
 assert.match(sourceScript, /__CODEX_INTERNET_ANGEL_EXTENSION_STATE__/);
+assert.doesNotMatch(
+  sourceScript,
+  /addListener\(window,\s*["']transitionend["']/,
+  "visual transitions must not trigger a full-document reclassification",
+);
+assert.doesNotMatch(
+  sourceScript,
+  /const classify = \(\) => \{\s*clearMarks\(\);/,
+  "classification must reconcile markers instead of clearing and rebuilding them",
+);
+assert.match(
+  sourceScript,
+  /node\.getAttribute\?\.\(componentAttribute\) !== component/,
+  "classification must avoid unchanged marker writes",
+);
+assert.match(sourceScript, /compositionstart/);
+assert.match(sourceScript, /compositionend/);
 
 for (const platform of ["windows", "macos", "linux"]) {
   assert.match(
@@ -124,6 +141,52 @@ for (const [platform, loadPayload] of [
   );
   assert.match(loaded.payload, /__CODEX_INTERNET_ANGEL_EXTENSION_STATE__/);
   assert.doesNotMatch(loaded.payload, /__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__/);
+}
+
+const windowsPreset = path.join(
+  projectRoot,
+  "macos",
+  "presets",
+  "preset-internet-angel",
+);
+const windowsSystem = await loadWindowsPayload(windowsPreset, null, "system");
+assert.equal(
+  windowsSystem.internetAngelClassifier,
+  true,
+  "Windows System material must retain the legacy classifier for its extension CSS",
+);
+assert.match(windowsSystem.payload, /const enabled = true;/);
+
+const windowsAcrylic = await loadWindowsPayload(windowsPreset, null, "acrylic");
+assert.equal(windowsAcrylic.internetAngelExtension, true);
+assert.equal(
+  windowsAcrylic.internetAngelClassifier,
+  false,
+  "Windows Acrylic must use durable renderer classes without rescanning the full document",
+);
+assert.equal(windowsAcrylic.acrylicOverlay, true);
+assert.match(windowsAcrylic.payload, /const enabled = false;/);
+const acrylicCss = await fs.readFile(
+  path.join(projectRoot, "windows", "assets", "internet-angel-acrylic.css"),
+  "utf8",
+);
+assert.doesNotMatch(
+  acrylicCss,
+  /data-angel-component/,
+  "Acrylic must not depend on markers from the disabled legacy classifier",
+);
+for (const durableClass of [
+  "dream-settings-sidebar",
+  "composer-surface-chrome",
+  "dream-composer-context-strip",
+  "dream-side-workspace",
+  "dream-terminal-panel",
+]) {
+  assert.match(
+    acrylicCss,
+    new RegExp(`\\.${durableClass}(?:[\\s,):]|$)`),
+    `Acrylic must consume the renderer's durable .${durableClass} class`,
+  );
 }
 
 console.log("PASS: Internet Angel overlays and animations share one three-platform runtime.");

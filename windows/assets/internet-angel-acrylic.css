@@ -1,0 +1,359 @@
+/*
+ * Internet Angel Acrylic overlay
+ *
+ * Load this after dream-skin.css. The Windows renderer supplies durable
+ * dream-* component classes, so Acrylic does not need the legacy full-page
+ * Internet Angel classifier. Native Desktop Acrylic is supplied by the host
+ * window; these translucent paints merely allow it to show through.
+ */
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] {
+  color-scheme: dark;
+  --dream-text: #fff5ff;
+  --dream-text-muted: #cabfe8;
+  --dream-text-primary: var(--dream-text);
+  --angel-ink: #090827;
+  --angel-paper: #fbf5ff;
+  --angel-acrylic-glass: rgb(20 17 67 / .18);
+  --angel-acrylic-glass-strong: rgb(25 21 75 / .46);
+  --angel-acrylic-glass-solid: rgb(13 12 43 / .92);
+  --angel-acrylic-highlight: rgb(255 255 255 / .17);
+  --angel-acrylic-line: rgb(99 244 255 / .34);
+  --angel-acrylic-shadow: rgb(7 5 30 / .38);
+  --angel-acrylic-art-opacity: .18;
+  --dream-canvas: transparent;
+  --dream-surface: rgb(19 16 61 / .16);
+  --dream-surface-raised: rgb(36 27 91 / .46);
+  --dream-sidebar: rgb(20 18 68 / .22);
+  --dream-hero-shade: rgb(19 16 61 / .14);
+  --dream-shadow: 0 16px 42px var(--angel-acrylic-shadow);
+  --dream-immersive-edge: rgb(23 19 70 / .15);
+  --dream-immersive-mid: rgb(26 21 76 / .09);
+  --dream-immersive-far: rgb(28 22 80 / .04);
+  --dream-immersive-sidebar: rgb(20 18 68 / .20);
+  --dream-task-immersive-sidebar: rgb(20 18 68 / .27);
+  --dream-immersive-composer: rgb(35 28 91 / .48);
+  --dream-task-immersive-edge: rgb(23 19 70 / .20);
+  --dream-task-immersive-mid: rgb(26 21 76 / .12);
+  --dream-task-immersive-far: rgb(28 22 80 / .06);
+  --angel-surface: rgb(26 23 75 / .34);
+  --angel-surface-raised: rgb(49 37 116 / .50);
+  background: transparent !important;
+}
+
+/* Move the artwork onto a translucent layer. The animated Dream Skin chrome
+   stays untouched and native Acrylic remains visible below the wallpaper. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] body {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  background: transparent !important;
+}
+
+/* The immersive wide-art rules in dream-skin.css deliberately have enough
+   specificity to paint the wallpaper on body. Acrylic owns that viewport paint,
+   so match those route states explicitly and move the art to ::before below. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"].dream-art-wide[data-dream-route="home"] body,
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"].dream-art-wide:is(
+  .dream-task-ambient,
+  .dream-task-banner
+)[data-dream-route]:not([data-dream-route="home"]) body {
+  background-color: transparent !important;
+  background-image: none !important;
+  background-attachment: initial !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] body::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background-color: transparent;
+  background-image:
+    linear-gradient(135deg, rgb(10 8 38 / .14), rgb(32 22 91 / .08) 54%, rgb(255 69 200 / .05)),
+    var(--dream-art);
+  background-position: center, var(--dream-art-position);
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: var(--angel-acrylic-art-opacity);
+}
+
+/* The window-sized surfaces are translucent paints only. Blurring them would
+   allocate a full-window offscreen surface on every frame, so DWM does that
+   work once at the native Acrylic layer instead. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] main:is(
+  .main-surface,
+  [data-app-shell-main-surface],
+  [class*="_MainContentSurface_"]
+) {
+  background:
+    linear-gradient(112deg, rgb(16 14 55 / .16), rgb(33 25 88 / .09) 58%, rgb(255 69 200 / .02)) !important;
+  border-color: var(--angel-acrylic-line) !important;
+  box-shadow: inset 0 1px var(--angel-acrylic-highlight) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  .dream-home,
+  .dream-task,
+  [data-ds-part="home"],
+  [data-ds-part="thread"]
+) {
+  background-color: transparent !important;
+}
+
+/* One blur layer for each large, non-overlapping piece of window chrome. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"],
+  .dream-settings-sidebar
+) {
+  background:
+    repeating-linear-gradient(0deg, rgb(99 244 255 / .022) 0 1px, transparent 1px 35px),
+    linear-gradient(155deg, rgb(18 16 62 / .28), rgb(47 31 101 / .20) 68%, rgb(255 69 200 / .03)) !important;
+  border-color: var(--angel-acrylic-line) !important;
+  box-shadow: inset -1px 0 var(--angel-acrylic-highlight), 3px 0 18px rgb(8 6 34 / .20) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.24) !important;
+  backdrop-filter: blur(20px) saturate(1.24) !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] main:is(
+  .main-surface,
+  [data-app-shell-main-surface],
+  [class*="_MainContentSurface_"]
+) > header:is(
+  .app-header-tint,
+  [data-app-shell-header-edge-scroll],
+  [data-app-shell-application-menu-bar],
+  [class*="_Header_"]
+),
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] [class~="group/application-menu-top-bar"] {
+  color: var(--dream-text) !important;
+  background: linear-gradient(90deg, rgb(20 17 66 / .24), rgb(44 30 96 / .14), rgb(255 69 200 / .02)) !important;
+  border-color: var(--angel-acrylic-line) !important;
+  box-shadow: inset 0 -1px var(--angel-acrylic-highlight), 0 8px 24px rgb(8 6 34 / .16) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.22) !important;
+  backdrop-filter: blur(16px) saturate(1.22) !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] [class~="group/application-menu-top-bar"] button,
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] [class~="group/application-menu-top-bar"] svg {
+  color: var(--dream-text) !important;
+  text-shadow: 0 1px 2px rgb(5 4 26 / .82) !important;
+}
+
+/* Composer owns its blur; status strips attached to it stay translucent but do
+   not start additional compositor passes. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  .composer-surface-chrome
+) {
+  background:
+    linear-gradient(135deg, rgb(30 26 85 / .54), rgb(70 41 120 / .43) 58%, rgb(66 29 91 / .38)) !important;
+  border-color: rgb(99 244 255 / .52) !important;
+  box-shadow:
+    inset 0 1px var(--angel-acrylic-highlight),
+    inset 0 0 0 1px rgb(99 244 255 / .18),
+    0 14px 34px rgb(7 5 30 / .30) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.26) !important;
+  backdrop-filter: blur(18px) saturate(1.26) !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  .dream-composer-context-strip,
+  .dream-active-goal-strip
+) {
+  background: linear-gradient(100deg, rgb(32 84 255 / .18), rgb(55 40 116 / .66) 58%, rgb(255 69 200 / .10)) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Renderer portals are small and short-lived, so they may use a local blur. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  [role="dialog"],
+  [role="menu"],
+  [role="listbox"],
+  .dream-composer-palette,
+  .dream-settings-menu,
+  .dream-turn-preview-tooltip,
+  .dream-turn-preview-surface,
+  [data-sonner-toast]
+) {
+  background:
+    linear-gradient(138deg, rgb(32 84 255 / .14), rgb(31 25 82 / .66) 58%, rgb(255 69 200 / .08)) !important;
+  border-color: rgb(99 244 255 / .52) !important;
+  box-shadow: inset 0 1px var(--angel-acrylic-highlight), 0 18px 44px rgb(7 5 30 / .36) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.28) !important;
+  backdrop-filter: blur(18px) saturate(1.28) !important;
+}
+
+/* Ordinary panels use translucent fill without nested blur. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  .dream-settings-content,
+  .dream-settings-surface,
+  .dream-side-workspace,
+  .dream-summary-panel,
+  .dream-side-chat-panel,
+  .dream-subagent-frame,
+  .dream-subagent-section,
+  .dream-subagent-section-archive,
+  .dream-edited-card
+) {
+  background: linear-gradient(125deg, rgb(32 84 255 / .08), rgb(36 28 91 / .48), rgb(255 69 200 / .04)) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Keep developer surfaces comfortably opaque and never blur their glyph layers. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  .dream-terminal-panel,
+  [data-message-author-role="assistant"] pre,
+  [data-local-conversation-final-assistant] pre
+) {
+  background: linear-gradient(145deg, rgb(10 9 38 / .94), rgb(27 21 70 / .91)) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  .xterm,
+  .xterm-viewport,
+  .monaco-editor,
+  .monaco-editor-background,
+  [class*="font-vscode-editor"]
+) {
+  background-color: rgb(10 9 38 / .94) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Avoid stacked filters below the four owners above. Portal descendants that
+   need a filter are mounted outside these trees and are unaffected. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"],
+  .composer-surface-chrome,
+  [role="dialog"],
+  [role="menu"],
+  [role="listbox"]
+) * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* High-frequency surfaces stay transparent, but leave their blur to the
+   native DWM Acrylic backdrop. Re-blurring a scrolling sidebar or a live
+   ProseMirror composition inside Chromium forces expensive repaint and style
+   work while adding almost no visible depth over the native material. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]:not(#codex-dream-skin-web-blur) :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"],
+  .composer-surface-chrome
+) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Avoid changing the composited geometry of dozens of rows as the pointer
+   passes over them during scroll. Color and border feedback remain intact. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"]
+) button {
+  transform: none !important;
+  translate: none !important;
+  transition: color 80ms linear, border-color 80ms linear, background-color 80ms linear !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"]
+) button:is(:hover, :focus-visible) {
+  transform: none !important;
+  translate: none !important;
+}
+
+/* Chromium's native edge-fade ScrollTimeline animates mask-image while the
+   list is moving. The thumb can stay composited while the masked row tree is
+   repainted, producing the exact "smooth thumb, stuttering items" symptom. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"],
+  .thread-scroll-container
+) .vertical-scroll-fade-mask,
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"]
+).vertical-scroll-fade-mask {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  animation: none !important;
+}
+
+/* Windows' "Transparency effects" accessibility preference is exposed to
+   Chromium as reduced transparency. Fall back to the same palette, fully
+   opaque, while keeping the original artwork. */
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] {
+    --dream-surface: rgb(24 21 70);
+    --dream-surface-raised: rgb(42 31 99);
+    --dream-sidebar: rgb(20 18 65);
+    --angel-surface: rgb(26 23 75);
+    --angel-surface-raised: rgb(49 37 116);
+  }
+
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] body {
+    background-color: rgb(15 13 47) !important;
+    background-image: var(--dream-art) !important;
+    background-position: var(--dream-art-position) !important;
+    background-repeat: no-repeat !important;
+    background-size: cover !important;
+  }
+
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] body::before {
+    display: none;
+  }
+
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+    aside.app-shell-left-panel,
+    [data-testid="app-shell-floating-left-panel"],
+    main,
+    header,
+    .composer-surface-chrome,
+    [role="dialog"],
+    [role="menu"],
+    [role="listbox"]
+  ) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] {
+    --dream-surface: rgb(24 21 70 / .94);
+    --dream-surface-raised: rgb(42 31 99 / .96);
+    --dream-sidebar: rgb(20 18 65 / .96);
+    --angel-surface: rgb(26 23 75 / .96);
+    --angel-surface-raised: rgb(49 37 116 / .96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] body::before,
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+    aside.app-shell-left-panel,
+    [data-testid="app-shell-floating-left-panel"],
+    main,
+    header,
+    .composer-surface-chrome,
+    [role="dialog"],
+    [role="menu"],
+    [role="listbox"]
+  ) {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

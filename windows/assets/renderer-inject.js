@@ -8,14 +8,20 @@
     "preset-internet-angel-default",
   ]);
   const isInternetAngelTheme = INTERNET_ANGEL_THEME_IDS.has(String(rawConfig?.id || "").trim());
-  const STYLE_REVISION = "8";
+  const STYLE_REVISION = "9";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
+  const SHELL_MAIN_SELECTOR = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
+  const HEADER_TINT_SELECTOR = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
+  const SIDEBAR_SELECTOR = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
+  const SETTINGS_CONTENT_SELECTOR = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
+  const MESSAGE_SELECTOR = ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])';
   const CHROME_ID = "codex-dream-skin-chrome";
   const FALLBACK_PRESETS_ID = "codex-dream-skin-presets";
   const SIDEBAR_CHROME_ID = "codex-dream-sidebar-ornaments";
   const SIDE_WORKSPACE_BRAND_ID = "codex-dream-side-workspace-brand";
   const NEW_TASK_CLASS = "dream-new-task-button";
+  const SIDEBAR_ACTIVE_ITEM_CLASS = "dream-sidebar-listitem-active";
   const ROOT_CLASSES = [
     "codex-dream-skin",
     "dream-theme-light",
@@ -36,6 +42,8 @@
     "dream-choten-art",
     "dream-reduced-motion",
     "dream-settings-active",
+    "dream-presets-ready",
+    "dream-system-toast-active",
   ];
   const ROUTE_CLASSES = [
     "dream-route-home",
@@ -149,6 +157,7 @@
   ];
   const installToken = {};
   const DOM_REFRESH_DEBOUNCE_MS = 1500;
+  const INTERACTION_QUIET_MS = 320;
   const FALLBACK_REFRESH_MS = 60000;
   const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
   let samplingNativeShell = false;
@@ -230,6 +239,13 @@
   if (previous?.navigationHandler) {
     window.removeEventListener("popstate", previous.navigationHandler);
     document.removeEventListener("click", previous.navigationHandler, true);
+  }
+  if (previous?.interactionHandler) {
+    document.removeEventListener("compositionstart", previous.interactionHandler, true);
+    document.removeEventListener("compositionend", previous.interactionHandler, true);
+    document.removeEventListener("beforeinput", previous.interactionHandler, true);
+    document.removeEventListener("wheel", previous.interactionHandler, true);
+    document.removeEventListener("scroll", previous.interactionHandler, true);
   }
   previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
   if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
@@ -431,6 +447,7 @@
     resizeTargets.clear();
     root?.removeAttribute("data-dream-skin");
     root?.removeAttribute("data-dream-theme");
+    root?.removeAttribute("data-dream-route");
     root?.classList.remove(...ROOT_CLASSES);
     root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
     root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
@@ -440,6 +457,9 @@
     document.querySelectorAll(".dream-home-shell").forEach((node) => node.classList.remove("dream-home-shell"));
     document.querySelectorAll(`.${ROUTE_CLASSES.join(", .")}`).forEach((node) => node.classList.remove(...ROUTE_CLASSES));
     document.querySelectorAll(".dream-permission-banner").forEach((node) => node.classList.remove("dream-permission-banner"));
+    document.querySelectorAll(`.${SIDEBAR_ACTIVE_ITEM_CLASS}`).forEach((node) => {
+      node.classList.remove(SIDEBAR_ACTIVE_ITEM_CLASS);
+    });
     document.querySelectorAll(`.${PRESET_CLASSES.join(", .")}`).forEach((node) => node.classList.remove(...PRESET_CLASSES));
     document.querySelectorAll(".dream-changes-pill").forEach((node) => node.classList.remove("dream-changes-pill"));
     document.querySelectorAll(`.${CHANGES_SHELL_CLASS}`).forEach((node) => node.classList.remove(CHANGES_SHELL_CLASS));
@@ -638,6 +658,7 @@
     let deck = document.getElementById(FALLBACK_PRESETS_ID);
     if (!home) {
       deck?.remove();
+      document.documentElement?.classList?.remove?.("dream-presets-ready");
       return null;
     }
     if (!deck || deck.parentElement !== home) {
@@ -673,6 +694,7 @@
     }
     const ready = nativePresetCount < fallbackPresetDefinitions.length;
     deck.setAttribute("data-dream-ready", String(ready));
+    document.documentElement?.classList?.toggle?.("dream-presets-ready", ready);
     if (ready) deck.removeAttribute?.("hidden");
     else deck.setAttribute("hidden", "");
     deck.setAttribute("aria-hidden", String(!ready));
@@ -764,18 +786,57 @@
     const all = (selector) => {
       try { return [...document.querySelectorAll(selector)]; } catch { return []; }
     };
+    const genericInputs = () => all('textarea, [contenteditable="true"], [role="textbox"]')
+      .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'));
+    const resolvedMain = () => {
+      const exact = all(SHELL_MAIN_SELECTOR)[0];
+      if (exact) return exact;
+      for (const input of genericInputs()) {
+        const main = input.closest?.('main, [role="main"]');
+        if (main && typeof main.setAttribute === "function") return main;
+      }
+      return all('main, [role="main"]')
+        .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
+    };
+    const fallbackSidebar = () => {
+      if (all(SIDEBAR_SELECTOR).length) return [];
+      const main = resolvedMain();
+      const mainParent = main?.parentElement;
+      if (!main || !mainParent) return [];
+      const candidate = all('aside, nav[aria-label]')
+        .filter((node) => !main.contains?.(node))
+        .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'))
+        .find((node) => node.parentElement === mainParent
+          || node.parentElement?.parentElement === mainParent
+          || node.parentElement === mainParent.parentElement);
+      return candidate ? [candidate] : [];
+    };
+    const fallbackComposer = () => {
+      if (all(".composer-surface-chrome").length) return [];
+      const main = resolvedMain();
+      for (const input of genericInputs()) {
+        if (main && !main.contains?.(input)) continue;
+        const owner = input.closest?.(
+          '[data-testid*="composer" i], [data-testid*="prompt" i], ' +
+          '[class*="composer" i], [class*="prompt" i]',
+        );
+        if (owner && (!main || main.contains?.(owner))) return [owner];
+      }
+      return [];
+    };
     add("root", [document.documentElement]);
-    add("sidebar", all(`aside.app-shell-left-panel, ${FLOATING_SIDEBAR_SELECTOR}`));
-    add("main", all("main.main-surface"));
-    add("header", all("header.app-header-tint"));
+    add("sidebar", [...all(SIDEBAR_SELECTOR), ...fallbackSidebar()]);
+    add("header", all(HEADER_TINT_SELECTOR));
     add("home", all('[role="main"]:has([data-testid="home-icon"])'));
+    add("main", [...all(SHELL_MAIN_SELECTOR), ...(!all(SHELL_MAIN_SELECTOR).length ? [resolvedMain()].filter(Boolean) : [])]);
     add("project-list", all(".group\\/project-selector"));
     add("thread", all(".thread-scroll-container"));
-    add("message", all("[data-message-author-role]"));
-    add("composer", all(".composer-surface-chrome"));
+    add("message", all(MESSAGE_SELECTOR));
+    add("composer", [...all(".composer-surface-chrome"), ...fallbackComposer()]);
     add("composer-toolbar", all('.composer-surface-chrome [class*="_footer_"]'));
     add("dialog", all('[role="dialog"]'));
-    const homeHero = document.querySelector?.('[data-testid="home-icon"]')?.parentElement;
+    const homeHero = document.querySelector?.('[data-feature="game-source"]') ??
+      document.querySelector?.('[data-testid="home-icon"]')?.parentElement;
     add("home-hero", homeHero ? [homeHero] : []);
 
     for (const node of safeCssPartNodes) {
@@ -788,6 +849,44 @@
     }
   };
 
+  const incrementalSafePartRules = [
+    ["message", MESSAGE_SELECTOR],
+    ["composer-toolbar", '.composer-surface-chrome [class*="_footer_"]'],
+    ["composer", ".composer-surface-chrome"],
+    ["thread", ".thread-scroll-container"],
+    ["dialog", '[role="dialog"]'],
+    ["header", HEADER_TINT_SELECTOR],
+    ["sidebar", SIDEBAR_SELECTOR],
+    ["main", SHELL_MAIN_SELECTOR],
+    ["project-list", ".group\\/project-selector"],
+  ];
+  const incrementalSafePartSelector = incrementalSafePartRules
+    .map(([, selector]) => selector).join(", ");
+  const classifySafeCssParts = (records) => {
+    const roots = records
+      .flatMap((record) => [...(record.addedNodes || [])])
+      .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
+    if (!roots.length) return false;
+    for (const node of [...safeCssPartNodes]) {
+      if (!node.isConnected) safeCssPartNodes.delete(node);
+    }
+    const matches = new Set();
+    for (const root of roots) {
+      if (root.matches?.(incrementalSafePartSelector)) matches.add(root);
+      for (const node of root.querySelectorAll?.(incrementalSafePartSelector) || []) {
+        matches.add(node);
+      }
+    }
+    for (const node of matches) {
+      const match = incrementalSafePartRules.find(([, selector]) => node.matches?.(selector));
+      if (!match) continue;
+      const [part] = match;
+      if (node.getAttribute?.(PART_ATTR) !== part) node.setAttribute?.(PART_ATTR, part);
+      safeCssPartNodes.add(node);
+    }
+    return matches.size > 0;
+  };
+
   const ensure = () => {
     if (window.__CODEX_DREAM_SKIN_DISABLED__) return;
     const root = document.documentElement;
@@ -798,7 +897,7 @@
     // it, and clearing the skin there flashes native colors over the active theme.
     // True auxiliary windows (pets, blank targets) still have no main surface, so
     // they continue to clear residual skin state.
-    const shellMain = document.querySelector("main.main-surface") ||
+    const shellMain = document.querySelector(SHELL_MAIN_SELECTOR) ||
       document.querySelector("main") ||
       document.querySelector('[role="main"]');
     const shellSidebar = document.querySelector("aside.app-shell-left-panel");
@@ -829,12 +928,17 @@
     const routeMains = [...document.querySelectorAll('[role="main"]')];
     if (!routeMains.length) routeMains.push(shellMain);
     const settingsNav = document.querySelector('nav:has([data-settings-panel-slug])');
-    const settingsSidebar = settingsNav?.closest?.('aside.app-shell-left-panel') || null;
-    const settingsContent = document.querySelector(
-      'div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])',
-    );
-    const semanticHome = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
-    const homeMarker = shellMain.querySelector?.('[data-testid="home-icon"]') || null;
+    const settingsSidebar = settingsNav?.closest?.(SIDEBAR_SELECTOR)
+      || settingsNav?.parentElement
+      || null;
+    const settingsContent = settingsSidebar?.parentElement
+      ?.querySelector?.(SETTINGS_CONTENT_SELECTOR)
+      ?.parentElement || null;
+    const homeMarker = shellMain.querySelector?.('[data-testid="home-icon"]') ||
+      shellMain.querySelector?.('[data-feature="game-source"]') ||
+      shellMain.querySelector?.('.group\\/home-suggestions') || null;
+    const semanticHome = homeMarker?.closest?.('[role="main"]') ||
+      document.querySelector('[role="main"]:has([data-testid="home-icon"])');
     const homeHeading = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
       .find((candidate) => /^(我们该构建什么|what should we build)\s*[？?]?$/i.test((candidate.textContent || "").trim()));
     const home = semanticHome
@@ -859,6 +963,11 @@
       const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
       return box.width > 0 && box.height > 0;
     });
+    const selectedListItem = selectedControl?.closest?.('[role="listitem"]') || null;
+    for (const candidate of document.querySelectorAll(`.${SIDEBAR_ACTIVE_ITEM_CLASS}`)) {
+      if (candidate !== selectedListItem) candidate.classList.remove(SIDEBAR_ACTIVE_ITEM_CLASS);
+    }
+    selectedListItem?.classList.add(SIDEBAR_ACTIVE_ITEM_CLASS);
     const selectedText = (selectedControl?.textContent || "").trim().toLowerCase();
     const headingText = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
       .map((candidate) => (candidate.textContent || "").trim())
@@ -879,9 +988,14 @@
     const routeClass = `dream-route-${route}`;
     const utilityRoute = ["sites", "pulls", "scheduled", "plugins"].includes(route);
 
-    shellMain.classList.remove(...ROUTE_CLASSES);
-    shellMain.classList.add(routeClass);
-    shellMain.classList.toggle("dream-route-utility", utilityRoute);
+    if (root.getAttribute("data-dream-route") !== route) {
+      root.setAttribute("data-dream-route", route);
+    }
+    for (const className of ROUTE_CLASSES) {
+      const enabled = className === routeClass ||
+        (className === "dream-route-utility" && utilityRoute);
+      shellMain.classList.toggle(className, enabled);
+    }
     for (const candidate of routeMains) {
       candidate.classList.toggle("dream-home", candidate === home);
       candidate.classList.toggle("dream-task", route === "task" && candidate !== home);
@@ -1100,7 +1214,10 @@
 
     const priorPermissionBanners = document.querySelectorAll(".dream-permission-banner");
     for (const candidate of priorPermissionBanners) candidate.classList.remove("dream-permission-banner");
-    const permissionBanner = [...(shellMain.querySelectorAll?.("div, section, aside") || [])]
+    const shellPermissionText = shellMain.textContent || "";
+    const permissionBanner = /Full access is on|瀹屽叏璁块棶/.test(shellPermissionText)
+      && /Hide from this session|闅愯棌/.test(shellPermissionText)
+      ? [...(shellMain.querySelectorAll?.("div, section, aside") || [])]
       .filter((candidate) => {
         const text = (candidate.textContent || "").trim();
         if (!/Full access is on|完全访问/.test(text) || !/Hide from this session|隐藏/.test(text)) return false;
@@ -1111,11 +1228,14 @@
         const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
         const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
         return (a.width * a.height) - (b.width * b.height);
-      })[0];
+      })[0]
+      : null;
     permissionBanner?.classList.add("dream-permission-banner");
 
     document.querySelectorAll(`.${SYSTEM_TOAST_CLASS}`).forEach((node) => node.classList.remove(SYSTEM_TOAST_CLASS));
-    const resetToast = [...document.querySelectorAll("body div, body section, body aside")]
+    const resetToast = [...document.querySelectorAll(
+      '[data-sonner-toast], [role="alert"], body > aside, body > div > aside',
+    )]
       .filter((candidate) => {
         const text = (candidate.textContent || "").trim();
         if (!/速率限制重置机会|rate limit reset opportunity/i.test(text)) return false;
@@ -1134,6 +1254,7 @@
       ? resetToast
       : resetToast?.querySelector?.('aside[class~="rounded-2xl"]') || resetToast;
     resetToastSurface?.classList.add(SYSTEM_TOAST_CLASS);
+    root.classList.toggle("dream-system-toast-active", Boolean(resetToastSurface));
 
     document.querySelectorAll(`.${PANEL_CLASSES.join(", .")}`).forEach((node) => {
       node.style?.removeProperty?.("--dream-summary-safe-height");
@@ -1154,8 +1275,9 @@
        text first and measure the few matches so streaming output does not force
        style/layout reads for every element in the document on each refresh. */
     const textCandidates = [...document.querySelectorAll(
-      'body button, body [role="button"], body [role="tab"], body [role="heading"], body label, body span, body p, body div',
+      'body button, body [role="button"], body [role="tab"], body [role="heading"], body label, body span, body p',
     )]
+      .filter((node) => !node.matches?.("span, p") || node.childElementCount === 0)
       .map((node) => ({ node, text: (node.textContent || "").trim() }))
       .filter(({ text }) => text && text.length <= 64);
     const textMeasurements = new Map();
@@ -1236,7 +1358,7 @@
       target.classList.toggle("dream-home-dual-panel", sideOpen && bottomOpen);
     }
 
-    const sideChatAside = [...document.querySelectorAll("main.main-surface aside")]
+    const sideChatAside = [...document.querySelectorAll(`${SHELL_MAIN_SELECTOR} aside`)]
       .find((candidate) => candidate.querySelector?.(".thread-scroll-container")
         && candidate.querySelector?.(".composer-surface-chrome"));
     const sideChatPanel = sideChatAside?.querySelector?.(':scope > [class*="contain:layout_paint"]')
@@ -1275,8 +1397,9 @@
     }
     selectionActions?.classList.add("dream-selection-actions");
 
-    const selectedFragmentText = [...document.querySelectorAll("button, div, span")]
+    const selectedFragmentText = [...document.querySelectorAll("button, span")]
       .filter((candidate) => {
+        if (candidate.matches?.("span") && candidate.childElementCount !== 0) return false;
         const text = (candidate.textContent || "").trim();
         if (!/^\d+\s*(?:\u4e2a)?\s*(?:\u5df2\u9009\u6587\u672c\u7247\u6bb5|selected text (?:fragment|snippet)s?)$/i.test(text)) return false;
         const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
@@ -1391,7 +1514,7 @@
       document.getElementById(FALLBACK_PRESETS_ID)?.remove();
     }
 
-    const changedText = [...(shellMain.querySelectorAll?.("div, span") || [])]
+    const changedText = [...(shellMain.querySelectorAll?.("button") || [])]
       .filter((candidate) => {
         const text = (candidate.textContent || "").trim();
         const box = candidate.getBoundingClientRect?.() || { width: 0, height: 0 };
@@ -1513,7 +1636,25 @@
     syncChromeGeometry(chrome, shellMain, home);
   };
 
-  const scheduler = { frame: null, timeout: null, dueAt: 0, lastRunAt: -Infinity };
+  const scheduler = {
+    frame: null,
+    timeout: null,
+    navigationTimer: null,
+    dueAt: 0,
+    lastRunAt: -Infinity,
+    running: false,
+    pending: false,
+  };
+  const rendererMetrics = {
+    ensureCount: 0,
+    ensureTotalMs: 0,
+    ensureLastMs: 0,
+    ensureMaxMs: 0,
+    observerBatches: 0,
+    observerRecords: 0,
+  };
+  let compositionDepth = 0;
+  let lastInteractionAt = -Infinity;
   let lastEnsureErrorLogAt = -Infinity;
   const schedulerNow = () => {
     try {
@@ -1528,7 +1669,7 @@
     observer.disconnect();
     const root = document.documentElement;
     const body = document.body;
-    const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
+    const shellMain = document.querySelector(SHELL_MAIN_SELECTOR) || document.querySelector("main");
     const attributeOptions = {
       attributes: true,
       attributeOldValue: true,
@@ -1539,15 +1680,20 @@
     if (shellMain) observer.observe(shellMain, { childList: true });
   };
   const runEnsureSafely = () => {
-    const now = schedulerNow();
-    scheduler.lastRunAt = now;
+    if (scheduler.running) {
+      scheduler.pending = true;
+      return false;
+    }
+    const startedAt = schedulerNow();
+    scheduler.running = true;
+    rendererMetrics.ensureCount += 1;
     observer?.disconnect();
     try {
       ensure();
       return true;
     } catch (error) {
-      if (now - lastEnsureErrorLogAt >= ENSURE_ERROR_LOG_INTERVAL_MS) {
-        lastEnsureErrorLogAt = now;
+      if (startedAt - lastEnsureErrorLogAt >= ENSURE_ERROR_LOG_INTERVAL_MS) {
+        lastEnsureErrorLogAt = startedAt;
         try {
           if (typeof console !== "undefined") {
             console.error?.(`[dream-skin] renderer refresh failed: ${error?.message || String(error)}`);
@@ -1556,8 +1702,20 @@
       }
       return false;
     } finally {
+      const finishedAt = schedulerNow();
+      const duration = Math.max(0, finishedAt - startedAt);
+      rendererMetrics.ensureLastMs = duration;
+      rendererMetrics.ensureTotalMs += duration;
+      rendererMetrics.ensureMaxMs = Math.max(rendererMetrics.ensureMaxMs, duration);
+      scheduler.lastRunAt = finishedAt;
+      scheduler.running = false;
       observer?.takeRecords?.();
       observeRendererStructure();
+      try { refreshSafeCssParts(); } catch {}
+      if (scheduler.pending) {
+        scheduler.pending = false;
+        scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+      }
     }
   };
 
@@ -1583,23 +1741,37 @@
       window.removeEventListener("popstate", state.navigationHandler);
       document.removeEventListener("click", state.navigationHandler, true);
     }
+    if (state?.interactionHandler) {
+      document.removeEventListener("compositionstart", state.interactionHandler, true);
+      document.removeEventListener("compositionend", state.interactionHandler, true);
+      document.removeEventListener("beforeinput", state.interactionHandler, true);
+      document.removeEventListener("wheel", state.interactionHandler, true);
+      document.removeEventListener("scroll", state.interactionHandler, true);
+    }
     state?.motionQuery?.removeEventListener?.("change", state.motionHandler);
     if (state?.artUrl) URL.revokeObjectURL(state.artUrl);
     delete window[STATE_KEY];
     return true;
   };
 
-  const scheduleEnsure = (minimumGapMs = 0) => {
-    if (scheduler.frame) return;
-    const now = schedulerNow();
-    const delay = Math.max(0, minimumGapMs - (now - scheduler.lastRunAt));
-    const dueAt = now + delay;
-    if (scheduler.timeout) {
-      if (scheduler.dueAt <= dueAt) return;
-      clearTimeout(scheduler.timeout);
-      scheduler.timeout = null;
-      scheduler.dueAt = 0;
+  const scheduleEnsure = (settleMs = 0) => {
+    if (scheduler.running) {
+      scheduler.pending = true;
+      return;
     }
+    const now = schedulerNow();
+    const quietUntil = Number.isFinite(lastInteractionAt)
+      ? lastInteractionAt + INTERACTION_QUIET_MS
+      : now;
+    const dueAt = Math.max(now + Math.max(0, settleMs), quietUntil);
+    const delay = Math.max(0, dueAt - now);
+    if (scheduler.frame) {
+      window.cancelAnimationFrame?.(scheduler.frame);
+      scheduler.frame = null;
+    }
+    if (scheduler.timeout) clearTimeout(scheduler.timeout);
+    scheduler.timeout = null;
+    scheduler.dueAt = 0;
     const runEnsure = () => {
       scheduler.frame = null;
       scheduler.timeout = null;
@@ -1609,13 +1781,17 @@
     const queueFrame = () => {
       scheduler.timeout = null;
       scheduler.dueAt = 0;
+      if (compositionDepth > 0 || schedulerNow() < lastInteractionAt + INTERACTION_QUIET_MS) {
+        scheduleEnsure(INTERACTION_QUIET_MS);
+        return;
+      }
       if (typeof window.requestAnimationFrame === "function") {
         scheduler.frame = window.requestAnimationFrame(runEnsure);
       } else {
         scheduler.timeout = setTimeout(runEnsure, 0);
       }
     };
-    if (delay > 0) {
+    if (delay > 1) {
       scheduler.dueAt = dueAt;
       scheduler.timeout = setTimeout(queueFrame, delay);
     } else queueFrame();
@@ -1632,12 +1808,26 @@
     SIDE_WORKSPACE_BRAND_ID,
     "chatgpt-dream-skin-operation",
   ].includes(node.id);
+  const shellTopologySelector = [
+    SHELL_MAIN_SELECTOR,
+    "main",
+    '[role="main"]',
+    "header",
+    SIDEBAR_SELECTOR,
+    "nav",
+    '[role="tabpanel"]',
+    '[role="dialog"]',
+    '[role="menu"]',
+    '[role="listbox"]',
+    '[class*="contain:layout_paint"]',
+  ].join(", ");
   const hasNativeStructuralNode = (record) =>
     [...(record.addedNodes || []), ...(record.removedNodes || [])]
-      .some((node) => node?.nodeType === 1 && !isInjectedNode(node));
+      .some((node) => node?.nodeType === 1 && !isInjectedNode(node)
+        && (node.matches?.(shellTopologySelector) || node.querySelector?.(shellTopologySelector)));
   const hasFloatingSidebarNode = (record) =>
     [...(record.addedNodes || []), ...(record.removedNodes || [])]
-      .some((node) => node?.nodeType === 1 && (
+      .some((node) => node?.nodeType === 1 && !isInjectedNode(node) && (
         node.matches?.(FLOATING_SIDEBAR_SELECTOR) || node.querySelector?.(FLOATING_SIDEBAR_SELECTOR)
       ));
   const classifyRuntimeSurfaces = (records) => {
@@ -1645,6 +1835,24 @@
       .flatMap((record) => [...(record.addedNodes || [])])
       .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
     if (!roots.length) return false;
+    const runtimeSurfaceHintSelector = [
+      '[role="tooltip"]',
+      '[data-radix-tooltip-content]',
+      '[role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]',
+      'div.vertical-scroll-fade-mask[class~="overflow-y-auto"]',
+      '[role="menu"]',
+      '[role="listbox"]',
+      '[data-radix-menu-content]',
+      'input[placeholder*="optional comment" i]',
+      'textarea[placeholder*="optional comment" i]',
+      '.xterm',
+      '[data-sonner-toast]',
+      '[role="alert"]',
+      '[class*="group/summary-panel-item"]',
+    ].join(", ");
+    const hasRuntimeSurface = roots.some((root) =>
+      root.matches?.(runtimeSurfaceHintSelector) || root.querySelector?.(runtimeSurfaceHintSelector));
+    if (!hasRuntimeSurface) return false;
     const select = (selector) => {
       const matches = new Set();
       for (const root of roots) {
@@ -1729,6 +1937,7 @@
       ? toast
       : toast?.querySelector?.('aside[class~="rounded-2xl"]') || toast;
     toastSurface?.classList.add(SYSTEM_TOAST_CLASS);
+    if (toastSurface) document.documentElement.classList.add("dream-system-toast-active");
     return true;
   };
   const resizeHandler = (event) => {
@@ -1742,7 +1951,7 @@
     if (geometryScheduler.frame) return;
     const sync = () => {
       geometryScheduler.frame = null;
-      const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
+      const shellMain = document.querySelector(SHELL_MAIN_SELECTOR) || document.querySelector("main");
       const home = shellMain?.classList?.contains?.("dream-home-shell")
         ? document.querySelector('[role="main"].dream-home') || shellMain
         : null;
@@ -1774,10 +1983,37 @@
     );
     if (target) scheduleNavigationRefresh();
   };
+  const interactionHandler = (event) => {
+    const target = event?.target?.nodeType === 1
+      ? event.target
+      : event?.target?.parentElement;
+    const composerInteraction = Boolean(target?.closest?.(
+      '.composer-surface-chrome, [contenteditable="true"], textarea, input',
+    ));
+    const scrollingSurface = Boolean(target?.closest?.(
+      `${SIDEBAR_SELECTOR}, .thread-scroll-container, [class~="overflow-y-auto"]`,
+    ));
+    if (["compositionstart", "compositionend", "beforeinput"].includes(event?.type)
+      && !composerInteraction) return;
+    if (["wheel", "scroll"].includes(event?.type) && !scrollingSurface) return;
+
+    const hadScheduledWork = Boolean(
+      scheduler.running || scheduler.pending || scheduler.frame || scheduler.timeout,
+    );
+    if (event?.type === "compositionstart") compositionDepth += 1;
+    if (event?.type === "compositionend") compositionDepth = Math.max(0, compositionDepth - 1);
+    lastInteractionAt = schedulerNow();
+    if (hadScheduledWork) scheduleEnsure(INTERACTION_QUIET_MS);
+  };
   window.addEventListener("resize", resizeHandler, { passive: true });
   motionQuery?.addEventListener?.("change", motionHandler);
   window.addEventListener("popstate", navigationHandler);
   document.addEventListener("click", navigationHandler, true);
+  document.addEventListener("compositionstart", interactionHandler, true);
+  document.addEventListener("compositionend", interactionHandler, true);
+  document.addEventListener("beforeinput", interactionHandler, true);
+  document.addEventListener("wheel", interactionHandler, { capture: true, passive: true });
+  document.addEventListener("scroll", interactionHandler, { capture: true, passive: true });
   if (typeof ResizeObserver === "function") {
     resizeObserver = new ResizeObserver((entries) => {
       let geometryChanged = false;
@@ -1794,6 +2030,9 @@
   }
   observer = new MutationObserver((records) => {
     if (samplingNativeShell) return;
+    rendererMetrics.observerBatches += 1;
+    rendererMetrics.observerRecords += records.length;
+    classifySafeCssParts(records);
     classifyRuntimeSurfaces(records);
     if (records.some(hasFloatingSidebarNode)) refreshSafeCssParts();
     const hasShellChange = records.some((record) => {
@@ -1802,18 +2041,46 @@
       return withoutManagedClasses(record.oldValue) !==
         withoutManagedClasses(record.target?.getAttribute?.("class"));
     });
-    if (hasShellChange) scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+    const hasGenericComposerNode = records.some((record) =>
+      [...(record.addedNodes || [])].some((node) =>
+        node?.nodeType === 1 && (
+          node.matches?.(
+            'textarea, [contenteditable="true"], [role="textbox"], ' +
+            '[class*="composer" i], [class*="prompt" i]',
+          ) ||
+          node.querySelector?.(
+            'textarea, [contenteditable="true"], [role="textbox"], ' +
+            '[class*="composer" i], [class*="prompt" i]',
+          )
+        )
+      )
+    );
+    if (hasShellChange || hasGenericComposerNode) {
+      scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+    }
   });
   observeRendererStructure();
-  const timer = setInterval(runEnsureSafely, FALLBACK_REFRESH_MS);
+  const timer = setInterval(() => scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS), FALLBACK_REFRESH_MS);
+  const missingL1 = [
+    ...(!document.querySelector(SHELL_MAIN_SELECTOR) ? ["shell-main"] : []),
+    ...(!document.querySelector(SIDEBAR_SELECTOR) ? ["left-panel"] : []),
+    ...(!document.querySelector(HEADER_TINT_SELECTOR) ? ["header-tint"] : []),
+  ];
+  const scope = {
+    level: missingL1.length ? "L0" : "L1",
+    baseState: "fork-windows",
+    missingL1,
+  };
   const runtimeState = {
-    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler, resizeHandler, navigationHandler, motionQuery, motionHandler,
+    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler,
+    resizeHandler, navigationHandler, interactionHandler, motionQuery, motionHandler,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
     themeId: config.themeId,
     revision: PAYLOAD_REVISION,
     styleMode: "style",
     styleNode: null,
-    scope: { level: "L1", baseState: "fork-windows" },
+    metrics: rendererMetrics,
+    scope,
   };
   window[STATE_KEY] = runtimeState;
   runEnsureSafely();
@@ -1824,7 +2091,8 @@
     profile = result;
     artGeometryReady = true;
     state.profile = result;
-    runEnsureSafely();
+    applyProfile(document.documentElement);
+    resizeHandler();
   });
   return { installed: true, version: SKIN_VERSION, revision: PAYLOAD_REVISION, adaptive: true };
 })(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__)

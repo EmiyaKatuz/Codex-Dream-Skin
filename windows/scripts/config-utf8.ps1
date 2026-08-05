@@ -203,27 +203,22 @@ function Get-DreamSkinTomlLineStructure {
   $escaped = $false
   for ($index = 0; $index -lt $Line.Length; $index++) {
     $character = $Line[$index]
-    if ($quote -ceq '"') {
-      if ($escaped) {
-        $escaped = $false
-      } elseif ($character -eq '\') {
-        $escaped = $true
-      } elseif ($character -eq $quote) {
-        $quote = $null
-      }
+    if ($quote -eq '"') {
+      if ($escaped) { $escaped = $false; continue }
+      if ($character -eq '\') { $escaped = $true; continue }
+      if ($character -eq $quote) { $quote = $null }
       continue
     }
-    if ($quote -ceq "'") {
+    if ($quote -eq "'") {
       if ($character -eq $quote) { $quote = $null }
       continue
     }
     if ($character -eq '"' -or $character -eq "'") {
       $quote = $character
-    } elseif ($character -eq '#') {
-      break
-    } else {
-      [void]$builder.Append($character)
+      continue
     }
+    if ($character -eq '#') { break }
+    [void]$builder.Append($character)
   }
   return $builder.ToString()
 }
@@ -233,19 +228,33 @@ function Test-DreamSkinTomlTableHeaderStructure {
 
   $value = $Structure.Trim()
   if ($value.StartsWith('[[')) {
-    return (
-      $value.EndsWith(']]') -and
+    return $value.EndsWith(']]') -and
       -not $value.Substring(2, $value.Length - 4).Contains('[') -and
       -not $value.Substring(2, $value.Length - 4).Contains(']')
-    )
   }
-  return (
-    $value.StartsWith('[') -and
+  return $value.StartsWith('[') -and
     -not $value.StartsWith('[[') -and
     $value.EndsWith(']') -and
     -not $value.Substring(1, $value.Length - 2).Contains('[') -and
     -not $value.Substring(1, $value.Length - 2).Contains(']')
+}
+
+function Update-DreamSkinTomlArrayDepth {
+  param(
+    [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Structure,
+    [Parameter(Mandatory = $true)][int]$InitialDepth
   )
+
+  $depth = $InitialDepth
+  for ($index = 0; $index -lt $Structure.Length; $index++) {
+    $character = $Structure[$index]
+    if ($character -eq '[') { $depth++ }
+    if ($character -eq ']') { $depth-- }
+    if ($depth -lt 0) {
+      throw 'Refusing to rewrite TOML containing an unmatched array bracket.'
+    }
+  }
+  return $depth
 }
 
 function Get-DreamSkinTomlTableHeaders {
@@ -254,17 +263,24 @@ function Get-DreamSkinTomlTableHeaders {
   $headers = @()
   $offset = 0
   $arrayDepth = 0
+  $lines = [regex]::Matches($Content, '[^\n]*\n|[^\n]+$')
   $desktopToken = Get-DreamSkinTomlKeyTokenPattern -Key 'desktop'
-  $desktopPattern = "^[\t ]*\[[\t ]*$desktopToken[\t ]*\][\t ]*(?:#[^\r\n]*)?(?:\r?\n)?$"
-  foreach ($lineMatch in [regex]::Matches($Content, '[^\n]*\n|[^\n]+$')) {
+  foreach ($lineMatch in $lines) {
     $line = $lineMatch.Value
-    $structure = Get-DreamSkinTomlLineStructure -Line $line
-    $trimmed = $structure.Trim()
-    if ($arrayDepth -eq 0 -and (Test-DreamSkinTomlTableHeaderStructure -Structure $trimmed)) {
+    $structure = (Get-DreamSkinTomlLineStructure -Line $line).Trim()
+    if ($arrayDepth -eq 0 -and (Test-DreamSkinTomlTableHeaderStructure -Structure $structure)) {
       $headers += [pscustomobject]@{
         Index = $offset
         BodyStart = $offset + $line.Length
-        Desktop = [regex]::IsMatch($line, $desktopPattern)
+        Line = $line
+        IsDesktop = [regex]::IsMatch(
+          $line,
+          "^[\t ]*\[[\t ]*$desktopToken[\t ]*\][\t ]*(?:#[^\r\n]*)?(?:\r?\n)?$"
+        )
+        IsDesktopArray = [regex]::IsMatch(
+          $line,
+          "^[\t ]*\[\[[\t ]*$desktopToken[\t ]*(?:\]\]|\.)"
+        )
       }
     } else {
       $assignment = $structure.IndexOf('=')
@@ -273,15 +289,8 @@ function Get-DreamSkinTomlTableHeaders {
           throw 'Refusing to rewrite malformed TOML array syntax.'
         }
       } else {
-        $expression = if ($arrayDepth -gt 0) {
-          $structure
-        } else {
-          $structure.Substring($assignment + 1)
-        }
-        $arrayDepth += Get-DreamSkinTomlArrayBracketBalance -Line $expression
-        if ($arrayDepth -lt 0) {
-          throw 'Refusing to rewrite TOML containing an unmatched array bracket.'
-        }
+        $expression = if ($arrayDepth -gt 0) { $structure } else { $structure.Substring($assignment + 1) }
+        $arrayDepth = Update-DreamSkinTomlArrayDepth -Structure $expression -InitialDepth $arrayDepth
       }
     }
     $offset += $line.Length
@@ -289,7 +298,7 @@ function Get-DreamSkinTomlTableHeaders {
   if ($arrayDepth -ne 0) {
     throw 'Refusing to rewrite TOML containing an unterminated array.'
   }
-  return $headers
+  return @($headers)
 }
 
 function Assert-DreamSkinTomlLineEditingSafe {
@@ -298,7 +307,7 @@ function Assert-DreamSkinTomlLineEditingSafe {
   if ($Content.Contains('"""') -or $Content.Contains("'''")) {
     throw 'Refusing to rewrite TOML containing multiline strings; use single-line values before installing Dream Skin.'
   }
-  $null = @(Get-DreamSkinTomlTableHeaders -Content $Content)
+  $null = Get-DreamSkinTomlTableHeaders -Content $Content
 
   $probe = ConvertTo-DreamSkinTomlAsciiEscapeProbe -Value $Content
   if ($probe -cne $Content) {
@@ -320,10 +329,15 @@ function Test-DreamSkinDesktopNestedTable {
 
   $desktopToken = Get-DreamSkinTomlKeyTokenPattern -Key 'desktop'
   $keyToken = Get-DreamSkinTomlKeyTokenPattern -Key $Key
-  return [regex]::IsMatch(
-    $Content,
-    "(?m)^[\t ]*\[[\t ]*$desktopToken[\t ]*\.[\t ]*$keyToken[\t ]*(?:\]|\.)"
-  )
+  foreach ($header in @(Get-DreamSkinTomlTableHeaders -Content $Content)) {
+    if ([regex]::IsMatch(
+        $header.Line,
+        "^[\t ]*\[[\t ]*$desktopToken[\t ]*\.[\t ]*$keyToken[\t ]*(?:\]|\.)"
+      )) {
+      return $true
+    }
+  }
+  return $false
 }
 
 function Assert-DreamSkinDesktopShapeSupported {
@@ -331,12 +345,11 @@ function Assert-DreamSkinDesktopShapeSupported {
 
   Assert-DreamSkinTomlLineEditingSafe -Content $Content
   $headers = @(Get-DreamSkinTomlTableHeaders -Content $Content)
-  if (@($headers | Where-Object { $_.Desktop }).Count -gt 1) {
+  if (@($headers | Where-Object { $_.IsDesktop }).Count -gt 1) {
     throw 'Refusing to rewrite multiple equivalent [desktop] tables.'
   }
 
-  $desktopToken = Get-DreamSkinTomlKeyTokenPattern -Key 'desktop'
-  if ([regex]::IsMatch($Content, "(?m)^[\t ]*\[\[[\t ]*$desktopToken[\t ]*(?:\]\]|\.)")) {
+  if (@($headers | Where-Object { $_.IsDesktopArray }).Count -gt 0) {
     throw 'Refusing to rewrite a config that represents desktop as an array of tables.'
   }
   foreach ($key in @('appearanceTheme', 'appearanceLightCodeThemeId')) {
@@ -345,7 +358,9 @@ function Assert-DreamSkinDesktopShapeSupported {
     }
   }
 
-  $rootContent = if ($headers.Count -gt 0) { $Content.Substring(0, $headers[0].Index) } else { $Content }
+  $desktopToken = Get-DreamSkinTomlKeyTokenPattern -Key 'desktop'
+  $firstTable = @($headers)[0]
+  $rootContent = if ($null -ne $firstTable) { $Content.Substring(0, $firstTable.Index) } else { $Content }
   if ([regex]::IsMatch($rootContent, "(?m)^[\t ]*$desktopToken[\t ]*(?:\.|=)")) {
     throw 'Refusing to rewrite root dotted or inline desktop keys; normalize them to a [desktop] table first.'
   }
@@ -376,31 +391,23 @@ function Get-DreamSkinDesktopSection {
   param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Content)
 
   $headers = @(Get-DreamSkinTomlTableHeaders -Content $Content)
-  $desktopHeaders = @($headers | Where-Object { $_.Desktop })
-  if ($desktopHeaders.Count -gt 1) {
-    throw 'Refusing to rewrite multiple equivalent [desktop] tables.'
-  }
+  $desktopHeaders = @($headers | Where-Object { $_.IsDesktop })
   if ($desktopHeaders.Count -eq 0) { return $null }
-  $header = $desktopHeaders[0]
-  $headerIndex = -1
-  for ($index = 0; $index -lt $headers.Count; $index++) {
-    if ($headers[$index].Index -eq $header.Index) {
-      $headerIndex = $index
-      break
-    }
-  }
-  if ($headerIndex -lt 0) { throw 'Could not resolve the [desktop] table boundary.' }
-  $bodyEnd = if ($headerIndex + 1 -lt $headers.Count) {
+  if ($desktopHeaders.Count -gt 1) { throw 'Refusing to rewrite multiple equivalent [desktop] tables.' }
+  $desktopHeader = $desktopHeaders[0]
+  $headerIndex = [array]::IndexOf($headers, $desktopHeader)
+  $bodyEnd = if ($headerIndex -ge 0 -and $headerIndex + 1 -lt $headers.Count) {
     $headers[$headerIndex + 1].Index
   } else {
     $Content.Length
   }
+  $bodyLength = $bodyEnd - $desktopHeader.BodyStart
   return [pscustomobject]@{
-    Body = $Content.Substring($header.BodyStart, $bodyEnd - $header.BodyStart)
-    BodyStart = $header.BodyStart
-    BodyLength = $bodyEnd - $header.BodyStart
-    SectionStart = $header.Index
-    SectionLength = $bodyEnd - $header.Index
+    Body = $Content.Substring($desktopHeader.BodyStart, $bodyLength)
+    BodyStart = $desktopHeader.BodyStart
+    BodyLength = $bodyLength
+    SectionStart = $desktopHeader.Index
+    SectionLength = $bodyEnd - $desktopHeader.Index
   }
 }
 
@@ -424,16 +431,17 @@ function Set-DreamSkinSectionSetting {
   )
 
   $keyToken = Get-DreamSkinTomlKeyTokenPattern -Key $Key
-  $pattern = "(?m)^[\t ]*$keyToken[\t ]*=[^\r\n]*(?:\r?\n|(?=\z))"
-  $matcher = [regex]::new($pattern)
-  if ($matcher.Matches($Body).Count -gt 1) {
+  $lineMatches = [regex]::Matches($Body, "(?m)^[\t ]*$keyToken[\t ]*=.*$")
+  if ($lineMatches.Count -gt 1) {
     throw "Refusing to rewrite duplicate '$Key' entries in the [desktop] section."
   }
-  $existing = $matcher.Match($Body)
-  if ($existing.Success -and
-    (Get-DreamSkinTomlArrayBracketBalance -Line $existing.Value) -ne 0) {
-    throw "Refusing to rewrite multiline '$Key' settings in the [desktop] section."
+  foreach ($lineMatch in $lineMatches) {
+    if ((Get-DreamSkinTomlArrayBracketBalance -Line $lineMatch.Value) -ne 0) {
+      throw "Refusing to rewrite multiline '$Key' settings in the [desktop] section."
+    }
   }
+  $pattern = "(?m)^[\t ]*$keyToken[\t ]*=[^\r\n]*(?:\r?\n|(?=\z))"
+  $matcher = [regex]::new($pattern)
   if ($null -eq $Line) { return $matcher.Replace($Body, '', 1) }
   $normalizedLine = $Line.TrimEnd("`r", "`n") + $NewLine
   if ($matcher.IsMatch($Body)) {
@@ -522,6 +530,129 @@ function Write-DreamSkinAppearanceMarker {
   Write-DreamSkinUtf8FileAtomically -Path $markerPath -Content ($marker + "`r`n")
 }
 
+function Remove-DreamSkinTomlQuotedTextAndComment {
+  param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line)
+  $builder = [System.Text.StringBuilder]::new($Line.Length)
+  $quote = [char]0
+  $escaped = $false
+  foreach ($character in $Line.ToCharArray()) {
+    if ($quote -ne [char]0) {
+      [void]$builder.Append(' ')
+      if ($quote -eq '"' -and $escaped) {
+        $escaped = $false
+      } elseif ($quote -eq '"' -and $character -eq '\') {
+        $escaped = $true
+      } elseif ($character -eq $quote) {
+        $quote = [char]0
+      }
+      continue
+    }
+    if ($character -eq '#') { break }
+    if ($character -eq '"' -or $character -eq "'") {
+      $quote = $character
+      [void]$builder.Append(' ')
+      continue
+    }
+    [void]$builder.Append($character)
+  }
+  return $builder.ToString()
+}
+
+function Get-DreamSkinTomlInlineTableBooleanValues {
+  param(
+    [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line,
+    [Parameter(Mandatory = $true)][string]$Key
+  )
+  $structuralLine = Remove-DreamSkinTomlQuotedTextAndComment -Line $Line
+  $equalsIndex = $structuralLine.IndexOf('=')
+  if ($equalsIndex -lt 0) { return }
+  $value = $structuralLine.Substring($equalsIndex + 1).Trim()
+  if ($value.Length -lt 2 -or $value[0] -ne '{' -or $value[$value.Length - 1] -ne '}') {
+    return
+  }
+
+  $body = $value.Substring(1, $value.Length - 2)
+  $segments = [System.Collections.Generic.List[string]]::new()
+  $builder = [System.Text.StringBuilder]::new()
+  $braceDepth = 0
+  $bracketDepth = 0
+  foreach ($character in $body.ToCharArray()) {
+    if ($character -eq '{') { $braceDepth++ }
+    elseif ($character -eq '}') {
+      $braceDepth--
+      if ($braceDepth -lt 0) { return }
+    } elseif ($character -eq '[') { $bracketDepth++ }
+    elseif ($character -eq ']') {
+      $bracketDepth--
+      if ($bracketDepth -lt 0) { return }
+    }
+    if ($character -eq ',' -and $braceDepth -eq 0 -and $bracketDepth -eq 0) {
+      $segments.Add($builder.ToString())
+      [void]$builder.Clear()
+      continue
+    }
+    [void]$builder.Append($character)
+  }
+  if ($braceDepth -ne 0 -or $bracketDepth -ne 0) { return }
+  $segments.Add($builder.ToString())
+
+  $pattern = '^\s*' + [regex]::Escape($Key) + '\s*=\s*(true|false)\s*$'
+  foreach ($segment in $segments) {
+    $match = [regex]::Match($segment, $pattern, [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+    if ($match.Success) { $match.Groups[1].Value }
+  }
+}
+
+function Test-DreamSkinAcrylicTransparencyConfig {
+  param([Parameter(Mandatory = $true)][string]$ConfigPath)
+  if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) { return $false }
+  try {
+    $content = ConvertFrom-DreamSkinUtf8Bytes `
+      -Bytes ([System.IO.File]::ReadAllBytes($ConfigPath)) -Path $ConfigPath
+    Assert-DreamSkinDesktopShapeSupported -Content $content
+    $desktop = Get-DreamSkinDesktopSection -Content $content
+    if ($null -eq $desktop) { return $false }
+
+    $inline = Get-DreamSkinSectionSettingLine `
+      -Body $desktop.Body -Key 'appearanceLightChromeTheme'
+    if ($inline) {
+      $opaqueValues = @(Get-DreamSkinTomlInlineTableBooleanValues `
+        -Line $inline -Key 'opaqueWindows')
+      return $opaqueValues.Count -eq 1 -and $opaqueValues[0] -ceq 'false'
+    }
+
+    $nested = [regex]::Match(
+      $content,
+      '(?ms)^[ \t]*\[desktop\.appearanceLightChromeTheme\][ \t]*(?:#.*)?\r?\n(?<body>.*?)(?=^[ \t]*\[|\z)'
+    )
+    if (-not $nested.Success) { return $false }
+    return [regex]::IsMatch(
+      $nested.Groups['body'].Value,
+      '(?im)^[ \t]*opaqueWindows[ \t]*=[ \t]*false(?:[ \t]*(?:#.*)?)?\r?$'
+    )
+  } catch {
+    return $false
+  }
+}
+
+function Test-DreamSkinAcrylicTransparencyConfigManageable {
+  param([Parameter(Mandatory = $true)][string]$ConfigPath)
+  if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) { return $false }
+  try {
+    $content = ConvertFrom-DreamSkinUtf8Bytes `
+      -Bytes ([System.IO.File]::ReadAllBytes($ConfigPath)) -Path $ConfigPath
+    Assert-DreamSkinDesktopShapeSupported -Content $content
+    if (Test-DreamSkinAcrylicTransparencyConfig -ConfigPath $ConfigPath) { return $true }
+    # The managed base-theme transaction can safely create or replace the
+    # scalar/inline chrome theme. A nested table is deliberately preserved, so
+    # an opaque nested theme must be rejected before Codex is ever closed.
+    return -not (Test-DreamSkinDesktopNestedTable `
+      -Content $content -Key 'appearanceLightChromeTheme')
+  } catch {
+    return $false
+  }
+}
+
 function Install-DreamSkinBaseTheme {
   [CmdletBinding()]
   param(
@@ -532,7 +663,9 @@ function Install-DreamSkinBaseTheme {
     [string]$BackupPath,
 
     [ValidateSet('auto', 'light', 'dark')]
-    [string]$AppearanceTheme = 'auto'
+    [string]$AppearanceTheme = 'auto',
+
+    [switch]$TransparentWindows
   )
 
   if (-not (Test-Path -LiteralPath $ConfigPath)) { throw "Codex config not found: $ConfigPath" }
@@ -585,9 +718,16 @@ function Install-DreamSkinBaseTheme {
       $body = Set-DreamSkinSectionSetting -Body $body -Key 'appearanceTheme' `
         -Line ('appearanceTheme = "{0}"' -f $AppearanceTheme) -NewLine $newLine
     }
+    $managedLightChromeTheme = $script:DreamSkinManagedLightChromeTheme
+    if ($TransparentWindows) {
+      $managedLightChromeTheme = $managedLightChromeTheme.Replace(
+        'opaqueWindows = true',
+        'opaqueWindows = false'
+      )
+    }
     $settings = [ordered]@{
       appearanceLightCodeThemeId = $script:DreamSkinManagedLightCodeTheme
-      appearanceLightChromeTheme = $script:DreamSkinManagedLightChromeTheme
+      appearanceLightChromeTheme = $managedLightChromeTheme
     }
     $hasNestedLightChromeTheme = Test-DreamSkinDesktopNestedTable `
       -Content $content -Key 'appearanceLightChromeTheme'

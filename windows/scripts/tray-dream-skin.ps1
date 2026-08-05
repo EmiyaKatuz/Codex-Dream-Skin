@@ -171,6 +171,19 @@ try {
       $null = Add-DreamSkinTrayItem -Items $menu.Items -Text '暂停皮肤' -Action {
         # Match macOS pause: marker + live remove with in-window loading / result.
         $removal = Invoke-DreamSkinTrayThemeOperation -Action {
+          $liveState = Read-DreamSkinState -Path $paths.State
+          if ($null -ne $liveState -and "$($liveState.windowMaterial)" -ceq 'acrylic') {
+            $null = Stop-DreamSkinRecordedAcrylicMonitor `
+              -State $liveState -StateRoot $StateRoot
+            $liveState.windowMaterial = 'system'
+            $liveState.acrylicMonitorPid = $null
+            $liveState.acrylicMonitorStartedAt = $null
+            $liveState.acrylicMonitorPath = $null
+            $liveState.acrylicMonitorStopFile = $null
+            $liveState.acrylicMonitorArmFile = $null
+            $liveState.startupPhase = 'paused'
+            Write-DreamSkinState -Path $paths.State -State $liveState
+          }
           Set-DreamSkinPaused -Paused $true -StateRoot $StateRoot | Out-Null
           Invoke-DreamSkinLiveRemove -StateRoot $StateRoot
         }
@@ -213,6 +226,8 @@ try {
           $imported = Import-DreamSkinThemeZip -ArchivePath $dialog.FileName -StateRoot $StateRoot
           if ($imported.Status -ceq 'Duplicate') {
             $message = "主题已存在：$($imported.Name)。没有重复写入。"
+          } elseif ($imported.Replaced) {
+            $message = "已更新已保存主题：$($imported.Name)。当前主题没有改变。"
           } else {
             $message = "已导入：$($imported.Name)。当前主题没有改变。"
             if ($imported.Renamed) { $message += " 新标识：$($imported.Id)。" }
@@ -222,7 +237,18 @@ try {
             $message += ' theme.css 已通过本机 Safe CSS 校验，切换到该主题时会一并生效。'
           }
           if ($imported.SignatureIgnored) { $message += ' manifest.sig 是预留文件，当前版本已忽略。' }
-          $notify.ShowBalloonTip(3200, 'Codex Dream Skin', $message, [System.Windows.Forms.ToolTipIcon]::Info)
+          $cleanupProperty = $imported.PSObject.Properties['CleanupWarning']
+          $hasCleanupWarning = $null -ne $cleanupProperty -and
+            -not [string]::IsNullOrWhiteSpace("$($cleanupProperty.Value)")
+          if ($hasCleanupWarning) {
+            $message += ' 主题已成功保存，但旧备份目录未能自动清理；新主题不会因此回滚。请稍后重启客户端并查看日志。'
+          }
+          $messageIcon = if ($hasCleanupWarning) {
+            [System.Windows.Forms.ToolTipIcon]::Warning
+          } else {
+            [System.Windows.Forms.ToolTipIcon]::Info
+          }
+          $notify.ShowBalloonTip(4200, 'Codex Dream Skin', $message, $messageIcon)
         }
       } finally {
         $dialog.Dispose()

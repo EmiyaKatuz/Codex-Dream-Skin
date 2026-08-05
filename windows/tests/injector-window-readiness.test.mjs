@@ -8,6 +8,7 @@ import { verifySession } from "../scripts/injector.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const startPath = path.resolve(here, "../scripts/start-dream-skin.ps1");
+const expectedVersion = (await fs.readFile(path.resolve(here, "../VERSION"), "utf8")).trim();
 const win32WindowEvidence = {
   source: "win32-hwnd",
   processId: 4120,
@@ -17,11 +18,16 @@ const win32WindowEvidence = {
 };
 
 const selectors = {
-  shell: ":is(main.main-surface, main[data-app-shell-main-surface])",
+  shell: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])',
   sidebar: "aside.app-shell-left-panel",
+  header: 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])',
   composer: ".composer-surface-chrome",
+  homeIcon: '[data-testid="home-icon"]',
   home: '[role="main"]:has([data-testid="home-icon"])',
-  settings: 'input[name="appearance-theme"]',
+  settings: '[data-settings-panel-slug="general-settings"]',
+  legacySettings: 'input[name="appearance-theme"]',
+  gameSource: '[data-feature="game-source"]',
+  suggestions: ".group\\/home-suggestions",
   themePreview: '[data-testid="theme-preview"]',
 };
 
@@ -29,19 +35,49 @@ function makeRect(width = 800, height = 600, x = 0, y = 0) {
   return { x, y, width, height, right: x + width, bottom: y + height };
 }
 
-function makeElement({ rect = makeRect(), style = {}, visible = true } = {}) {
-  return {
+function makeElement({
+  rect = makeRect(),
+  style = {},
+  visible = true,
+  text = "",
+  children = [],
+} = {}) {
+  const element = {
     isConnected: true,
+    textContent: text,
     _style: {
       display: "block",
       visibility: "visible",
       contentVisibility: "visible",
       opacity: "1",
+      color: "rgb(240, 240, 240)",
       ...style,
     },
+    childNodes: text ? [{ nodeType: 3, textContent: text }] : [],
+    children,
     getBoundingClientRect: () => rect,
     checkVisibility: () => visible,
     querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+  return element;
+}
+
+function makeSuggestionButton({
+  rect = makeRect(220, 80, 40, 300),
+  color = "rgb(210, 210, 210)",
+  labelColor = color,
+  text = "Suggestion",
+} = {}) {
+  const label = makeElement({
+    rect: makeRect(180, 24, rect.x + 12, rect.y + 12),
+    style: { color: labelColor },
+    text,
+  });
+  return {
+    ...makeElement({ rect, style: { color } }),
+    getBoundingClientRect: () => rect,
+    querySelectorAll: () => [label],
   };
 }
 
@@ -49,15 +85,21 @@ function makeHome(options = {}) {
   const home = makeElement(options);
   const hero = makeElement(options.hero ?? {});
   home.firstElementChild = { firstElementChild: { firstElementChild: hero } };
+  const suggestions = options.suggestions ?? null;
+  home.querySelector = (selector) => selector === selectors.suggestions ? suggestions : null;
   return home;
 }
 
 function makeDomFixture({
-  scope = { level: "L1", baseState: "thread" },
+  scope = { level: "L1", baseState: "thread", missingL1: [] },
   shell = makeElement(),
   sidebar = makeElement(),
+  header = makeElement(),
   composer = makeElement(),
   home = null,
+  homeSignal = null,
+  genericMain = null,
+  genericInput = null,
   settings = null,
   visibilityState = "visible",
   hidden = false,
@@ -80,9 +122,15 @@ function makeDomFixture({
     querySelector(selector) {
       if (selector === selectors.shell) return shell;
       if (selector === selectors.sidebar) return sidebar;
+      if (selector === selectors.header) return header;
       if (selector === selectors.composer) return composer;
+      if (selector === selectors.homeIcon) return null;
       if (selector === selectors.home) return home;
-      if (selector === selectors.settings || selector === selectors.themePreview) return settings;
+      if (selector === selectors.gameSource || selector === selectors.suggestions) return homeSignal;
+      if (selector === '[data-ds-part="main"], [data-ds-part="home"]') return genericMain ?? home;
+      if (selector === '[data-ds-part="composer"]') return genericInput;
+      if (selector === selectors.settings || selector === selectors.legacySettings ||
+        selector === selectors.themePreview) return settings;
       return null;
     },
     querySelectorAll: () => [],
@@ -90,7 +138,7 @@ function makeDomFixture({
   };
   const window = {
     __CODEX_DREAM_SKIN_STATE__: {
-      version: "1.5.9",
+      version: expectedVersion,
       themeId: "fixture-theme",
       revision: "fixture-revision",
       styleMode: "style",
@@ -136,7 +184,7 @@ function makeSession({
   };
 }
 
-async function verify(overrides = {}, nativeFallback = null) {
+async function verify(overrides = {}, nativeFallback = null, allowHiddenDocument = false) {
   const session = makeSession(overrides);
   const result = await verifySession(
     session,
@@ -144,6 +192,7 @@ async function verify(overrides = {}, nativeFallback = null) {
     "fixture-theme",
     "fixture-revision",
     nativeFallback,
+    allowHiddenDocument,
   );
   return { result, session };
 }
@@ -158,11 +207,28 @@ test("normal L1 renderer requires and records the exact target window binding", 
     structurePass: true,
     nativeWindowPass: true,
     fallbackWindowPass: false,
+    hiddenDocumentAllowed: false,
+    hiddenDocumentPass: false,
+    effectiveDocumentPass: true,
   });
   assert.deepEqual(session.calls, [
     { method: "Browser.getWindowForTarget", params: { targetId: "page-main" } },
     { method: "Browser.getWindowBounds", params: { windowId: 41 } },
   ]);
+});
+
+test("collapsed-sidebar L1 renderer accepts the native header and composer pair", async () => {
+  const collapsed = await verify({
+    dom: makeDomFixture({ sidebar: null }),
+  });
+  assert.equal(collapsed.result.pass, true);
+  assert.equal(collapsed.result.readiness.structurePass, true);
+
+  const missingComposer = await verify({
+    dom: makeDomFixture({ sidebar: null, composer: null }),
+  });
+  assert.equal(missingComposer.result.pass, false);
+  assert.equal(missingComposer.result.readiness.structurePass, false);
 });
 
 test("visible settings and home anchors are the only L0 structure exceptions", async () => {
@@ -178,13 +244,35 @@ test("visible settings and home anchors are the only L0 structure exceptions", a
 
   const home = await verify({
     dom: makeDomFixture({
-      scope: { level: "L0", baseState: "home" },
+      scope: {
+        level: "L0",
+        baseState: "home",
+        missingL1: ["left-panel"],
+      },
       shell: null,
       sidebar: null,
       home: makeHome({ rect: makeRect(900, 650, 20, 20) }),
     }),
   });
   assert.equal(home.result.pass, true);
+  assert.equal(home.result.readiness.structurePass, true);
+
+  const fallbackHome = makeHome({ rect: makeRect(900, 650, 20, 20) });
+  const lateHomeIconSignal = {
+    closest: (selector) => selector === '[role="main"]' ? fallbackHome : null,
+  };
+  const lateHomeIcon = await verify({
+    dom: makeDomFixture({
+      scope: { level: "L0", baseState: "home" },
+      shell: null,
+      sidebar: null,
+      home: null,
+      homeSignal: lateHomeIconSignal,
+    }),
+  });
+  assert.equal(lateHomeIcon.result.homePresent, true);
+  assert.equal(lateHomeIcon.result.pass, true);
+  assert.equal(lateHomeIcon.result.readiness.structurePass, true);
 
   const noAnchor = await verify({
     dom: makeDomFixture({
@@ -195,6 +283,90 @@ test("visible settings and home anchors are the only L0 structure exceptions", a
   });
   assert.equal(noAnchor.result.pass, false);
   assert.equal(noAnchor.result.readiness.structurePass, false);
+
+  const generic = await verify({
+    dom: makeDomFixture({
+      shell: null,
+      sidebar: null,
+      home: null,
+      genericMain: makeElement({ rect: makeRect(900, 650, 20, 20) }),
+      genericInput: makeElement({ rect: makeRect(620, 80, 180, 620) }),
+    }),
+  });
+  assert.equal(generic.result.pass, true);
+  assert.equal(generic.result.readiness.structurePass, true);
+
+  const genericL0 = await verify({
+    dom: makeDomFixture({
+      scope: {
+        level: "L0",
+        baseState: "thread",
+        missingL1: ["shell-main", "left-panel", "header-tint"],
+      },
+      shell: null,
+      sidebar: null,
+      home: null,
+      genericMain: makeElement({ rect: makeRect(900, 650, 20, 20) }),
+      genericInput: makeElement({ rect: makeRect(620, 80, 180, 620) }),
+    }),
+  });
+  assert.equal(genericL0.result.pass, false,
+    "Generic app parts must not turn an L0 thread with missing shell/header anchors into visible success.");
+  assert.equal(genericL0.result.readiness.structurePass, false);
+
+  const falseHome = await verify({
+    dom: makeDomFixture({
+      scope: { level: "L1", baseState: "home", missingL1: [] },
+      home: null,
+      homeSignal: null,
+      genericMain: makeElement({ rect: makeRect(900, 650, 20, 20) }),
+      genericInput: makeElement({ rect: makeRect(620, 80, 180, 620) }),
+    }),
+  });
+  assert.equal(falseHome.result.homePresent, false);
+  assert.equal(falseHome.result.pass, false,
+    "A renderer that claims Home must expose a real Home identity signal.");
+});
+
+test("home verification matches macOS and does not require a fixed suggestion-card count", async () => {
+  const oneSuggestion = {
+    querySelectorAll: (selector) => selector === "button"
+      ? [makeSuggestionButton({ text: "One real card" })]
+      : [],
+  };
+  const homeWithOneSuggestion = await verify({
+    dom: makeDomFixture({
+      home: makeHome({
+        rect: makeRect(900, 650, 20, 20),
+        hero: { rect: makeRect(800, 260, 40, 60) },
+        suggestions: oneSuggestion,
+      }),
+    }),
+  });
+  assert.equal(homeWithOneSuggestion.result.homePresent, true);
+  assert.equal(homeWithOneSuggestion.result.visibleCardCount, 1);
+  assert.equal(homeWithOneSuggestion.result.pass, true);
+
+  const mismatchedSuggestion = {
+    querySelectorAll: (selector) => selector === "button"
+      ? [makeSuggestionButton({
+        text: "Hidden by mismatched text color",
+        color: "rgb(210, 210, 210)",
+        labelColor: "rgb(10, 10, 10)",
+      })]
+      : [],
+  };
+  const badHome = await verify({
+    dom: makeDomFixture({
+      home: makeHome({
+        rect: makeRect(900, 650, 20, 20),
+        hero: { rect: makeRect(800, 260, 40, 60) },
+        suggestions: mismatchedSuggestion,
+      }),
+    }),
+  });
+  assert.equal(badHome.result.suggestionLabelColorsMatch, false);
+  assert.equal(badHome.result.pass, false);
 });
 
 test("uninformative Browser window replies require verified Win32 HWND evidence", async () => {
@@ -333,6 +505,56 @@ test("hidden documents and unreasonable viewports cannot pass", async () => {
   });
   assert.equal(tiny.result.pass, false);
   assert.equal(tiny.result.readiness.viewportPass, false);
+});
+
+test("startup-only hidden-document allowance still requires exact native and renderer readiness", async () => {
+  const bindingError = new Error("No window with given target found (-32000)");
+  const hiddenDom = makeDomFixture({ visibilityState: "hidden", hidden: true });
+  const allowed = await verify({ bindingError, dom: hiddenDom }, win32WindowEvidence, true);
+  assert.equal(allowed.result.pass, true);
+  assert.equal(allowed.result.documentVisibility, "hidden");
+  assert.equal(allowed.result.readiness.documentPass, false);
+  assert.equal(allowed.result.readiness.hiddenDocumentAllowed, true);
+  assert.equal(allowed.result.readiness.hiddenDocumentPass, true);
+  assert.equal(allowed.result.readiness.effectiveDocumentPass, true);
+  assert.equal(allowed.result.readiness.fallbackWindowPass, true);
+
+  const noNative = await verify({ bindingError, dom: hiddenDom }, null, true);
+  assert.equal(noNative.result.pass, false);
+  assert.equal(noNative.result.readiness.windowPass, false);
+
+  const noStructure = await verify({
+    bindingError,
+    dom: makeDomFixture({
+      visibilityState: "hidden",
+      hidden: true,
+      shell: null,
+      sidebar: null,
+    }),
+  }, win32WindowEvidence, true);
+  assert.equal(noStructure.result.pass, false);
+  assert.equal(noStructure.result.readiness.structurePass, false);
+
+  const tiny = await verify({
+    bindingError,
+    dom: makeDomFixture({
+      visibilityState: "hidden",
+      hidden: true,
+      viewportWidth: 319,
+      viewportHeight: 239,
+    }),
+  }, win32WindowEvidence, true);
+  assert.equal(tiny.result.pass, false);
+  assert.equal(tiny.result.readiness.viewportPass, false);
+
+  for (const dom of [
+    makeDomFixture({ visibilityState: "prerender", hidden: true }),
+    makeDomFixture({ visibilityState: "hidden", hidden: false }),
+  ]) {
+    const inconsistent = await verify({ bindingError, dom }, win32WindowEvidence, true);
+    assert.equal(inconsistent.result.pass, false);
+    assert.equal(inconsistent.result.readiness.hiddenDocumentPass, false);
+  }
 });
 
 test("zero-size and CSS-hidden shell anchors cannot satisfy L1", async () => {

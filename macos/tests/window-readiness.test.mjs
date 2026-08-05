@@ -19,6 +19,7 @@ const [startSource, commonSource] = await Promise.all([
   fs.readFile(startPath, "utf8"),
   fs.readFile(commonPath, "utf8"),
 ]);
+const injectorSource = await fs.readFile(path.join(macosRoot, "scripts", "injector.mjs"), "utf8");
 
 const exactPayload = {
   skinVersion: "test-version",
@@ -39,7 +40,7 @@ const baseRenderer = {
   documentVisibility: "visible",
   viewport: { width: 1180, height: 740 },
   documentOverflow: { x: false, y: false },
-  scope: { level: "L1", baseState: "thread" },
+  scope: { level: "L1", baseState: "thread", missingL1: [] },
   shell: { visible: true, width: 900, height: 740 },
   sidebar: { visible: true, width: 280, height: 740 },
   settings: null,
@@ -109,6 +110,38 @@ assert.equal(
   assessRendererVerification(multicolorAngelHome, readyNativeWindow, angelPayload).pass,
   true,
   "Intentional Internet Angel accent labels must not fail otherwise complete home-card coverage.",
+);
+
+// Codex 26.721.x sometimes renders game-source/home suggestions before
+// home-icon. In that interval homeRoute is already a real [role=main], so
+// verification must use it when the stricter home-route selector is late.
+assert.match(
+  injectorSource,
+  /const home = document\.querySelector\(\$\{selectorLiteral\("home-route"\)\}\) \?\? homeRoute;/,
+  "Home verification must fall back to the already-resolved semantic home route (#306).",
+);
+assert.equal(
+  assessRendererVerification({
+    ...baseRenderer,
+    scope: { level: "L1", baseState: "home", missingL1: [] },
+    homeRoute: true,
+    homePresent: true,
+    hero: { visible: true, width: 800, height: 520 },
+  }, readyNativeWindow, exactPayload).pass,
+  true,
+  "A visible fallback home container must satisfy the ordinary home verification gate.",
+);
+assert.equal(
+  assessRendererVerification({
+    ...baseRenderer,
+    scope: { level: "L1", baseState: "home", missingL1: [] },
+    homeRoute: false,
+    homePresent: false,
+    genericMain: { visible: true, width: 900, height: 640 },
+    genericInput: { visible: true, width: 620, height: 80 },
+  }, readyNativeWindow, exactPayload).pass,
+  false,
+  "A renderer that claims Home must expose a real Home identity signal.",
 );
 
 const windowCalls = [];
@@ -186,6 +219,26 @@ assert.equal(
   "Settings L0 must expose a visible settings control.",
 );
 
+const incompleteHomeL0 = {
+  ...baseRenderer,
+  scope: {
+    level: "L0",
+    baseState: "home",
+    missingL1: ["left-panel"],
+  },
+  shell: null,
+  sidebar: null,
+  homePresent: true,
+  homeRoute: true,
+  genericMain: { visible: true, width: 900, height: 640 },
+  hero: { visible: true, width: 800, height: 260 },
+};
+assert.equal(
+  assessRendererVerification(incompleteHomeL0, unsupported, exactPayload).pass,
+  false,
+  "Home may not verify at L0 while required shell anchors are missing.",
+);
+
 const arbitraryL0 = {
   ...baseRenderer,
   scope: { level: "L0", baseState: "thread" },
@@ -196,6 +249,33 @@ assert.equal(
   assessRendererVerification(arbitraryL0, unsupported, exactPayload).pass,
   false,
   "L0 may not bypass ordinary route structure.",
+);
+assert.equal(
+  assessRendererVerification({
+    ...baseRenderer,
+    scope: {
+      level: "L0",
+      baseState: "thread",
+      missingL1: ["shell-main", "left-panel", "header-tint"],
+    },
+    shell: null,
+    sidebar: null,
+    genericMain: { visible: true, width: 900, height: 640 },
+    genericInput: { visible: true, width: 620, height: 80 },
+  }, unsupported, exactPayload).pass,
+  false,
+  "Generic app parts must not turn an L0 thread with missing shell/header anchors into visible success.",
+);
+assert.equal(
+  assessRendererVerification({
+    ...baseRenderer,
+    shell: null,
+    sidebar: null,
+    genericMain: { visible: true, width: 900, height: 640 },
+    genericInput: { visible: true, width: 620, height: 80 },
+  }, unsupported, exactPayload).pass,
+  true,
+  "A complete L1 scope may verify through registered generic app parts.",
 );
 assert.equal(
   assessRendererVerification(

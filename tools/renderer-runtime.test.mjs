@@ -3,6 +3,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import vm from "node:vm";
 
+const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
+const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
+const messageSelector = ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])';
+
 function styleDeclaration() {
   const values = new Map();
   return {
@@ -27,7 +31,11 @@ function classList(initial) {
   };
 }
 
-function makeFixture({ nativeAppearance = "dark", settings = false, adopted = true } = {}) {
+function makeFixture({
+  nativeAppearance = "dark", settings = false, settingsPanel = false, adopted = true,
+  generic = false, genericComposer = true, genericHome = false, genericSearch = false,
+  modernMessages = false,
+} = {}) {
   const attrs = new Map();
   const rootStyle = styleDeclaration();
   const rootClasses = classList([nativeAppearance === "dark" ? "electron-dark" : "electron-light"]);
@@ -42,8 +50,9 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
   let nextId = 0;
   let nextBlob = 0;
   const attributesFor = (values) => [...values].map(([name, value]) => ({ name, value }));
-  const makeDomNode = (name, parentElement = null, values = new Map()) => {
+  const makeDomNode = (name, parentElement = null, values = new Map(), matchedSelectors = []) => {
     const nodeListeners = new Map();
+    const selectorMatches = new Set(matchedSelectors);
     const node = {
       name,
       tagName: String(name).toUpperCase(),
@@ -91,6 +100,23 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
         visit(node);
         return results;
       },
+      matches(selector) { return selectorMatches.has(selector); },
+      closest(selector) {
+        let current = node;
+        while (current) {
+          if (current.matches?.(selector)) return current;
+          current = current.parentElement;
+        }
+        return null;
+      },
+      contains(candidate) {
+        let current = candidate;
+        while (current) {
+          if (current === node) return true;
+          current = current.parentElement;
+        }
+        return false;
+      },
     };
     domNodes.add(node);
     return node;
@@ -105,7 +131,48 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     selectorNodes.set(selector, current);
   };
   const partFixtures = {};
-  if (!settings) {
+  if (!settings && !settingsPanel && generic) {
+    const mainSelector = 'main, [role="main"]';
+    const inputSelector = 'textarea, [contenteditable="true"], [role="textbox"]';
+    const sidebarSelector = 'aside, nav[aria-label]';
+    const composerSelector = '[data-testid*="composer" i], [data-testid*="prompt" i], ' +
+      '[class*="composer" i], [class*="prompt" i]';
+    const overlaySelector = '[role="dialog"], [aria-modal="true"]';
+    partFixtures.shell = makeDomNode("generic-shell", body);
+    partFixtures.sidebar = makeDomNode("generic-sidebar", partFixtures.shell, new Map(), [sidebarSelector]);
+    partFixtures.main = makeDomNode("generic-main", partFixtures.shell, new Map(), [mainSelector]);
+    if (genericComposer) {
+      partFixtures.composer = makeDomNode(
+        "generic-composer", partFixtures.main, new Map(), [composerSelector],
+      );
+      partFixtures.input = makeDomNode("generic-input", partFixtures.composer, new Map(), [inputSelector]);
+    }
+    partFixtures.unrelatedAside = makeDomNode(
+      "generic-content-aside", partFixtures.main, new Map(), [sidebarSelector],
+    );
+    partFixtures.dialog = makeDomNode("generic-dialog", partFixtures.main, new Map(), [overlaySelector]);
+    partFixtures.dialogInput = makeDomNode(
+      "generic-dialog-input", partFixtures.dialog, new Map(), [inputSelector],
+    );
+    if (genericSearch) {
+      partFixtures.searchForm = makeDomNode("generic-search-form", partFixtures.main, new Map(), ["form"]);
+      partFixtures.searchInput = makeDomNode(
+        "generic-search-input", partFixtures.searchForm, new Map(), [inputSelector],
+      );
+    }
+    register(mainSelector, partFixtures.main);
+    if (genericSearch) register(inputSelector, partFixtures.searchInput);
+    if (genericComposer) register(inputSelector, partFixtures.input);
+    register(inputSelector, partFixtures.dialogInput);
+    register(sidebarSelector, partFixtures.sidebar);
+    register(sidebarSelector, partFixtures.unrelatedAside);
+    if (genericHome) {
+      partFixtures.homeIcon = makeDomNode("generic-home-icon", partFixtures.main);
+      register('[data-testid="home-icon"]', partFixtures.homeIcon);
+      register('[role="main"]:has([data-testid="home-icon"])', partFixtures.main);
+      register('[role="main"]', partFixtures.main);
+    }
+  } else if (!settings && !settingsPanel) {
     partFixtures.sidebar = makeDomNode("sidebar", body);
     partFixtures.main = makeDomNode("main", body);
     partFixtures.header = makeDomNode("header", body);
@@ -114,18 +181,25 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     partFixtures.homeIcon = makeDomNode("home-icon", partFixtures.homeHero);
     partFixtures.projectList = makeDomNode("project-list", partFixtures.home);
     partFixtures.thread = makeDomNode("thread", partFixtures.main);
-    partFixtures.message = makeDomNode("message", partFixtures.thread);
+    partFixtures.legacyMessage = makeDomNode("legacy-message", partFixtures.thread);
+    partFixtures.userMessage = makeDomNode("user-message", partFixtures.thread);
+    partFixtures.assistantMessage = makeDomNode("assistant-message", partFixtures.thread);
     partFixtures.composer = makeDomNode("composer", partFixtures.main);
     partFixtures.composerToolbar = makeDomNode("composer-toolbar", partFixtures.composer);
     register("aside.app-shell-left-panel", partFixtures.sidebar);
-    register(":is(main.main-surface, main[data-app-shell-main-surface])", partFixtures.main);
-    register(":is(header.app-header-tint, header[data-app-shell-application-menu-bar])", partFixtures.header);
+    register(shellSelector, partFixtures.main);
+    register(headerSelector, partFixtures.header);
     register('[data-testid="home-icon"]', partFixtures.homeIcon);
+    register('[data-feature="game-source"]', partFixtures.homeHero);
     register('[role="main"]:has([data-testid="home-icon"])', partFixtures.home);
     register('[role="main"]', partFixtures.home);
     register(".group\\/project-selector", partFixtures.projectList);
     register(".thread-scroll-container", partFixtures.thread);
-    register('[data-message-author-role]', partFixtures.message);
+    register(messageSelector, partFixtures.legacyMessage);
+    if (modernMessages) {
+      register(messageSelector, partFixtures.userMessage);
+      register(messageSelector, partFixtures.assistantMessage);
+    }
     register(".composer-surface-chrome", partFixtures.composer);
     register('.composer-surface-chrome [class*="_footer_"]', partFixtures.composerToolbar);
   }
@@ -147,6 +221,9 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     createElement(tag) { return tag === "style" ? makeStyleNode() : makeDomNode(tag); },
     getElementById(id) { return nodes.get(id) || null; },
     querySelector(selector) {
+      if (settingsPanel && selector === '[data-settings-panel-slug="general-settings"]') {
+        return makeDomNode("settings:general-settings", body);
+      }
       if (settings && (selector.includes("appearance-theme") || selector.includes("theme-preview"))) {
         return makeDomNode(`settings:${selector}`, body);
       }
@@ -218,8 +295,8 @@ function makeFixture({ nativeAppearance = "dark", settings = false, adopted = tr
     }
   };
   const addDynamicMessage = () => {
-    const node = makeDomNode(`message-${(selectorNodes.get('[data-message-author-role]') || []).length + 1}`, partFixtures.thread || body);
-    register('[data-message-author-role]', node);
+    const node = makeDomNode(`message-${(selectorNodes.get(messageSelector) || []).length + 1}`, partFixtures.thread || body);
+    register(messageSelector, node);
     return node;
   };
   const addDynamicFloatingSidebar = () => {
@@ -300,8 +377,10 @@ export async function runRendererRuntimeTest(assetRoot) {
   // Home gating must stay single-level: CSS forbids :has() inside :has(),
   // and Chromium drops any rule that nests it (the v1.3.1 regression).  The
   // canonical CSS therefore gates on the :has()-free home-route-css alias.
-  assert.match(css, /:is\(main\.main-surface, main\[data-app-shell-main-surface\]\):has\(\[role="main"\]\)/);
-  assert.match(css, /:is\(main\.main-surface, main\[data-app-shell-main-surface\]\):not\(:has\(\[role="main"\]\)\)/);
+  assert.ok(css.includes(`${shellSelector}:has([role="main"])`));
+  assert.ok(css.includes(`${shellSelector}:not(:has([role="main"]))`));
+  assert.ok(css.includes(headerSelector));
+  assert.match(css, /:is\(\.app-shell-main-content-top-fade, \[data-app-shell-main-content-top-fade\], \[class\*=\"_MainContentTopFade_\"\]\)/);
   assert.doesNotMatch(css, /:has\([^()]*:has\(/);
   assert.match(css, /content:\s*var\(--dream-skin-name[\s\S]{0,180}var\(--dream-skin-brand-subtitle/);
   assert.match(css, /content:\s*var\(--dream-skin-status/);
@@ -309,6 +388,21 @@ export async function runRendererRuntimeTest(assetRoot) {
   assert.match(css, /--ds-task-full-veil/);
   assert.match(css, /data-dream-task-mode="full"/);
   assert.match(css, /background-image:\s*var\(--ds-task-full-veil\),\s*var\(--dream-skin-art\)/);
+  assert.match(
+    css,
+    /:not\(:has\(main:is\(\.main-surface, \[data-app-shell-main-surface\], \[class\*=\"_MainContentSurface_\"\]\)\)\)[\s\S]{0,120}\[data-ds-part="sidebar"\]/,
+    "Core CSS must style the validated generic sidebar when the exact shell selector is absent.",
+  );
+  assert.match(
+    css,
+    /:not\(:has\(main:is\(\.main-surface, \[data-app-shell-main-surface\], \[class\*=\"_MainContentSurface_\"\]\)\)\)[\s\S]{0,180}\[data-ds-part="main"\]/,
+    "Core CSS must paint a validated generic main surface.",
+  );
+  assert.match(
+    css,
+    /:not\(:has\(main:is\(\.main-surface, \[data-app-shell-main-surface\], \[class\*=\"_MainContentSurface_\"\]\)\)\)[\s\S]{0,120}\[data-ds-part="composer"\]/,
+    "Core CSS must style the validated generic composer.",
+  );
   // Every home/project selector must stay behind the root skin gate.  A
   // marker-class-to-:has() conversion must never leave native layout rules
   // active after pause/restore.
@@ -363,7 +457,7 @@ export async function runRendererRuntimeTest(assetRoot) {
     homeHero: "home-hero",
     projectList: "project-list",
     thread: "thread",
-    message: "message",
+    legacyMessage: "message",
     composer: "composer",
     composerToolbar: "composer-toolbar",
   };
@@ -380,6 +474,59 @@ export async function runRendererRuntimeTest(assetRoot) {
   home.flushTimers(80);
   assert.equal(floatingSidebar.getAttribute("data-ds-part"), "sidebar",
     "A dynamically mounted floating sidebar must share the public Safe CSS sidebar part");
+  assert.equal(state.metrics.routePasses, 3,
+    "DOM mutations must refresh SPA route scope alongside public parts");
+
+  const modernMessages = makeFixture({ nativeAppearance: "dark", modernMessages: true });
+  vm.runInNewContext(modernMessages.payloadFor(), modernMessages.context);
+  assert.equal(modernMessages.partFixtures.legacyMessage.getAttribute("data-ds-part"), "message",
+    "The legacy message role attribute must remain supported.");
+  assert.equal(modernMessages.partFixtures.userMessage.getAttribute("data-ds-part"), "message",
+    "Codex 26.727 user message anchors must expose the public message part.");
+  assert.equal(modernMessages.partFixtures.assistantMessage.getAttribute("data-ds-part"), "message",
+    "Codex 26.727 assistant message containers must expose the public message part.");
+
+  const generic = makeFixture({ nativeAppearance: "dark", generic: true });
+  vm.runInNewContext(generic.payloadFor(), generic.context);
+  assert.equal(generic.partFixtures.sidebar.getAttribute("data-ds-part"), "sidebar");
+  assert.equal(generic.partFixtures.main.getAttribute("data-ds-part"), "main");
+  assert.equal(generic.partFixtures.composer.getAttribute("data-ds-part"), "composer");
+  assert.equal(generic.partFixtures.input.getAttribute("data-ds-part"), null,
+    "The composer wrapper, not its input, should receive the public part when available.");
+  assert.equal(generic.partFixtures.unrelatedAside.getAttribute("data-ds-part"), null,
+    "An aside inside the main content must not be exposed as the app sidebar.");
+  assert.equal(generic.partFixtures.dialogInput.getAttribute("data-ds-part"), null,
+    "Dialog inputs must not be mistaken for the app composer.");
+
+  const genericSearch = makeFixture({
+    nativeAppearance: "dark", generic: true, genericComposer: false, genericSearch: true,
+  });
+  vm.runInNewContext(genericSearch.payloadFor(), genericSearch.context);
+  assert.equal(genericSearch.partFixtures.searchForm.getAttribute("data-ds-part"), null,
+    "A generic search form must not be exposed as the app composer.");
+  assert.equal(genericSearch.partFixtures.searchInput.getAttribute("data-ds-part"), null,
+    "A generic search textbox must not be exposed as the app composer.");
+
+  const genericSearchBeforeComposer = makeFixture({
+    nativeAppearance: "dark", generic: true, genericComposer: true, genericSearch: true,
+  });
+  vm.runInNewContext(
+    genericSearchBeforeComposer.payloadFor(), genericSearchBeforeComposer.context,
+  );
+  assert.equal(
+    genericSearchBeforeComposer.partFixtures.searchInput.getAttribute("data-ds-part"), null,
+    "A preceding search textbox must remain unmarked.",
+  );
+  assert.equal(
+    genericSearchBeforeComposer.partFixtures.composer.getAttribute("data-ds-part"), "composer",
+    "A preceding search textbox must not hide the real semantic composer.",
+  );
+
+  const genericHome = makeFixture({ nativeAppearance: "dark", generic: true, genericHome: true });
+  vm.runInNewContext(genericHome.payloadFor(), genericHome.context);
+  assert.equal(genericHome.partFixtures.main.getAttribute("data-ds-part"), "home",
+    "The specific home part must win when generic home and main are one node.");
+  assert.equal(genericHome.window.__CODEX_DREAM_SKIN_STATE__.scope.baseState, "home");
 
   const full = makeFixture({ nativeAppearance: "dark" });
   vm.runInNewContext(full.payloadFor({ art: { taskMode: "full" } }), full.context);
@@ -484,13 +631,13 @@ export async function runRendererRuntimeTest(assetRoot) {
 
   rootObserver.callback([]);
   home.flushTimers(64);
-  assert.equal(state.metrics.routePasses, 1, "Attribute safety pass must not be a route pass");
+  assert.equal(state.metrics.routePasses, 3, "Attribute safety pass must not be a route pass");
   const navigationHandler = home.listeners.get("navigation:navigate");
   assert.equal(typeof navigationHandler, "function");
   navigationHandler();
   home.flushTimers(180);
   assert.equal(state.metrics.navigationEvents, 1);
-  assert.equal(state.metrics.routePasses, 2);
+  assert.equal(state.metrics.routePasses, 4);
 
   const settings = makeFixture({ nativeAppearance: "light", settings: true });
   vm.runInNewContext(settings.payloadFor(), settings.context);
@@ -498,6 +645,16 @@ export async function runRendererRuntimeTest(assetRoot) {
   assert.equal(settings.window.__CODEX_DREAM_SKIN_STATE__.scope.level, "L0");
   assert.equal(settings.attrs.get("data-dream-skin"), "active");
   assert.equal(settings.document.adoptedStyleSheets.length, 1);
+
+  const currentSettings = makeFixture({ nativeAppearance: "light", settingsPanel: true });
+  vm.runInNewContext(currentSettings.payloadFor(), currentSettings.context);
+  const currentSettingsScope = currentSettings.window.__CODEX_DREAM_SKIN_STATE__.scope;
+  assert.equal(currentSettingsScope.baseState, "settings",
+    "Codex 26.727 general-settings must classify as Settings without legacy appearance controls.");
+  assert.equal(currentSettingsScope.level, "L0");
+  assert.equal(currentSettingsScope.missingL1.length, 0);
+  assert.equal(currentSettings.attrs.get("data-dream-skin"), "active");
+  assert.equal(currentSettings.document.adoptedStyleSheets.length, 1);
 
   const explicit = makeFixture({ nativeAppearance: "light" });
   const result = vm.runInNewContext(explicit.payloadFor({ appearance: "dark", quote: "TEST QUOTE" }), explicit.context);

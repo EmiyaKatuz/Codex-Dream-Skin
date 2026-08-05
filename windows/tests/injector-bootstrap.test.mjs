@@ -8,6 +8,9 @@ import { earlyPayloadFor } from "../scripts/injector.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const injectorPath = path.resolve(here, "../scripts/injector.mjs");
 const source = await fs.readFile(injectorPath, "utf8");
+const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
+const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
+const homeSelector = '[role="main"]:has([data-testid="home-icon"])';
 
 function createFixture() {
   const domReady = [];
@@ -20,30 +23,38 @@ function createFixture() {
     sidebar: false,
     header: false,
     composer: false,
-    main: false,
+    home: false,
+    genericMain: false,
+    settingsPanel: false,
     settings: false,
+    genericInput: false,
+    branding: false,
   };
   let root = {};
-  let body = {};
   const context = {
     window: { installs: [] },
     location: { protocol: "app:" },
     document: {
       get documentElement() { return root; },
-      get body() { return body; },
       addEventListener(type, callback) { if (type === "DOMContentLoaded") domReady.push(callback); },
       querySelector(selector) {
-        if (selector === ":is(main.main-surface, main[data-app-shell-main-surface])") {
-          return markers.shell ? {} : null;
-        }
-        if (selector === ":is(header.app-header-tint, header[data-app-shell-application-menu-bar])") {
-          return markers.header ? {} : null;
-        }
+        if (selector === shellSelector) return markers.shell ? {} : null;
+        if (selector === headerSelector) return markers.header ? {} : null;
         if (selector === "aside.app-shell-left-panel") return markers.sidebar ? {} : null;
         if (selector === ".composer-surface-chrome") return markers.composer ? {} : null;
-        if (selector.includes("[role=\"main\"]")) return markers.main ? {} : null;
+        if (selector === homeSelector) return markers.home ? {} : null;
+        if (selector === "main, [role=\"main\"]") return markers.genericMain ? {} : null;
+        if (selector === '[data-settings-panel-slug="general-settings"]') {
+          return markers.settingsPanel ? {} : null;
+        }
+        if (selector.includes("textarea") || selector.includes("contenteditable") || selector.includes("textbox")) {
+          return markers.genericInput ? {} : null;
+        }
         if (selector.includes("appearance-theme") || selector.includes("theme-preview")) {
           return markers.settings ? {} : null;
+        }
+        if (selector.includes("app-shell-header-context-menu-surface")) {
+          return markers.branding ? {} : null;
         }
         return null;
       },
@@ -64,8 +75,9 @@ function createFixture() {
   return {
     context,
     markers,
-    makeNotReady() { root = null; body = null; },
-    makeReady() { root = {}; body = {}; },
+    brandAsCodex() { markers.branding = true; },
+    makeNotReady() { root = null; },
+    makeReady() { root = {}; },
     fireDomReady() { for (const callback of [...domReady]) callback(); },
     tick() { for (const callback of [...intervals.values()]) callback(); },
     observers: [],
@@ -87,6 +99,35 @@ guarded.tick();
 assert.deepEqual(guarded.context.window.installs, ["guarded"],
   "A verified shell and composer must support the collapsed-sidebar renderer.");
 
+const modernSettings = createFixture();
+vm.runInNewContext(earlyPayloadFor('window.installs.push("settings")', "settings"), modernSettings.context);
+modernSettings.markers.settingsPanel = true;
+modernSettings.tick();
+assert.deepEqual(modernSettings.context.window.installs, ["settings"],
+  "Codex 26.727 General Settings must bootstrap without legacy appearance controls.");
+
+const generic = createFixture();
+vm.runInNewContext(earlyPayloadFor('window.installs.push("generic")', "generic"), generic.context);
+generic.markers.genericMain = true;
+generic.markers.genericInput = true;
+generic.tick();
+assert.deepEqual(generic.context.window.installs, [],
+  "An unbranded app:// page with generic main/input anchors must remain untouched.");
+generic.brandAsCodex();
+generic.tick();
+assert.deepEqual(generic.context.window.installs, ["generic"],
+  "A verified app:// Codex surface with generic main/input anchors must accept newer renderer shells.");
+
+const settingsPanel = createFixture();
+vm.runInNewContext(
+  earlyPayloadFor('window.installs.push("settings-panel")', "settings-panel"),
+  settingsPanel.context,
+);
+settingsPanel.markers.settingsPanel = true;
+settingsPanel.tick();
+assert.deepEqual(settingsPanel.context.window.installs, ["settings-panel"],
+  "Codex 26.727 Settings must accept its stable general-settings panel without legacy appearance controls.");
+
 const generations = createFixture();
 generations.makeNotReady();
 generations.markers.shell = true;
@@ -103,12 +144,65 @@ assert.deepEqual(
 assert.equal(generations.context.window.__CODEX_DREAM_SKIN_EARLY_APPLIED__, "new");
 
 const earlyStart = source.indexOf("export function earlyPayloadFor");
-const earlySource = source.slice(earlyStart, earlyStart + 2200);
+const earlyEnd = source.indexOf("async function registerEarlyPayload", earlyStart);
+const earlySource = source.slice(earlyStart, earlyEnd);
 assert.ok(earlyStart >= 0, "Early payload helper must remain exported for bootstrap tests.");
 assert.doesNotMatch(earlySource, /MutationObserver|childList|subtree/,
   "Early bootstrap must not observe the entire renderer DOM.");
+assert.doesNotMatch(earlySource, /document\.title|document\.body\?\.innerText|location\.href/,
+  "The early bootstrap must not read page title, body text, or URL.");
 assert.match(earlySource, /DOMContentLoaded/);
 assert.match(earlySource, /setInterval\(install, 250\)/);
+const identityProbeStart = source.indexOf("async function probeSession");
+const identityProbeSource = source.slice(identityProbeStart, identityProbeStart + 1800);
+assert.ok(identityProbeStart >= 0, "The live target probe must remain covered by the identity test.");
+const probePrefix = "return session.evaluate(`";
+const probePayloadStart = source.indexOf(probePrefix, identityProbeStart) + probePrefix.length;
+const probePayloadEnd = source.indexOf("`);", probePayloadStart);
+assert.ok(probePayloadStart >= probePrefix.length && probePayloadEnd > probePayloadStart,
+  "The live identity expression must remain extractable for behavioral testing.");
+const probeTemplate = source.slice(probePayloadStart, probePayloadEnd);
+assert.doesNotMatch(probeTemplate, /`/, "The live identity expression must not contain nested template literals.");
+const liveProbePayload = vm.runInNewContext(`\`${probeTemplate}\``, {
+  selectorLiteral: (key) => JSON.stringify(`[selector-${key}]`),
+  stableTestidLiteral: (key) => JSON.stringify(`[data-testid="${key}"]`),
+});
+const runLiveProbe = ({
+  protocol = "app:", settingsPanel: hasSettingsPanel = false,
+  genericMain = false, genericInput = false, branding = false,
+} = {}) => vm.runInNewContext(liveProbePayload, {
+  location: { protocol },
+  document: {
+    querySelector(selector) {
+      if (selector === "[selector-settings-panel]") return hasSettingsPanel ? {} : null;
+      if (selector === 'main, [role="main"]') return genericMain ? {} : null;
+      if (selector === 'textarea, [contenteditable="true"], [role="textbox"]') {
+        return genericInput ? {} : null;
+      }
+      if (selector === '[data-testid="app-shell-header-context-menu-surface"]') {
+        return branding ? {} : null;
+      }
+      return null;
+    },
+  },
+});
+assert.equal(runLiveProbe({ settingsPanel: true }).codex, true,
+  "The live probe must accept the Codex 26.727 general Settings panel on app://.");
+assert.equal(runLiveProbe({ protocol: "https:", settingsPanel: true }).codex, false,
+  "The Settings marker must never identify a non-app target.");
+assert.equal(runLiveProbe({ genericMain: true, genericInput: true }).codex, false,
+  "The live probe must reject an unbranded generic app target.");
+assert.equal(runLiveProbe({ genericMain: true, genericInput: true, branding: true }).codex, true,
+  "The live probe may accept generic anchors only with the stable Codex branding marker.");
+assert.match(identityProbeSource, /selectorLiteral\("settings-panel"\)/,
+  "The live probe must retain the current Settings structural marker.");
+assert.match(identityProbeSource, /return Boolean\(main && input && branded\)/,
+  "The live target probe must require branding together with both generic anchors.");
+assert.match(identityProbeSource, /app-shell-header-context-menu-surface/,
+  "The live target probe must use a structural Codex branding marker.");
+assert.doesNotMatch(identityProbeSource, /document\.title|document\.body\?\.innerText|location\.href/,
+  "The live target probe must not read page title, body text, or URL.");
+assert.doesNotMatch(identityProbeSource, /\(main && input\) \|\||\(main && branded\) \|\||\(input && branded\)/);
 const registrationStart = source.indexOf("earlyScriptId = await registerEarlyPayload");
 const evaluateStart = source.indexOf("await session.evaluate(earlyPayloadFor", registrationStart);
 const probeStart = source.indexOf("const probe = await waitForCodexProbe", registrationStart);
@@ -137,8 +231,9 @@ assert.match(source, /Page\.removeScriptToEvaluateOnNewDocument/,
   "Watcher shutdown and theme refresh must unregister persistent Page scripts.");
 assert.match(source, /markers\.shell && \(markers\.sidebar \|\| \(markers\.header && markers\.composer\)\)/,
   "Collapsed-sidebar renderers must require the native header and composer identity anchors.");
-assert.match(source, /result\.shell\?\.visible &&\s*\(result\.sidebar\?\.visible \|\| result\.header\?\.visible\)/,
-  "Post-install verification must accept a collapsed sidebar when the native header remains present.");
+assert.match(source,
+  /result\.shell\?\.visible &&\s*\(\s*result\.sidebar\?\.visible \|\|\s*\(result\.header\?\.visible && result\.composer\?\.visible\)/,
+  "Post-install verification must require the native header and composer when the sidebar is collapsed.");
 assert.match(source, /result\.stylePresent && windowPass &&[\s\S]{0,180}structurePass &&\s*payloadPass/,
   "Post-install verification must retain native-window, structure, and payload revision checks.");
 
