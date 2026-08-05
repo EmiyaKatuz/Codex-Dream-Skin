@@ -47,6 +47,7 @@ const PLACEHOLDERS = [
   "__DREAM_THEME_JSON__",
   "__DREAM_SKIN_VERSION_JSON__",
   "__DREAM_SKIN_PAYLOAD_REVISION_JSON__",
+  "__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__",
 ];
 
 async function buildWith(themeFields, safeCss = null) {
@@ -102,7 +103,7 @@ function extractRendererArguments(payload) {
   // Inject an early return into the real renderer IIFE and evaluate only far
   // enough to recover its arguments. Parsing the final JSON-looking object was
   // brittle once the shared Internet Angel IIFE was appended to the payload.
-  const marker = "((cssText, artDataUrl, rawConfig) => {";
+  const marker = "((cssText, artDataUrl, rawConfig, sidebarScrollQuietEnabled) => {";
   const overlayBoundary = payload.lastIndexOf(";\n(() => {");
   assert.notEqual(
     overlayBoundary,
@@ -113,7 +114,7 @@ function extractRendererArguments(payload) {
   const at = rendererPayload.indexOf(marker);
   assert.notEqual(at, -1, "payload must keep the canonical renderer IIFE signature");
   const probe = `${rendererPayload.slice(0, at + marker.length)}
-return { cssText, rawConfig };
+return { cssText, rawConfig, sidebarScrollQuietEnabled };
 ${rendererPayload.slice(at + marker.length)}`;
   return vm.runInNewContext(probe, Object.create(null), { timeout: 10_000 });
 }
@@ -177,6 +178,50 @@ test("an ordinary theme name is unaffected by the fix", async () => {
     shipped.theme.name,
     "The shipped theme must round-trip through the payload unchanged.",
   );
+  assert.equal(extractRendererArguments(shipped.payload).sidebarScrollQuietEnabled, false,
+    "System/Mica payloads must not run an Acrylic-only sidebar timer.");
+  const acrylic = await loadPayload(undefined, null, "acrylic");
+  assert.equal(acrylic.acrylicOverlay, true);
+  assert.equal(extractRendererArguments(acrylic.payload).sidebarScrollQuietEnabled, true,
+    "The Internet Angel Acrylic payload must enable sidebar scroll quiet mode.");
+});
+
+test("legacy palette accent migrates into the normalized colors contract", async () => {
+  const loaded = await buildWith({ palette: { accent: "#ff45c8" } });
+  const emitted = extractRendererArguments(loaded.payload).rawConfig;
+  assert.equal(Object.hasOwn(loaded.theme, "palette"), false);
+  assert.equal(Object.hasOwn(emitted, "palette"), false);
+  assert.equal(loaded.theme.colors.accent, "#ff45c8");
+  assert.equal(emitted.colors.accent, "#ff45c8");
+  assert.equal(loaded.theme.colorMode, "explicit");
+  assert.deepEqual(loaded.theme.explicitColorKeys, ["accent"]);
+  assert.deepEqual(Array.from(emitted.explicitColorKeys), ["accent"]);
+
+  const colorsWin = await buildWith({
+    palette: { accent: "#ff45c8" },
+    colors: { accent: "#2468ac" },
+  });
+  assert.equal(colorsWin.theme.colors.accent, "#2468ac",
+    "The current colors contract must take precedence over a legacy palette value.");
+  assert.deepEqual(colorsWin.theme.explicitColorKeys, ["accent"]);
+
+  const mergedContracts = await buildWith({
+    palette: { accent: "#ff45c8" },
+    colors: { panel: "#102030" },
+  });
+  const mergedEmitted = extractRendererArguments(mergedContracts.payload).rawConfig;
+  assert.equal(mergedContracts.theme.colors.accent, "#ff45c8");
+  assert.equal(mergedEmitted.colors.accent, "#ff45c8");
+  assert.deepEqual(mergedContracts.theme.explicitColorKeys, ["panel", "accent"],
+    "A legacy accent must remain explicit when a partial current colors object is also present.");
+  assert.deepEqual(Array.from(mergedEmitted.explicitColorKeys), ["panel", "accent"]);
+
+  const automatic = await buildWith({});
+  const automaticEmitted = extractRendererArguments(automatic.payload).rawConfig;
+  assert.equal(automatic.theme.colorMode, "auto");
+  assert.deepEqual(automatic.theme.explicitColorKeys, []);
+  assert.deepEqual(Array.from(automaticEmitted.explicitColorKeys), [],
+    "A theme without either color contract must retain automatic color semantics.");
 });
 
 test("Windows payload uses the same compiled Safe CSS cascade as macOS", async () => {
@@ -229,7 +274,8 @@ test("the payload build refuses to emit a corrupted script", async () => {
     .replace("__DREAM_CSS_JSON__", () => '""')
     .replace("__DREAM_ART_JSON__", () => '""')
     .replace("__DREAM_SKIN_VERSION_JSON__", () => '"0"')
-    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => '"0"');
+    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => '"0"')
+    .replaceAll("__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__", "false");
 
   const spliced = fillRest(
     template.replace("__DREAM_THEME_JSON__", JSON.stringify({ name: "a$&b" })),

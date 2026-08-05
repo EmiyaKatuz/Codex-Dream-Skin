@@ -11,6 +11,7 @@ const source = await fs.readFile(injectorPath, "utf8");
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
 const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
 const homeSelector = '[role="main"]:has([data-testid="home-icon"])';
+const composerSelector = ':is(.composer-surface-chrome, [data-composer-surface-variant])';
 
 function createFixture() {
   const domReady = [];
@@ -41,7 +42,7 @@ function createFixture() {
         if (selector === shellSelector) return markers.shell ? {} : null;
         if (selector === headerSelector) return markers.header ? {} : null;
         if (selector === "aside.app-shell-left-panel") return markers.sidebar ? {} : null;
-        if (selector === ".composer-surface-chrome") return markers.composer ? {} : null;
+        if (selector === composerSelector) return markers.composer ? {} : null;
         if (selector === homeSelector) return markers.home ? {} : null;
         if (selector === "main, [role=\"main\"]") return markers.genericMain ? {} : null;
         if (selector === '[data-settings-panel-slug="general-settings"]') {

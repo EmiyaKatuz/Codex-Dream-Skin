@@ -702,10 +702,23 @@ args = [
     [pscustomobject]@{ id = 'page-123'; type = 'page'; url = 'app://codex/'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/browser/page-123' },
     [pscustomobject]@{ id = 'other-page'; type = 'page'; url = 'app://codex/'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' },
     [pscustomobject]@{ id = 123; type = 'page'; url = 'app://codex/'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/123' },
-    [pscustomobject]@{ id = 'page-123'; type = 'other'; url = 'app://codex/'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' }
+    [pscustomobject]@{ id = 'page-123'; type = 'other'; url = 'app://codex/'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' },
+    [pscustomobject]@{ id = 'page-123'; type = 'page'; url = 'app://-/index.html?initialRoute=%2Favatar-overlay'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' },
+    [pscustomobject]@{ id = 'page-123'; type = 'page'; url = 'app://-/index.html?initial%52oute=%2Favatar-overlay'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' },
+    [pscustomobject]@{ id = 'page-123'; type = 'page'; url = 'app://-/index.html?initialRoute=%2Favatar-overlay&initialRoute=%2Fhome'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' }
   )) {
     if (Test-DreamSkinCdpPageTarget -Target $unsafePageTarget -Port 9335) {
       throw 'Accepted an inconsistent CDP page target.'
+    }
+  }
+  foreach ($safeQueryPageTarget in @(
+    [pscustomobject]@{ id = 'page-123'; type = 'page'; url = 'app://-/index.html?next=%2Fhome%26initialRoute%3D%2Favatar-overlay'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' },
+    [pscustomobject]@{ id = 'page-123'; type = 'page'; url = 'app://-/index.html?initialRoute=%2Fhome%26initialRoute%3D%2Favatar-overlay'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' },
+    [pscustomobject]@{ id = 'page-123'; type = 'page'; url = 'app://-/index.html?initialRoute=%2Fhome&initialRoute=%2Favatar-overlay'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' },
+    [pscustomobject]@{ id = 'page-123'; type = 'page'; url = 'app://-/index.html?InitialRoute=%2Favatar-overlay'; webSocketDebuggerUrl = 'ws://127.0.0.1:9335/devtools/page/page-123' }
+  )) {
+    if (-not (Test-DreamSkinCdpPageTarget -Target $safeQueryPageTarget -Port 9335)) {
+      throw 'Rejected a valid CDP page target because query parsing diverged from URLSearchParams.get().'
     }
   }
   $watchCommand = '"C:\Program Files\nodejs\node.exe" "C:\Dream Skin\injector.mjs" --watch --port 9335 --browser-id browser-123'
@@ -1434,7 +1447,8 @@ args = [
     'STYLE_REVISION', 'PAYLOAD_REVISION', 'artMetadata', 'detectShellAppearance',
     'data-dream-skin', 'ResizeObserver', 'MutationObserver',
     'DOM_REFRESH_DEBOUNCE_MS', 'runEnsureSafely', 'styleMode: "style"',
-    'data-ds-part', 'refreshSafeCssParts'
+    'data-ds-part', 'refreshSafeCssParts', 'const fallbackProbe = () =>',
+    '[data-app-action-sidebar-thread-row]'
   )) {
     if (-not $rendererSource.Contains($requiredRendererBehavior)) {
       throw "Renderer adaptive behavior is missing: $requiredRendererBehavior"
@@ -1560,6 +1574,13 @@ args = [
   $payloadTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $Root 'scripts\injector.mjs'), '--check-payload')
   if ($payloadTest.ExitCode -ne 0) { throw 'Injector self-test failed.' }
+  $defaultPayload = ($payloadTest.Output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+  if ($defaultPayload.hasPalette -or -not $defaultPayload.hasColors -or
+    $defaultPayload.colorMode -cne 'explicit' -or $defaultPayload.accent -cne '#ff45c8' -or
+    $defaultPayload.explicitColorKeys -isnot [array] -or
+    @($defaultPayload.explicitColorKeys) -notcontains 'accent') {
+    throw 'The bundled legacy Internet Angel accent was not migrated into the normalized colors contract.'
+  }
   $acrylicPayloadTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $Root 'scripts\injector.mjs'), '--check-payload', '--window-material', 'acrylic')
   if ($acrylicPayloadTest.ExitCode -ne 0) { throw 'Acrylic payload self-test failed.' }

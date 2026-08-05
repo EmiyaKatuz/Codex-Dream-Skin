@@ -121,10 +121,16 @@ try {
     'background-image: none !important',
     'body::before',
     'High-frequency surfaces stay transparent',
-    'transition: color 80ms linear',
+    'transition: none !important',
     'translate: none !important',
     'Chromium''s native edge-fade ScrollTimeline',
-    'mask-image: none !important'
+    'mask-image: none !important',
+    '.text-fade-truncate',
+    '[class*="_clipViewport_"]',
+    '[class*="_railList_"].vertical-scroll-fade-mask',
+    '.dream-task .horizontal-scroll-fade-mask',
+    '.sidebar-item svg',
+    'filter: none !important'
   )) {
     if (-not $acrylicCss.Contains($requiredCssGuard)) {
       throw "Acrylic wide-art cascade guard is missing: $requiredCssGuard"

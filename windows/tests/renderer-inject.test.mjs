@@ -12,6 +12,10 @@ const linuxTemplate = await fs.readFile(
   "utf8",
 );
 const css = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
+const acrylicCss = await fs.readFile(
+  path.join(windowsRoot, "assets", "internet-angel-acrylic.css"),
+  "utf8",
+);
 const extensionCss = await fs.readFile(
   path.join(windowsRoot, "assets", "internet-angel-extension.css"),
   "utf8",
@@ -19,6 +23,7 @@ const extensionCss = await fs.readFile(
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
 const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
 const sidebarSelector = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
+const sidebarScrollSelector = ':is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [data-app-action-sidebar-scroll]';
 const settingsContentSelector = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
 assert.ok(template.includes(`const SHELL_MAIN_SELECTOR = '${shellSelector}'`)
   && template.includes(`const HEADER_TINT_SELECTOR = '${headerSelector}'`),
@@ -27,21 +32,35 @@ assert.ok(template.includes("const missingL1 = [")
   && template.includes('level: missingL1.length ? "L0" : "L1"')
   && template.includes("missingL1,"),
   "The Windows renderer scope must expose missingL1 so live verification can accept a generic composer.");
+const genericComposerMutationBody = template.slice(
+  template.indexOf("const hasKnownComposer = Boolean(document.querySelector("),
+  template.indexOf("if (hasShellChange || hasGenericComposerNode)"),
+);
+const sidebarScrollHandlerBody = template.slice(
+  template.indexOf("const sidebarScrollHandler = (event) =>"),
+  template.indexOf('window.addEventListener("resize", resizeHandler'),
+);
+const scheduledScrollGuardAt = sidebarScrollHandlerBody.indexOf('if (!hadScheduledWork) return;');
+const broadScrollLookupAt = sidebarScrollHandlerBody.indexOf(
+  '${SIDEBAR_SELECTOR}, .thread-scroll-container',
+);
 assert.ok(template.includes("hasGenericComposerNode")
-  && template.includes('[class*="composer" i]')
+  && template.includes("const hasKnownComposer = Boolean(document.querySelector(")
   && template.includes("scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)")
   && template.includes("composerOwnerSelector")
   && template.includes("owner.parentElement?.closest?.(composerOwnerSelector)")
   && template.includes("owner.closest?.('aside')")
   && template.includes("const findGenericComposers = () =>")
-  && template.includes("for (const genericComposer of findGenericComposers() || [])")
-  && template.includes("safeCssPartNodes.add(genericComposer)")
   && template.includes('[class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]')
-  && template.includes("const themeDiffsContainers = () =>")
+  && template.includes('const themeDiffsContainers = (hosts = all("diffs-container")) =>')
   && template.includes('all("diffs-container")')
   && template.includes("DIFFS_THEME_STYLE_ID")
   && template.includes("const appearanceFromClasses = (classes) =>")
-  && template.includes("const sidebarInteraction = Boolean(event?.target?.closest?.('aside'))")
+  && template.includes("[data-app-action-sidebar-thread-row]")
+  && template.includes('button.sidebar-item:not([aria-haspopup])')
+  && !template.includes("const sidebarInteraction = Boolean(event?.target?.closest?.('aside'))")
+  && !template.includes('aside.app-shell-left-panel button,')
+  && !genericComposerMutationBody.includes('[class*="prompt" i]')
   && template.includes("scheduleEnsure(64)")
   && template.includes('[contenteditable], [role="textbox"], [data-placeholder]')
   && template.includes("node.closest?.('[class*=\"ComposerLayout\" i]')")
@@ -71,14 +90,45 @@ assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
   && css.includes("data-local-conversation-final-assistant")
   && css.includes("data-settings-panel-slug"),
 "The Windows overlay must cover every observed Codex 26.727 surface marker.");
+assert.match(css, /html\.codex-dream-skin\s*\{[^}]*scrollbar-color:[^}]*scrollbar-width:\s*thin/s,
+  "Scrollbar colors must inherit from the skin root instead of matching every renderer node.");
+assert.doesNotMatch(css, /html\.codex-dream-skin \*\s*\{[^}]*scrollbar-color:/s,
+  "The scrollbar theme must not add a universal selector to every style recalculation.");
+assert.match(acrylicCss, /:is\(\s*aside\.app-shell-left-panel,[\s\S]*?\) :is\(\.text-fade-truncate, \[class\*="_clipViewport_"\]\)\s*\{[^}]*mask-image:\s*none !important/s,
+  "Acrylic must remove Codex 26.730 row-level masks from the scrolling sidebar.");
+assert.match(acrylicCss, /\.sidebar-item svg\s*\{[^}]*filter:\s*none !important/s,
+  "Acrylic sidebar rows must not create one filtered layer per icon.");
+assert.match(acrylicCss, /:is\(\s*\.dream-turn-nav-rail,[\s\S]*?\[class\*="_railList_"\]\.vertical-scroll-fade-mask[\s\S]*?\)\s*\{[^}]*mask-image:\s*none !important;[^}]*animation:\s*none !important;[^}]*filter:\s*none !important/s,
+  "The Codex 26.730 turn rail must not animate a scroll mask or filter its row tree.");
+assert.match(acrylicCss, /\.dream-task \.horizontal-scroll-fade-mask\s*\{[^}]*mask-image:\s*none !important;[^}]*animation:\s*none !important/s,
+  "Acrylic task tables must not keep an idle horizontal ScrollTimeline running.");
+assert.doesNotMatch(acrylicCss, /\[data-ds-part="composer"\][\s\S]{0,220}?\) \*\s*\{[^}]*backdrop-filter:/s,
+  "Composer performance guards must not match every descendant during IME updates.");
+assert.match(acrylicCss, /\) button\s*\{[^}]*transform:\s*none !important;[^}]*translate:\s*none !important;[^}]*transition:\s*none !important/s,
+  "Sidebar hover feedback must not start transitions while rows pass under the pointer.");
+assert.match(acrylicCss, /\[data-app-action-sidebar-scroll\]\s*\{[^}]*will-change:\s*scroll-position/s,
+  "Acrylic must isolate the exact native sidebar scrolling surface without promoting every row.");
+assert.match(acrylicCss, /@supports \(content-visibility: auto\)[\s\S]*?\[data-app-action-sidebar-thread-row\],[\s\S]*?\[data-app-action-sidebar-project-row\][\s\S]*?content-visibility:\s*auto;[^}]*contain-intrinsic-block-size:\s*auto 38px/s,
+  "Only fixed-height task and project rows may skip offscreen rendering.");
+assert.match(acrylicCss, /\[data-app-action-sidebar-scroll\]\.dream-sidebar-scroll-quiet \.animate-spin\s*\{[^}]*animation-play-state:\s*paused !important/s,
+  "The active-task spinner must stop invalidating styles while its sidebar scrolls.");
+assert.match(acrylicCss, /\.dream-sidebar-scroll-quiet[\s\S]*?\[data-app-action-sidebar-thread-row\] \[class~="group-hover:min-w-12"\]\s*\{[^}]*min-width:\s*3rem !important/s,
+  "Thread action space must stop resizing as rows cross a stationary pointer.");
+assert.match(acrylicCss, /\.dream-sidebar-scroll-quiet[\s\S]*?\[data-app-action-sidebar-project-row\] \[class~="group-hover\/folder-row:w-auto"\]\s*\{[^}]*width:\s*1\.5rem !important;[^}]*overflow:\s*visible !important/s,
+  "Project action space must keep one stable geometry while scrolling.");
+assert.doesNotMatch(acrylicCss, /\.dream-sidebar-scroll-quiet[\s\S]{0,500}?pointer-events:\s*none/s,
+  "Scroll quiet mode must never make real sidebar rows or controls unclickable.");
+assert.doesNotMatch(acrylicCss, /\.dream-sidebar-scroll-quiet\s+\*/,
+  "The scroll quiet gate must not add a universal descendant selector.");
 assert.doesNotMatch(css, /main\.main-surface|header\.app-header-tint/,
   "No Windows CSS rule may remain locked to the removed pre-26.727 shell classes.");
-const buildPayloadFrom = (rendererTemplate, config = {}) => rendererTemplate
+const buildPayloadFrom = (rendererTemplate, config = {}, sidebarQuietEnabled = true) => rendererTemplate
   .replace("__DREAM_CSS_JSON__", JSON.stringify(".fixture { color: blue; }"))
   .replace("__DREAM_ART_JSON__", JSON.stringify("data:image/png;base64,AA=="))
   .replace("__DREAM_THEME_JSON__", JSON.stringify(config))
   .replace("__DREAM_SKIN_VERSION_JSON__", JSON.stringify("1.3.5"))
-  .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify("test-revision"));
+  .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify("test-revision"))
+  .replace("__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__", JSON.stringify(sidebarQuietEnabled));
 const buildPayload = (config = {}) => buildPayloadFrom(template, config);
 const payload = buildPayload();
 
@@ -354,6 +404,9 @@ assert.match(css, /\.dream-sidebar-packet\s*\{[^}]*writing-mode:\s*vertical-rl/s
 assert.ok(template.includes('const withoutManagedClasses = (value)')
   && template.includes('const DOM_REFRESH_DEBOUNCE_MS = 1500')
   && template.includes('const INTERACTION_QUIET_MS = 320')
+  && template.includes(`const SIDEBAR_SCROLL_SELECTOR = '${sidebarScrollSelector}'`)
+  && template.includes('const SIDEBAR_SCROLL_QUIET_CLASS = "dream-sidebar-scroll-quiet"')
+  && template.includes('const SIDEBAR_SCROLL_QUIET_MS = 96')
   && template.includes('const FALLBACK_REFRESH_MS = 60000')
   && template.includes('scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)')
   && template.includes('scheduler.running = true')
@@ -364,7 +417,12 @@ assert.ok(template.includes('const withoutManagedClasses = (value)')
   && template.includes('window.addEventListener("resize", resizeHandler')
   && template.includes('document.addEventListener("click", navigationHandler, true)')
   && template.includes('document.addEventListener("compositionstart", interactionHandler, true)')
-  && template.includes('document.addEventListener("scroll", interactionHandler'),
+  && template.includes('document.addEventListener("wheel", sidebarScrollHandler')
+  && template.includes('document.addEventListener("scroll", sidebarScrollHandler')
+  && !template.includes('document.addEventListener("wheel", interactionHandler')
+  && scheduledScrollGuardAt >= 0
+  && broadScrollLookupAt >= 0
+  && scheduledScrollGuardAt < broadScrollLookupAt,
   "Shell and route changes must use trailing scheduling and respect active input/scroll windows.");
 assert.ok(template.includes("const observeRendererStructure = () =>")
   && template.includes("observer.observe(body, { ...attributeOptions, childList: true })")
@@ -376,7 +434,7 @@ assert.ok(template.includes("const classifyRuntimeSurfaces = (records)")
   && template.includes("dream-composer-palette")
   && template.includes("dream-settings-menu"),
   "New portal surfaces must receive local first-frame classification without a full DOM scan.");
-assert.ok(template.includes('const STYLE_REVISION = "9"')
+assert.ok(template.includes('const STYLE_REVISION = "10"')
   && template.includes('existingStyle.dataset.dreamVersion = STYLE_REVISION')
   && !template.includes('existingStyle.dataset.dreamVersion = "3"'),
   "Reinjection must not parse and apply the full stylesheet twice for one refresh.");
@@ -387,9 +445,27 @@ assert.ok(template.indexOf('.filter(({ text }) => pattern.test(text))')
   "Portal fallback labels must be matched by text before any layout/style measurement.");
 assert.ok(template.includes('const runEnsureSafely = () =>')
   && template.includes('observer?.disconnect()')
-  && template.includes('setInterval(() => scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS), FALLBACK_REFRESH_MS)')
+  && template.includes('const fallbackProbe = () =>')
+  && template.includes('const timer = setInterval(fallbackProbe, FALLBACK_REFRESH_MS)')
+  && template.includes('rendererMetrics.fallbackEnsureCount += 1')
   && template.includes('ensure: runEnsureSafely'),
-  "Observer, interval, and external renderer refreshes must share an exception boundary.");
+  "Observer and external refreshes must share an exception boundary while the interval stays a cheap probe.");
+assert.equal(template.match(/\brefreshSafeCssParts\(\);/g)?.length, 2,
+  "Full reconciliation and floating-sidebar recovery are the only full safe-part refresh sites.");
+const runEnsureBody = template.slice(
+  template.indexOf("const runEnsureSafely = () =>"),
+  template.indexOf("const cleanup = () =>"),
+);
+assert.doesNotMatch(runEnsureBody, /finally\s*\{[\s\S]*?refreshSafeCssParts\(\)/,
+  "A full reconcile must not repeat safe-part classification in its finally block.");
+const classifySafePartsBody = template.slice(
+  template.indexOf("const classifySafeCssParts = (records) =>"),
+  template.indexOf("const ensure = () =>"),
+);
+assert.ok(classifySafePartsBody.indexOf("const roots = records")
+    < classifySafePartsBody.indexOf("if (!roots.length) return false")
+  && !classifySafePartsBody.includes("findGenericComposers()"),
+  "Incremental safe-part classification must reject text-only records before global composer work.");
 assert.ok(template.includes('const resizeTargetSizes = new WeakMap()')
   && template.includes('new ResizeObserver((entries) =>')
   && template.includes('if (resizeTargetSizes.get(entry.target) === signature) continue;')
@@ -581,6 +657,7 @@ assert.doesNotMatch(
 function createFixture({
   shellPresent,
   mainPresent = shellPresent,
+  shellMainSelectorPresent = mainPresent,
   sidebarPresent = shellPresent,
   floatingSidebarPresent = false,
   staleSkin = false,
@@ -595,6 +672,7 @@ function createFixture({
   analysisFixture = null,
   throwOnTextScan = false,
   textScanCandidates = [],
+  turnRowCount = 0,
 }) {
   const nodes = new Map();
   const rootClasses = new Set(staleSkin ? ["codex-dream-skin"] : []);
@@ -607,12 +685,15 @@ function createFixture({
   const documentListeners = new Map();
   const timeouts = new Map();
   const intervalDelays = [];
+  const intervalCallbacks = [];
   let objectUrlCount = 0;
   let hasMain = mainPresent;
+  let hasShellMainSelector = shellMainSelectorPresent;
   let hasSidebar = sidebarPresent;
   let hasFloatingSidebar = floatingSidebarPresent;
   let timeoutCalls = 0;
   let textCandidateStyleReads = 0;
+  let diffsContainerQueryCount = 0;
   const textCandidateSet = new Set(textScanCandidates);
   let root;
 
@@ -649,6 +730,7 @@ function createFixture({
     const attributes = new Map();
     return {
       nodeType: 1,
+      isConnected: true,
       classList: makeClassList(),
       parentElement: null,
       getAttribute(name) { return attributes.get(name) ?? null; },
@@ -662,6 +744,24 @@ function createFixture({
   };
   const shellSidebar = makePartNode("aside.app-shell-left-panel");
   const floatingSidebar = makePartNode('[data-testid="app-shell-floating-left-panel"]');
+  const sidebarScrollClasses = new Set();
+  let sidebarScrollClosestCalls = 0;
+  const sidebarScroller = {
+    nodeType: 1,
+    classList: makeClassList(sidebarScrollClasses),
+    matches(selector) { return selector === sidebarScrollSelector; },
+    closest(selector) {
+      sidebarScrollClosestCalls += 1;
+      return selector === sidebarScrollSelector ? this : null;
+    },
+  };
+  const sidebarWheelChild = {
+    nodeType: 1,
+    closest(selector) {
+      sidebarScrollClosestCalls += 1;
+      return selector === sidebarScrollSelector ? sidebarScroller : null;
+    },
+  };
   const settingsContentClasses = new Set();
   const unrelatedSettingsContentClasses = new Set();
   const settingsContent = {
@@ -706,6 +806,7 @@ function createFixture({
     },
     appendChild(node) {
       node.parentElement = root;
+      node.isConnected = true;
       nodes.set(node.id, node);
     },
   };
@@ -714,6 +815,7 @@ function createFixture({
     getAttribute() { return null; },
     appendChild(node) {
       node.parentElement = body;
+      node.isConnected = true;
       nodes.set(node.id, node);
     },
   };
@@ -727,6 +829,17 @@ function createFixture({
       return { left: 290, top: 36, width: 990, height: 784 };
     },
   };
+  const turnRailClasses = new Set();
+  const turnRail = { classList: makeClassList(turnRailClasses) };
+  const turnRowParentClasses = new Set();
+  const turnRowParent = { classList: makeClassList(turnRowParentClasses) };
+  const turnRows = Array.from({ length: turnRowCount }, () => ({
+    classList: makeClassList(),
+    parentElement: turnRowParent,
+    closest(selector) { return selector === ".vertical-scroll-fade-mask" ? turnRail : null; },
+    querySelector() { return null; },
+    firstElementChild: null,
+  }));
   const routeClasses = new Set();
   const utilityClasses = new Set();
   const utilityNode = { classList: makeClassList(utilityClasses) };
@@ -777,12 +890,13 @@ function createFixture({
       setAttribute() {},
       appendChild(node) {
         node.parentElement = this;
+        node.isConnected = true;
         this.children.push(node);
         if (node.id) nodes.set(node.id, node);
         return node;
       },
       addEventListener() {},
-      remove() { nodes.delete(this.id); },
+      remove() { this.isConnected = false; nodes.delete(this.id); },
     };
   };
   if (staleSkin) {
@@ -809,7 +923,7 @@ function createFixture({
     },
     getElementById(id) { return nodes.get(id) ?? null; },
     querySelector(selector) {
-      if (selector === shellSelector) return hasMain ? shellMain : null;
+      if (selector === shellSelector) return hasMain && hasShellMainSelector ? shellMain : null;
       if (selector === "main") return hasMain ? shellMain : null;
       if (selector === 'nav:has([data-settings-panel-slug])') {
         return settingsPresent ? settingsNav : null;
@@ -824,6 +938,9 @@ function createFixture({
         return settingsPresent ? settingsNavItem : null;
       }
       if (selector === "aside.app-shell-left-panel") return hasSidebar ? shellSidebar : null;
+      if (selector === sidebarSelector) {
+        return hasSidebar ? shellSidebar : (hasFloatingSidebar ? floatingSidebar : null);
+      }
       if (selector === '[data-testid="app-shell-floating-left-panel"]') {
         return hasFloatingSidebar ? floatingSidebar : null;
       }
@@ -834,6 +951,10 @@ function createFixture({
       return null;
     },
     querySelectorAll(selector) {
+      if (selector === "diffs-container") {
+        diffsContainerQueryCount += 1;
+        return [];
+      }
       if (throwOnTextScan && selector.startsWith("body button")) {
         throw new Error("forced text scan failure");
       }
@@ -853,6 +974,7 @@ function createFixture({
           .filter((node) => node.getAttribute("data-ds-part") !== null);
       }
       if (selector === '[role="main"]') return hasMain ? [routeMain] : [];
+      if (selector === 'button[class*="navigation-row"]') return turnRows;
       if (selector === ".dream-task") return routeClasses.has("dream-task") ? [routeMain] : [];
       if (selector === ".dream-home-utility") {
         return utilityClasses.has("dream-home-utility") ? [utilityNode] : [];
@@ -917,7 +1039,11 @@ function createFixture({
     Blob,
     Uint8Array,
     atob,
-    setInterval: (_callback, delay) => { intervalDelays.push(delay); return intervalDelays.length; },
+    setInterval: (callback, delay) => {
+      intervalCallbacks.push(callback);
+      intervalDelays.push(delay);
+      return intervalDelays.length;
+    },
     clearInterval: () => {},
     setTimeout: (callback, delay = 0) => {
       timeoutCalls += 1;
@@ -948,17 +1074,23 @@ function createFixture({
     documentListeners,
     timeouts,
     intervalDelays,
+    intervalCallbacks,
     rootClasses,
     rootAttributes,
     rootStyles,
     revokedUrls,
     shellSidebar,
     floatingSidebar,
+    sidebarScroller,
+    sidebarWheelChild,
+    sidebarScrollClasses,
     settingsContentClasses,
     unrelatedSettingsContentClasses,
     settingsNavItemClasses,
     routeClasses,
     utilityClasses,
+    turnRailClasses,
+    turnRowParentClasses,
     getTimeoutCalls() { return timeoutCalls; },
     getPendingTimeoutCount() { return timeouts.size; },
     runTimeout(id) {
@@ -967,6 +1099,8 @@ function createFixture({
       timer?.callback();
     },
     getTextCandidateStyleReads() { return textCandidateStyleReads; },
+    getDiffsContainerQueryCount() { return diffsContainerQueryCount; },
+    getSidebarScrollClosestCalls() { return sidebarScrollClosestCalls; },
     setShellPresent(value) {
       hasMain = value;
       hasSidebar = value;
@@ -974,6 +1108,7 @@ function createFixture({
     setSidebarPresent(value) { hasSidebar = value; },
     setFloatingSidebarPresent(value) { hasFloatingSidebar = value; },
     setMainPresent(value) { hasMain = value; },
+    setShellMainSelectorPresent(value) { hasShellMainSelector = value; },
   };
 }
 
@@ -1078,8 +1213,23 @@ assert.equal(main.windowListeners.get("popstate")?.size, 1,
   "Route navigation must have one immediate refresh listener.");
 assert.equal(main.documentListeners.get("click")?.size, 1,
   "Interactive route controls must have one delegated refresh listener.");
+assert.equal(main.documentListeners.get("compositionstart")?.size, 1,
+  "IME composition must have one input-only quiet-window listener.");
+assert.equal(main.documentListeners.get("wheel")?.size, 1,
+  "The exact sidebar scroll gate must activate before a wheel default action.");
+assert.equal(main.documentListeners.get("scroll")?.size, 1,
+  "The exact sidebar scroll gate must remain active through momentum scrolling.");
 assert.ok(main.resizeObservers[0].targets.size > 0,
   "The renderer must observe active shell geometry targets.");
+assert.equal(main.context.window.__CODEX_DREAM_SKIN_STATE__.metrics.safePartRefreshCount, 1,
+  "One full renderer reconcile must refresh safe CSS parts exactly once.");
+main.intervalCallbacks[0]();
+assert.equal(main.context.window.__CODEX_DREAM_SKIN_STATE__.metrics.fallbackProbeCount, 1,
+  "The low-frequency fallback must run a cheap integrity probe.");
+assert.equal(main.context.window.__CODEX_DREAM_SKIN_STATE__.metrics.fallbackEnsureCount, 0,
+  "A healthy L1 shell must not run a periodic full reconcile.");
+assert.equal(main.getPendingTimeoutCount(), 0,
+  "A healthy fallback probe must not queue a full renderer refresh.");
 assert.equal(main.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
 assert.equal(main.rootClasses.has("codex-dream-skin"), false);
 assert.equal(main.rootClasses.has("dream-theme-dark"), false);
@@ -1090,8 +1240,67 @@ assert.equal(main.windowListeners.get("popstate")?.size, 0,
   "Cleanup must release the navigation listener.");
 assert.equal(main.documentListeners.get("click")?.size, 0,
   "Cleanup must release the delegated click listener.");
+assert.equal(main.documentListeners.get("wheel")?.size, 0,
+  "Cleanup must release the sidebar wheel listener.");
+assert.equal(main.documentListeners.get("scroll")?.size, 0,
+  "Cleanup must release the sidebar scroll listener.");
 assert.equal(main.resizeObservers[0].targets.size, 0,
   "Cleanup must release every geometry target.");
+
+for (const [label, fixtureOptions] of [
+  ["collapsed sidebar", { shellPresent: true, sidebarPresent: false }],
+  ["compatible L0 main", {
+    shellPresent: true,
+    shellMainSelectorPresent: false,
+    sidebarPresent: false,
+  }],
+]) {
+  const compatibleShell = createFixture(fixtureOptions);
+  vm.runInNewContext(payload, compatibleShell.context);
+  compatibleShell.intervalCallbacks[0]();
+  assert.equal(compatibleShell.context.window
+    .__CODEX_DREAM_SKIN_STATE__.metrics.fallbackEnsureCount, 0,
+  `A healthy ${label} must not trigger the expensive fallback reconcile.`);
+  assert.equal(compatibleShell.getPendingTimeoutCount(), 0,
+    `A healthy ${label} must not queue a renderer refresh.`);
+}
+
+const staleStyleProbe = createFixture({ shellPresent: true });
+vm.runInNewContext(payload, staleStyleProbe.context);
+staleStyleProbe.nodes.get("codex-dream-skin-style").dataset.dreamVersion = "stale";
+staleStyleProbe.intervalCallbacks[0]();
+assert.equal(staleStyleProbe.context.window
+  .__CODEX_DREAM_SKIN_STATE__.metrics.fallbackEnsureCount, 1,
+"A connected but stale stylesheet must trigger one recovery reconcile.");
+assert.equal(staleStyleProbe.getPendingTimeoutCount(), 1,
+  "A stale stylesheet probe must queue exactly one trailing recovery refresh.");
+
+const disconnectedSafePart = createFixture({
+  shellPresent: true,
+  floatingSidebarPresent: true,
+});
+vm.runInNewContext(payload, disconnectedSafePart.context);
+disconnectedSafePart.floatingSidebar.isConnected = false;
+disconnectedSafePart.setFloatingSidebarPresent(false);
+disconnectedSafePart.intervalCallbacks[0]();
+assert.equal(disconnectedSafePart.context.window
+  .__CODEX_DREAM_SKIN_STATE__.metrics.safePartPruneCount, 1,
+"The low-frequency probe must release disconnected safe-part nodes.");
+assert.equal(disconnectedSafePart.floatingSidebar.getAttribute("data-ds-part"), null,
+  "A disconnected safe-part node must not retain a stale public part marker.");
+assert.equal(disconnectedSafePart.context.window
+  .__CODEX_DREAM_SKIN_STATE__.metrics.fallbackEnsureCount, 0,
+"Pruning a detached optional sidebar must not trigger a full reconcile.");
+disconnectedSafePart.floatingSidebar.isConnected = true;
+disconnectedSafePart.setFloatingSidebarPresent(true);
+disconnectedSafePart.observers[0].callback([{
+  type: "childList",
+  target: disconnectedSafePart.context.document.body,
+  addedNodes: [disconnectedSafePart.floatingSidebar],
+  removedNodes: [],
+}]);
+assert.equal(disconnectedSafePart.floatingSidebar.getAttribute("data-ds-part"), "sidebar",
+  "A pruned node that is later remounted must be classified from its current role.");
 
 const mutationBurst = createFixture({ shellPresent: true });
 vm.runInNewContext(payload, mutationBurst.context);
@@ -1115,6 +1324,91 @@ assert.equal(mutationBurst.getTimeoutCalls(), 3,
   "Trailing debounce must move the due time after every structural mutation batch.");
 assert.equal(mutationBurst.getPendingTimeoutCount(), 1,
   "A burst of renderer mutations must retain only one pending full refresh.");
+
+const textOnlyMutation = createFixture({ shellPresent: true });
+vm.runInNewContext(payload, textOnlyMutation.context);
+const textOnlyRefreshes = textOnlyMutation.context.window
+  .__CODEX_DREAM_SKIN_STATE__.metrics.safePartRefreshCount;
+const textOnlyDiffQueries = textOnlyMutation.getDiffsContainerQueryCount();
+textOnlyMutation.observers[0].callback([{
+  type: "childList",
+  target: textOnlyMutation.context.document.body,
+  addedNodes: [{ nodeType: 3, textContent: "pinyin composition" }],
+  removedNodes: [],
+}]);
+assert.equal(textOnlyMutation.context.window
+  .__CODEX_DREAM_SKIN_STATE__.metrics.safePartRefreshCount, textOnlyRefreshes,
+"Text-only IME mutations must not trigger a full safe-part scan.");
+assert.equal(textOnlyMutation.getDiffsContainerQueryCount(), textOnlyDiffQueries,
+  "Text-only IME mutations must not scan the document for diff hosts.");
+assert.equal(textOnlyMutation.getPendingTimeoutCount(), 0,
+  "Text-only IME mutations must not queue a full renderer reconcile.");
+
+const scrollQuiet = createFixture({ shellPresent: true });
+vm.runInNewContext(payload, scrollQuiet.context);
+const scrollQuietState = scrollQuiet.context.window.__CODEX_DREAM_SKIN_STATE__;
+assert.equal(scrollQuietState.sidebarScrollQuietEnabled, true);
+scrollQuietState.sidebarScrollHandler({
+  type: "scroll",
+  target: { nodeType: 1, matches() { return false; } },
+});
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "An unrelated scroll surface must not enter the sidebar quiet state.");
+const closestBeforeExactScroll = scrollQuiet.getSidebarScrollClosestCalls();
+scrollQuietState.sidebarScrollHandler({ type: "scroll", target: scrollQuiet.sidebarScroller });
+assert.equal(scrollQuiet.getSidebarScrollClosestCalls(), closestBeforeExactScroll,
+  "A captured sidebar scroll must match its exact target without walking ancestors.");
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), true,
+  "The native sidebar scroller must enter quiet mode immediately.");
+assert.equal([...scrollQuiet.timeouts.values()].filter(({ delay }) => delay === 96).length, 1,
+  "Sidebar quiet mode must retain one 96 ms trailing timer.");
+const firstQuietTimer = [...scrollQuiet.timeouts.entries()]
+  .find(([, { delay }]) => delay === 96)?.[0];
+scrollQuietState.sidebarScrollHandler({ type: "scroll", target: scrollQuiet.sidebarScroller });
+assert.equal(scrollQuiet.timeouts.has(firstQuietTimer), false,
+  "A continuing sidebar scroll must replace its old quiet timer.");
+assert.equal([...scrollQuiet.timeouts.values()].filter(({ delay }) => delay === 96).length, 1,
+  "A continuing sidebar scroll must never accumulate quiet timers.");
+const latestQuietTimer = [...scrollQuiet.timeouts.entries()]
+  .find(([, { delay }]) => delay === 96)?.[0];
+scrollQuiet.runTimeout(latestQuietTimer);
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "Quiet mode must end after the final sidebar scroll settles.");
+const closestBeforeWheel = scrollQuiet.getSidebarScrollClosestCalls();
+scrollQuietState.sidebarScrollHandler({ type: "wheel", target: scrollQuiet.sidebarWheelChild });
+assert.equal(scrollQuiet.getSidebarScrollClosestCalls(), closestBeforeWheel + 1,
+  "Wheel preflight may perform one precise ancestor lookup to beat the first scroll frame.");
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), true,
+  "Wheel preflight must suppress row hover layout before native scrolling starts.");
+assert.equal(scrollQuietState.cleanup(), true);
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "Cleanup must never leave the native sidebar non-interactive.");
+assert.equal([...scrollQuiet.timeouts.values()].some(({ delay }) => delay === 96), false,
+  "Cleanup must cancel the trailing sidebar quiet timer.");
+assert.equal(scrollQuiet.documentListeners.get("wheel")?.size, 0);
+assert.equal(scrollQuiet.documentListeners.get("scroll")?.size, 0);
+
+const systemScroll = createFixture({ shellPresent: true });
+vm.runInNewContext(buildPayloadFrom(template, {}, false), systemScroll.context);
+assert.equal(systemScroll.context.window.__CODEX_DREAM_SKIN_STATE__.sidebarScrollQuietEnabled, false);
+systemScroll.context.window.__CODEX_DREAM_SKIN_STATE__.sidebarScrollHandler({
+  type: "wheel",
+  target: systemScroll.sidebarWheelChild,
+});
+assert.equal(systemScroll.getSidebarScrollClosestCalls(), 0,
+  "System/Mica scrolls must not pay for an Acrylic-only ancestor lookup.");
+assert.equal(systemScroll.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "System/Mica payloads must never add an unused Acrylic quiet class.");
+assert.equal([...systemScroll.timeouts.values()].some(({ delay }) => delay === 96), false,
+  "System/Mica payloads must never schedule an unused Acrylic quiet timer.");
+assert.equal(systemScroll.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+
+const turnRail = createFixture({ shellPresent: true, turnRowCount: 4 });
+vm.runInNewContext(payload, turnRail.context);
+assert.equal(turnRail.turnRailClasses.has("dream-turn-nav-rail"), true,
+  "Conversation navigation rows must mark their shared scroll rail.");
+assert.equal(turnRail.turnRowParentClasses.has("dream-turn-nav-rail"), false,
+  "Conversation navigation rows must not filter a nested row wrapper.");
 
 const injectedMutation = createFixture({ shellPresent: true });
 vm.runInNewContext(payload, injectedMutation.context);
@@ -1159,6 +1453,36 @@ assert.equal(tooltipClasses.has("dream-turn-preview-tooltip"), true,
 
 const navigationRefresh = createFixture({ shellPresent: true });
 vm.runInNewContext(payload, navigationRefresh.context);
+navigationRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.navigationHandler({
+  type: "click",
+  target: {
+    closest(selector) {
+      return selector === "aside" || selector === sidebarSelector
+        ? navigationRefresh.shellSidebar
+        : null;
+    },
+  },
+});
+assert.equal(navigationRefresh.getPendingTimeoutCount(), 0,
+  "An ordinary sidebar descendant click must not queue a full renderer scan.");
+navigationRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.navigationHandler({
+  type: "click",
+  target: {
+    closest(selector) {
+      return selector.includes("[data-app-action-sidebar-thread-row]") ? this : null;
+    },
+  },
+});
+assert.equal([...navigationRefresh.timeouts.values()].some(({ delay }) => delay === 48), true,
+  "A Codex 26.730 thread route click must still schedule one post-commit refresh.");
+navigationRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.sidebarScrollHandler({
+  type: "wheel",
+  target: navigationRefresh.sidebarWheelChild,
+});
+assert.notEqual(navigationRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.scheduler.timeout, null,
+  "A wheel immediately after a route click must postpone its pending renderer refresh.");
+assert.equal([...navigationRefresh.timeouts.values()].some(({ delay }) => delay >= 300), true,
+  "Click-then-scroll navigation must retain an interaction quiet window.");
 for (const listener of navigationRefresh.windowListeners.get("popstate") ?? []) {
   listener({ type: "popstate" });
 }
@@ -1191,6 +1515,8 @@ assert.equal(guardedRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.ensure(), 
 const reinjected = createFixture({ shellPresent: true });
 vm.runInNewContext(payload, reinjected.context);
 const firstState = reinjected.context.window.__CODEX_DREAM_SKIN_STATE__;
+firstState.sidebarScrollHandler({ type: "wheel", target: reinjected.sidebarWheelChild });
+assert.equal(reinjected.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), true);
 vm.runInNewContext(payload, reinjected.context);
 const secondState = reinjected.context.window.__CODEX_DREAM_SKIN_STATE__;
 assert.notEqual(secondState.installToken, firstState.installToken);
@@ -1201,10 +1527,22 @@ assert.equal(reinjected.windowListeners.get("popstate")?.size, 1,
   "Reinjection must replace rather than duplicate the navigation listener.");
 assert.equal(reinjected.documentListeners.get("click")?.size, 1,
   "Reinjection must replace rather than duplicate the delegated click listener.");
+assert.equal(reinjected.documentListeners.get("wheel")?.size, 1,
+  "Reinjection must replace rather than duplicate the sidebar wheel listener.");
+assert.equal(reinjected.documentListeners.get("scroll")?.size, 1,
+  "Reinjection must replace rather than duplicate the sidebar scroll listener.");
+assert.equal(reinjected.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "Reinjection must restore row hit-testing before the new payload takes ownership.");
+assert.equal([...reinjected.timeouts.values()].some(({ delay }) => delay === 96), false,
+  "Reinjection must cancel the previous payload's quiet timer.");
 assert.equal(reinjected.resizeObservers[0].targets.size, 0,
   "Reinjection must disconnect the previous geometry observer.");
 assert.equal(firstState.cleanup(), false);
+secondState.sidebarScrollHandler({ type: "scroll", target: reinjected.sidebarScroller });
+assert.equal(reinjected.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), true);
 assert.equal(secondState.cleanup(), true);
+assert.equal(reinjected.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "The active payload cleanup must restore sidebar pointer interaction.");
 
 const auxiliary = createFixture({ shellPresent: false, staleSkin: true });
 const auxiliaryResult = vm.runInNewContext(payload, auxiliary.context);
@@ -1271,6 +1609,32 @@ assert.equal(configured.routeClasses.has("dream-task"), false);
 assert.equal(configured.utilityClasses.has("dream-home-utility"), true);
 assert.equal(configured.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
 assert.equal(configured.utilityClasses.has("dream-home-utility"), false);
+
+const normalizedAccent = createFixture({
+  shellPresent: true,
+  homePresent: true,
+  utilityPresent: true,
+});
+vm.runInNewContext(buildPayload({
+  colorMode: "explicit",
+  explicitColorKeys: ["panel", "accent"],
+  colors: { panel: "#102030", accent: "#ff45c8" },
+}), normalizedAccent.context);
+assert.equal(normalizedAccent.rootStyles.get("--dream-accent"), "#ff45c8",
+  "The Windows renderer must consume a migrated explicit accent alongside partial current colors.");
+
+const adaptiveAccent = createFixture({
+  shellPresent: true,
+  homePresent: true,
+  utilityPresent: true,
+});
+vm.runInNewContext(buildPayload({
+  colorMode: "auto",
+  explicitColorKeys: [],
+  colors: { accent: "#7cff46" },
+}), adaptiveAccent.context);
+assert.equal(adaptiveAccent.rootStyles.get("--dream-accent"), "rgb(108 131 142)",
+  "An auto theme must not mistake the normalized fallback color for an explicit accent.");
 
 const headingOnlyHome = createFixture({
   shellPresent: true,

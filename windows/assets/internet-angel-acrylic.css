@@ -147,7 +147,9 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] [class~="group/
 /* Composer owns its blur; status strips attached to it stay translucent but do
    not start additional compositor passes. */
 html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
-  .composer-surface-chrome
+  .composer-surface-chrome,
+  [data-composer-surface-variant],
+  [data-ds-part="composer"]
 ) {
   background:
     linear-gradient(135deg, rgb(30 26 85 / .54), rgb(70 41 120 / .43) 58%, rgb(66 29 91 / .38)) !important;
@@ -165,6 +167,15 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   .dream-active-goal-strip
 ) {
   background: linear-gradient(100deg, rgb(32 84 255 / .18), rgb(55 40 116 / .66) 58%, rgb(255 69 200 / .10)) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  [data-composer-footer-responsive],
+  [data-ds-part="composer-toolbar"]
+) {
+  background: transparent !important;
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
@@ -228,20 +239,6 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   backdrop-filter: none !important;
 }
 
-/* Avoid stacked filters below the four owners above. Portal descendants that
-   need a filter are mounted outside these trees and are unaffected. */
-html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
-  aside.app-shell-left-panel,
-  [data-testid="app-shell-floating-left-panel"],
-  .composer-surface-chrome,
-  [role="dialog"],
-  [role="menu"],
-  [role="listbox"]
-) * {
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
 /* High-frequency surfaces stay transparent, but leave their blur to the
    native DWM Acrylic backdrop. Re-blurring a scrolling sidebar or a live
    ProseMirror composition inside Chromium forces expensive repaint and style
@@ -249,21 +246,24 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
 html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]:not(#codex-dream-skin-web-blur) :is(
   aside.app-shell-left-panel,
   [data-testid="app-shell-floating-left-panel"],
-  .composer-surface-chrome
+  .composer-surface-chrome,
+  [data-composer-surface-variant],
+  [data-ds-part="composer"]
 ) {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
 
-/* Avoid changing the composited geometry of dozens of rows as the pointer
-   passes over them during scroll. Color and border feedback remain intact. */
+/* Avoid starting transitions or composited geometry changes on dozens of rows
+   as they pass under a stationary pointer during scroll. Hover feedback stays
+   intact, but applies immediately. */
 html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   aside.app-shell-left-panel,
   [data-testid="app-shell-floating-left-panel"]
 ) button {
   transform: none !important;
   translate: none !important;
-  transition: color 80ms linear, border-color 80ms linear, background-color 80ms linear !important;
+  transition: none !important;
 }
 
 html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
@@ -289,6 +289,124 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   -webkit-mask-image: none !important;
   mask-image: none !important;
   animation: none !important;
+}
+
+/* Codex 26.730 adds per-row text masks and a separate conversation turn rail.
+   Both sit directly on scroll hot paths: hard clipping is cheaper than
+   re-rasterizing gradient masks, and the native rail remains fully readable. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"]
+) :is(.text-fade-truncate, [class*="_clipViewport_"]) {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"]
+) .sidebar-item svg {
+  filter: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  .dream-turn-nav-rail,
+  [class*="_railList_"].vertical-scroll-fade-mask
+) {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  animation: none !important;
+  filter: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  .dream-task .horizontal-scroll-fade-mask {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  animation: none !important;
+}
+
+/* Keep the exact Codex sidebar scroller in its own scroll optimization scope.
+   Fixed-height task/project rows can skip style and paint work while offscreen
+   without changing the height of expanded project groups. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll] {
+  will-change: scroll-position;
+}
+
+@supports (content-visibility: auto) {
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+    [data-app-action-sidebar-scroll] :is(
+      [data-app-action-sidebar-thread-row],
+      [data-app-action-sidebar-project-row]
+    ) {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 38px;
+  }
+}
+
+/* During wheel/momentum scrolling, freeze the one active-task spinner and the
+   native group-hover geometry. Real rows and action buttons keep hit-testing;
+   the renderer removes this class 96 ms after the final scroll event. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet .animate-spin {
+  animation-play-state: paused !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet
+  [data-app-action-sidebar-thread-row] [class~="group-hover:min-w-12"] {
+  min-width: 3rem !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet
+  [data-app-action-sidebar-thread-row] [class~="group-hover:inline"] {
+  display: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet
+  [data-app-action-sidebar-project-row] [class~="group-hover/folder-row:w-auto"] {
+  width: 1.5rem !important;
+  overflow: visible !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet :is(
+    [data-app-action-sidebar-thread-row]:not([data-app-action-sidebar-thread-active="true"]),
+    [data-app-action-sidebar-project-row]
+  ):not(:focus-within) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+  translate: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet :is(
+    [data-app-action-sidebar-thread-row],
+    [data-app-action-sidebar-project-row]
+  ) button:not(:focus-visible) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+  translate: none !important;
+  transition: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet
+  [data-app-action-sidebar-thread-row] [class*="_animateOnGroupHover_"] {
+  animation: none !important;
+  transform: none !important;
+  translate: none !important;
 }
 
 /* Windows' "Transparency effects" accessibility preference is exposed to
@@ -321,6 +439,8 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
     main,
     header,
     .composer-surface-chrome,
+    [data-composer-surface-variant],
+    [data-ds-part="composer"],
     [role="dialog"],
     [role="menu"],
     [role="listbox"]
@@ -348,6 +468,8 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
     main,
     header,
     .composer-surface-chrome,
+    [data-composer-surface-variant],
+    [data-ds-part="composer"],
     [role="dialog"],
     [role="menu"],
     [role="listbox"]

@@ -21,7 +21,7 @@ const selectors = {
   shell: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])',
   sidebar: "aside.app-shell-left-panel",
   header: 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])',
-  composer: ".composer-surface-chrome",
+  composer: ':is(.composer-surface-chrome, [data-composer-surface-variant])',
   homeIcon: '[data-testid="home-icon"]',
   home: '[role="main"]:has([data-testid="home-icon"])',
   settings: '[data-settings-panel-slug="general-settings"]',

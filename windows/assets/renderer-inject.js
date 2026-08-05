@@ -1,4 +1,4 @@
-((cssText, artDataUrl, rawConfig) => {
+((cssText, artDataUrl, rawConfig, sidebarScrollQuietEnabled) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
   const DIFFS_THEME_STYLE_ID = "codex-dream-skin-diffs-theme";
@@ -9,14 +9,18 @@
     "preset-internet-angel-default",
   ]);
   const isInternetAngelTheme = INTERNET_ANGEL_THEME_IDS.has(String(rawConfig?.id || "").trim());
-  const STYLE_REVISION = "9";
+  const STYLE_REVISION = "10";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
   const SHELL_MAIN_SELECTOR = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
   const HEADER_TINT_SELECTOR = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
   const SIDEBAR_SELECTOR = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
+  const SIDEBAR_SCROLL_SELECTOR = ':is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [data-app-action-sidebar-scroll]';
+  const SIDEBAR_SCROLL_QUIET_CLASS = "dream-sidebar-scroll-quiet";
   const SETTINGS_CONTENT_SELECTOR = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
   const MESSAGE_SELECTOR = ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])';
+  const COMPOSER_SELECTOR = ':is(.composer-surface-chrome, [data-composer-surface-variant])';
+  const COMPOSER_TOOLBAR_SELECTOR = ':is(.composer-surface-chrome [class*="_footer_"], [data-composer-surface-variant] [data-composer-footer-responsive])';
   const CHROME_ID = "codex-dream-skin-chrome";
   const FALLBACK_PRESETS_ID = "codex-dream-skin-presets";
   const SIDEBAR_CHROME_ID = "codex-dream-sidebar-ornaments";
@@ -159,6 +163,7 @@
   const installToken = {};
   const DOM_REFRESH_DEBOUNCE_MS = 1500;
   const INTERACTION_QUIET_MS = 320;
+  const SIDEBAR_SCROLL_QUIET_MS = 96;
   const FALLBACK_REFRESH_MS = 60000;
   const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
   let samplingNativeShell = false;
@@ -193,9 +198,15 @@
     const hasNumber = (candidate) =>
       (typeof candidate === "number" || (typeof candidate === "string" && candidate.trim() !== "")) &&
       Number.isFinite(Number(candidate));
-    const requestedAccent = typeof config?.palette?.accent === "string"
-      ? config.palette.accent.trim()
-      : "";
+    const explicitColorKeys = Array.isArray(config.explicitColorKeys)
+      ? new Set(config.explicitColorKeys)
+      : null;
+    const colorsAccentIsExplicit = typeof config?.colors?.accent === "string" &&
+      (explicitColorKeys?.has("accent") ||
+        (!explicitColorKeys && config.colorMode === "explicit"));
+    const requestedAccent = colorsAccentIsExplicit
+      ? config.colors.accent.trim()
+      : (typeof config?.palette?.accent === "string" ? config.palette.accent.trim() : "");
     const safeAccent = /^(?:#[\da-f]{3,8}|(?:rgb|hsl|oklch|oklab)\([^;{}]{1,96}\))$/i.test(requestedAccent)
       ? requestedAccent
       : null;
@@ -223,6 +234,14 @@
     };
   };
 
+  const clearSidebarScrollQuiet = (state) => {
+    if (!state) return;
+    if (state.timer !== null && state.timer !== undefined) clearTimeout(state.timer);
+    state.timer = null;
+    state.target?.classList?.remove?.(SIDEBAR_SCROLL_QUIET_CLASS);
+    state.target = null;
+  };
+
   const previous = window[STATE_KEY];
   if (previous?.observer) previous.observer.disconnect();
   if (previous?.resizeObserver) previous.resizeObserver.disconnect();
@@ -248,6 +267,11 @@
     document.removeEventListener("wheel", previous.interactionHandler, true);
     document.removeEventListener("scroll", previous.interactionHandler, true);
   }
+  if (previous?.sidebarScrollHandler) {
+    document.removeEventListener("wheel", previous.sidebarScrollHandler, true);
+    document.removeEventListener("scroll", previous.sidebarScrollHandler, true);
+  }
+  clearSidebarScrollQuiet(previous?.sidebarScrollQuiet);
   previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
   if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
   document.documentElement?.classList?.remove?.("dream-preview-blink", "dream-preview-blink-half");
@@ -632,8 +656,9 @@
   ];
 
   const writePresetToComposer = (prompt) => {
-    const editor = document.querySelector(
-      '.dream-home .composer-surface-chrome .ProseMirror[contenteditable="true"], .dream-home .composer-surface-chrome [contenteditable="true"]',
+    const composer = document.querySelector(`.dream-home ${COMPOSER_SELECTOR}`);
+    const editor = composer?.querySelector(
+      '.ProseMirror[contenteditable="true"], [contenteditable="true"]',
     );
     if (!editor) return false;
     editor.focus();
@@ -764,7 +789,7 @@
   const syncChromeGeometry = (chrome, shellMain, home) => {
     if (!chrome || !shellMain) return;
     const mainBox = shellMain.getBoundingClientRect?.();
-    const composerBox = home?.querySelector?.(".composer-surface-chrome")?.getBoundingClientRect?.();
+    const composerBox = home?.querySelector?.(COMPOSER_SELECTOR)?.getBoundingClientRect?.();
     if (mainBox?.width > 0 && mainBox?.height > 0) {
       const setGeometryProperty = (property, value) => {
         if (chrome.style?.getPropertyValue?.(property) !== value) {
@@ -806,7 +831,7 @@
       .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
   };
   const findGenericComposers = () => {
-    if (all(".composer-surface-chrome").length) return null;
+    if (all(COMPOSER_SELECTOR).length) return null;
     const main = resolvedMain();
     const owners = new Set();
     for (const input of genericInputs()) {
@@ -828,7 +853,19 @@
     return [...owners];
   };
   const safeCssPartNodes = new Set();
+  const pruneDisconnectedSafeCssParts = () => {
+    let pruned = 0;
+    for (const node of [...safeCssPartNodes]) {
+      if (node?.isConnected !== false) continue;
+      node.removeAttribute?.(PART_ATTR);
+      safeCssPartNodes.delete(node);
+      pruned += 1;
+    }
+    rendererMetrics.safePartPruneCount += pruned;
+    return pruned;
+  };
   const refreshSafeCssParts = () => {
+    rendererMetrics.safePartRefreshCount += 1;
     const desired = new Map();
     const add = (part, nodes) => {
       for (const node of nodes || []) {
@@ -861,8 +898,8 @@
     add("project-list", all(".group\\/project-selector"));
     add("thread", all(".thread-scroll-container"));
     add("message", all(MESSAGE_SELECTOR));
-    add("composer", [...all(".composer-surface-chrome"), ...fallbackComposer()]);
-    add("composer-toolbar", all('.composer-surface-chrome [class*="_footer_"]'));
+    add("composer", [...all(COMPOSER_SELECTOR), ...fallbackComposer()]);
+    add("composer-toolbar", all(COMPOSER_TOOLBAR_SELECTOR));
     add("dialog", all('[role="dialog"]'));
     const homeHero = document.querySelector?.('[data-feature="game-source"]') ??
       document.querySelector?.('[data-testid="home-icon"]')?.parentElement;
@@ -880,8 +917,8 @@
 
   const incrementalSafePartRules = [
     ["message", MESSAGE_SELECTOR],
-    ["composer-toolbar", '.composer-surface-chrome [class*="_footer_"]'],
-    ["composer", '.composer-surface-chrome, [class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]'],
+    ["composer-toolbar", COMPOSER_TOOLBAR_SELECTOR],
+    ["composer", `${COMPOSER_SELECTOR}, [class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]`],
     ["thread", ".thread-scroll-container"],
     ["dialog", '[role="dialog"]'],
     ["header", HEADER_TINT_SELECTOR],
@@ -891,8 +928,8 @@
   ];
   const incrementalSafePartSelector = incrementalSafePartRules
     .map(([, selector]) => selector).join(", ");
-  const themeDiffsContainers = () => {
-    for (const host of all("diffs-container")) {
+  const themeDiffsContainers = (hosts = all("diffs-container")) => {
+    for (const host of hosts) {
       const root = host?.shadowRoot;
       if (!root) continue;
       const surface = "color-mix(in oklab, var(--dream-surface) 94%, var(--dream-accent) 5%)";
@@ -945,20 +982,17 @@
     }
   };
   const classifySafeCssParts = (records) => {
-    for (const genericComposer of findGenericComposers() || []) {
-      if (genericComposer.getAttribute?.(PART_ATTR) !== "composer") {
-        genericComposer.setAttribute?.(PART_ATTR, "composer");
-      }
-      safeCssPartNodes.add(genericComposer);
-    }
-    themeDiffsContainers();
     const roots = records
       .flatMap((record) => [...(record.addedNodes || [])])
       .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
     if (!roots.length) return false;
-    for (const node of [...safeCssPartNodes]) {
-      if (!node.isConnected) safeCssPartNodes.delete(node);
+    const diffHosts = new Set();
+    for (const root of roots) {
+      if (root.matches?.("diffs-container")) diffHosts.add(root);
+      for (const host of root.querySelectorAll?.("diffs-container") || []) diffHosts.add(host);
     }
+    if (diffHosts.size) themeDiffsContainers(diffHosts);
+    pruneDisconnectedSafeCssParts();
     const matches = new Set();
     for (const root of roots) {
       if (root.matches?.(incrementalSafePartSelector)) matches.add(root);
@@ -1194,7 +1228,8 @@
 
     for (const row of document.querySelectorAll('button[class*="navigation-row"]')) {
       row.classList.add("dream-turn-nav-row");
-      row.parentElement?.classList.add("dream-turn-nav-rail");
+      (row.closest?.(".vertical-scroll-fade-mask") || row.parentElement)
+        ?.classList.add("dream-turn-nav-rail");
       const marker = row.querySelector?.('[class*="_marker_"]')
         || row.firstElementChild?.firstElementChild
         || row.firstElementChild;
@@ -1253,7 +1288,7 @@
     goalStepControl?.classList.add("dream-goal-step");
     goalProgressGroup?.classList.add("dream-goal-progress-group");
     const goalModePattern = /^(?:\u76ee\u6807|goal)$/i;
-    const goalModeButton = [...(document.querySelectorAll('.composer-surface-chrome button') || [])]
+    const goalModeButton = [...(document.querySelectorAll(`${COMPOSER_SELECTOR} button`) || [])]
       .find((button) => /\u76ee\u6807|goal/i.test(button.getAttribute("aria-label") || "")
         || goalModePattern.test((button.textContent || "").trim()));
     goalModeButton?.classList.add("dream-goal-mode-trigger");
@@ -1450,7 +1485,7 @@
 
     const sideChatAside = [...document.querySelectorAll(`${SHELL_MAIN_SELECTOR} aside`)]
       .find((candidate) => candidate.querySelector?.(".thread-scroll-container")
-        && candidate.querySelector?.(".composer-surface-chrome"));
+        && candidate.querySelector?.(COMPOSER_SELECTOR));
     const sideChatPanel = sideChatAside?.querySelector?.(':scope > [class*="contain:layout_paint"]')
       || sideChatAside?.querySelector?.('[class*="contain:layout_paint"]')
       || sideChatAside?.firstElementChild;
@@ -1643,7 +1678,7 @@
     if (changedClipHost && changedClipHost !== changedPill) changedClipHost.classList.add(CHANGES_CLIP_HOST_CLASS);
 
     if (summaryPanel) {
-      const composerBarrier = document.querySelector(".composer-surface-chrome");
+      const composerBarrier = document.querySelector(COMPOSER_SELECTOR);
       const barrier = changedBarrier || composerBarrier;
       const panelBox = summaryPanel.getBoundingClientRect?.();
       const barrierBox = barrier?.getBoundingClientRect?.();
@@ -1742,8 +1777,13 @@
     ensureMaxMs: 0,
     observerBatches: 0,
     observerRecords: 0,
+    safePartRefreshCount: 0,
+    safePartPruneCount: 0,
+    fallbackProbeCount: 0,
+    fallbackEnsureCount: 0,
   };
   let compositionDepth = 0;
+  const sidebarScrollQuiet = { target: null, timer: null };
   let lastInteractionAt = -Infinity;
   let lastEnsureErrorLogAt = -Infinity;
   const schedulerNow = () => {
@@ -1801,7 +1841,6 @@
       scheduler.running = false;
       observer?.takeRecords?.();
       observeRendererStructure();
-      try { refreshSafeCssParts(); } catch {}
       if (scheduler.pending) {
         scheduler.pending = false;
         scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
@@ -1838,6 +1877,11 @@
       document.removeEventListener("wheel", state.interactionHandler, true);
       document.removeEventListener("scroll", state.interactionHandler, true);
     }
+    if (state?.sidebarScrollHandler) {
+      document.removeEventListener("wheel", state.sidebarScrollHandler, true);
+      document.removeEventListener("scroll", state.sidebarScrollHandler, true);
+    }
+    clearSidebarScrollQuiet(state?.sidebarScrollQuiet);
     state?.motionQuery?.removeEventListener?.("change", state.motionHandler);
     if (state?.artUrl) URL.revokeObjectURL(state.artUrl);
     delete window[STATE_KEY];
@@ -2068,33 +2112,67 @@
     }
     const target = event?.target?.closest?.(
       'a[href], [role="link"], [role="tab"], [role="menuitem"], ' +
-      '[data-settings-panel-slug], aside.app-shell-left-panel button, ' +
-      'button[aria-controls], button[aria-expanded], button[aria-haspopup]',
+      '[data-settings-panel-slug], [data-app-action-sidebar-thread-row], ' +
+      '[data-app-action-sidebar-select-project], button[aria-controls], ' +
+      ':is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) ' +
+      'button.sidebar-item:not([aria-haspopup])',
     );
-    const sidebarInteraction = Boolean(event?.target?.closest?.('aside'));
-    if (target || sidebarInteraction) scheduleNavigationRefresh();
+    if (target) scheduleNavigationRefresh();
   };
   const interactionHandler = (event) => {
     const target = event?.target?.nodeType === 1
       ? event.target
       : event?.target?.parentElement;
-    const composerInteraction = Boolean(target?.closest?.(
-      '.composer-surface-chrome, [contenteditable="true"], textarea, input',
-    ));
-    const scrollingSurface = Boolean(target?.closest?.(
-      `${SIDEBAR_SELECTOR}, .thread-scroll-container, [class~="overflow-y-auto"]`,
-    ));
-    if (["compositionstart", "compositionend", "beforeinput"].includes(event?.type)
-      && !composerInteraction) return;
-    if (["wheel", "scroll"].includes(event?.type) && !scrollingSurface) return;
+    if (!target?.closest?.(
+      `${COMPOSER_SELECTOR}, [contenteditable="true"], textarea, input`,
+    )) return;
 
     const hadScheduledWork = Boolean(
-      scheduler.running || scheduler.pending || scheduler.frame || scheduler.timeout,
+      scheduler.running || scheduler.pending || scheduler.frame || scheduler.timeout ||
+      scheduler.navigationTimer,
     );
     if (event?.type === "compositionstart") compositionDepth += 1;
     if (event?.type === "compositionend") compositionDepth = Math.max(0, compositionDepth - 1);
     lastInteractionAt = schedulerNow();
     if (hadScheduledWork) scheduleEnsure(INTERACTION_QUIET_MS);
+  };
+  const sidebarScrollHandler = (event) => {
+    const target = event?.target?.nodeType === 1
+      ? event.target
+      : event?.target?.parentElement;
+    const surface = sidebarScrollQuietEnabled
+      ? (event?.type === "scroll"
+        ? (target?.matches?.(SIDEBAR_SCROLL_SELECTOR) ? target : null)
+        : target?.closest?.(SIDEBAR_SCROLL_SELECTOR))
+      : null;
+    if (sidebarScrollQuietEnabled && surface) {
+      if (sidebarScrollQuiet.target && sidebarScrollQuiet.target !== surface) {
+        sidebarScrollQuiet.target.classList?.remove?.(SIDEBAR_SCROLL_QUIET_CLASS);
+      }
+      if (sidebarScrollQuiet.timer !== null) clearTimeout(sidebarScrollQuiet.timer);
+      if (!surface.classList?.contains?.(SIDEBAR_SCROLL_QUIET_CLASS)) {
+        surface.classList?.add?.(SIDEBAR_SCROLL_QUIET_CLASS);
+      }
+      sidebarScrollQuiet.target = surface;
+      sidebarScrollQuiet.timer = setTimeout(() => {
+        if (sidebarScrollQuiet.target !== surface) return;
+        surface.classList?.remove?.(SIDEBAR_SCROLL_QUIET_CLASS);
+        sidebarScrollQuiet.target = null;
+        sidebarScrollQuiet.timer = null;
+      }, SIDEBAR_SCROLL_QUIET_MS);
+    }
+
+    const hadScheduledWork = Boolean(
+      scheduler.running || scheduler.pending || scheduler.frame || scheduler.timeout ||
+      scheduler.navigationTimer,
+    );
+    if (!hadScheduledWork) return;
+    const scrollingSurface = surface || target?.closest?.(
+      `${SIDEBAR_SELECTOR}, .thread-scroll-container, [class~="overflow-y-auto"]`,
+    );
+    if (!scrollingSurface) return;
+    lastInteractionAt = schedulerNow();
+    scheduleEnsure(INTERACTION_QUIET_MS);
   };
   window.addEventListener("resize", resizeHandler, { passive: true });
   motionQuery?.addEventListener?.("change", motionHandler);
@@ -2103,8 +2181,8 @@
   document.addEventListener("compositionstart", interactionHandler, true);
   document.addEventListener("compositionend", interactionHandler, true);
   document.addEventListener("beforeinput", interactionHandler, true);
-  document.addEventListener("wheel", interactionHandler, { capture: true, passive: true });
-  document.addEventListener("scroll", interactionHandler, { capture: true, passive: true });
+  document.addEventListener("wheel", sidebarScrollHandler, { capture: true, passive: true });
+  document.addEventListener("scroll", sidebarScrollHandler, { capture: true, passive: true });
   if (typeof ResizeObserver === "function") {
     resizeObserver = new ResizeObserver((entries) => {
       let geometryChanged = false;
@@ -2132,16 +2210,19 @@
       return withoutManagedClasses(record.oldValue) !==
         withoutManagedClasses(record.target?.getAttribute?.("class"));
     });
-    const hasGenericComposerNode = records.some((record) =>
+    const hasKnownComposer = Boolean(document.querySelector(
+      `${COMPOSER_SELECTOR}, [data-ds-part="composer"]`,
+    ));
+    const hasGenericComposerNode = !hasKnownComposer && records.some((record) =>
       [...(record.addedNodes || [])].some((node) =>
         node?.nodeType === 1 && (
           node.matches?.(
             'textarea, [contenteditable="true"], [role="textbox"], ' +
-            '[class*="composer" i], [class*="prompt" i]',
+            '[class*="ComposerLayoutRoot" i]',
           ) ||
           node.querySelector?.(
             'textarea, [contenteditable="true"], [role="textbox"], ' +
-            '[class*="composer" i], [class*="prompt" i]',
+            '[class*="ComposerLayoutRoot" i]',
           )
         )
       )
@@ -2151,7 +2232,24 @@
     }
   });
   observeRendererStructure();
-  const timer = setInterval(() => scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS), FALLBACK_REFRESH_MS);
+  const fallbackProbe = () => {
+    rendererMetrics.fallbackProbeCount += 1;
+    pruneDisconnectedSafeCssParts();
+    const root = document.documentElement;
+    const style = document.getElementById(STYLE_ID);
+    const shellMain = document.querySelector(SHELL_MAIN_SELECTOR) ||
+      document.querySelector("main") ||
+      document.querySelector('[role="main"]');
+    if (!root?.classList?.contains("codex-dream-skin") ||
+      root.getAttribute?.("data-dream-skin") !== "active" ||
+      !style?.isConnected ||
+      style.dataset?.dreamVersion !== STYLE_REVISION ||
+      !shellMain) {
+      rendererMetrics.fallbackEnsureCount += 1;
+      scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+    }
+  };
+  const timer = setInterval(fallbackProbe, FALLBACK_REFRESH_MS);
   const missingL1 = [
     ...(!document.querySelector(SHELL_MAIN_SELECTOR) ? ["shell-main"] : []),
     ...(!document.querySelector(SIDEBAR_SELECTOR) ? ["left-panel"] : []),
@@ -2164,8 +2262,10 @@
   };
   const runtimeState = {
     ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler,
-    resizeHandler, navigationHandler, interactionHandler, motionQuery, motionHandler,
+    resizeHandler, navigationHandler, interactionHandler, sidebarScrollHandler, sidebarScrollQuiet,
+    motionQuery, motionHandler,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
+    sidebarScrollQuietEnabled: Boolean(sidebarScrollQuietEnabled),
     themeId: config.themeId,
     revision: PAYLOAD_REVISION,
     styleMode: "style",
@@ -2186,4 +2286,4 @@
     resizeHandler();
   });
   return { installed: true, version: SKIN_VERSION, revision: PAYLOAD_REVISION, adaptive: true };
-})(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__)
+})(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__, __DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__)

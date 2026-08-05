@@ -755,8 +755,11 @@
   ];
 
   const writeHomePreset = (prompt) => {
+    const composerRootSelector = selectorByKey.get("composer-chrome")?.selector ||
+      ".composer-surface-chrome";
     const editor = document.querySelector(
-      '.composer-surface-chrome .ProseMirror[contenteditable="true"], .composer-surface-chrome [contenteditable="true"]',
+      `${composerRootSelector} .ProseMirror[contenteditable="true"], ` +
+        `${composerRootSelector} [contenteditable="true"]`,
     );
     if (!editor) return false;
     let inserted = false;

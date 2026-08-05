@@ -4,7 +4,8 @@
   const componentAttribute = "data-angel-component";
   const selectors = {
     shell: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])',
-    composer: ".composer-surface-chrome",
+    composer: ':is(.composer-surface-chrome, [data-composer-surface-variant])',
+    composerFooter: ':is([class*="_footer_"], [data-composer-footer-responsive])',
     stickyComposer: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [class~="sticky"][class~="bottom-0"]',
     contextStrip: 'div[class~="relative"][class~="min-w-0"][class~="overflow-clip"][class~="border-x"][class~="border-t"]',
     environmentPanel: 'div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]',
@@ -227,6 +228,7 @@
   const classifyComposer = () => {
     for (const composer of document.querySelectorAll(selectors.composer)) {
       mark(composer, "composer");
+      mark(composer.querySelector?.(selectors.composerFooter), "composer-footer");
       mark(composer.querySelector?.('[contenteditable="true"]'), "composer-input");
       for (const button of composer.querySelectorAll?.("button") || []) {
         mark(button, "composer-action");
@@ -252,7 +254,8 @@
       mark(progress, "goal-progress");
     }
     const goalModePattern = /^(?:\u76ee\u6807|goal)$/i;
-    const goalMode = [...document.querySelectorAll(".composer-surface-chrome button")]
+    const goalMode = [...document.querySelectorAll(selectors.composer)]
+      .flatMap((composer) => [...(composer.querySelectorAll?.("button") || [])])
       .find((button) => /\u76ee\u6807|goal/i.test(button.getAttribute?.("aria-label") || "")
         || goalModePattern.test(textOf(button)));
     mark(goalMode, "goal-mode-trigger");
@@ -412,7 +415,7 @@
     }
 
     for (const aside of document.querySelectorAll(`${selectors.shell} aside`)) {
-      if (!aside.querySelector?.(".thread-scroll-container") || !aside.querySelector?.(".composer-surface-chrome")) continue;
+      if (!aside.querySelector?.(".thread-scroll-container") || !aside.querySelector?.(selectors.composer)) continue;
       mark(aside.querySelector?.(':scope > [class*="contain:layout_paint"]')
         || aside.querySelector?.('[class*="contain:layout_paint"]')
         || aside.firstElementChild, "side-chat");
