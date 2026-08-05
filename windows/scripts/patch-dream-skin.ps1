@@ -12,13 +12,15 @@ function Assert-DreamSkinPatchSource {
 
   $commonPath = Join-Path $Root 'scripts\common-windows.ps1'
   $startPath = Join-Path $Root 'scripts\start-dream-skin.ps1'
+  $injectorPath = Join-Path $Root 'scripts\injector.mjs'
   $versionPath = Join-Path $Root 'VERSION'
   $rendererPath = Join-Path $Root 'assets\renderer-inject.js'
   $cssPath = Join-Path $Root 'assets\dream-skin.css'
   $acrylicCssPath = Join-Path $Root 'assets\internet-angel-acrylic.css'
   $extensionCssPath = Join-Path $Root 'assets\internet-angel-extension.css'
   foreach ($requiredPath in @(
-    $commonPath, $startPath, $versionPath, $rendererPath, $cssPath, $acrylicCssPath, $extensionCssPath
+    $commonPath, $startPath, $injectorPath, $versionPath, $rendererPath, $cssPath,
+    $acrylicCssPath, $extensionCssPath
   )) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
       throw "Patch source is incomplete: $requiredPath"
@@ -27,18 +29,21 @@ function Assert-DreamSkinPatchSource {
 
   $commonText = Read-DreamSkinUtf8File -Path $commonPath
   $startText = Read-DreamSkinUtf8File -Path $startPath
+  $injectorText = Read-DreamSkinUtf8File -Path $injectorPath
   $rendererText = Read-DreamSkinUtf8File -Path $rendererPath
   $cssText = Read-DreamSkinUtf8File -Path $cssPath
   $acrylicCssText = Read-DreamSkinUtf8File -Path $acrylicCssPath
   $extensionCssText = Read-DreamSkinUtf8File -Path $extensionCssPath
   if (-not $commonText.Contains('Resolve-DreamSkinStartPort') -or
     -not $startText.Contains('Resolve-DreamSkinStartPort -Port $Port') -or
+    -not $injectorText.Contains('__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__') -or
     -not $rendererText.Contains('composerOwnerSelector') -or
     -not $rendererText.Contains("owner.closest?.('aside')") -or
     -not $rendererText.Contains('findGenericComposers') -or
     -not $rendererText.Contains('themeDiffsContainers') -or
     -not $rendererText.Contains('const fallbackProbe = () =>') -or
     -not $rendererText.Contains('[data-app-action-sidebar-thread-row]') -or
+    -not $rendererText.Contains('SIDEBAR_SCROLL_QUIET_CLASS') -or
     -not $rendererText.Contains('appearanceFromClasses') -or
     -not $cssText.Contains('[data-ds-part="composer"]') -or
     -not $cssText.Contains('aside:not(.app-shell-left-panel)') -or
@@ -51,6 +56,8 @@ function Assert-DreamSkinPatchSource {
     -not $acrylicCssText.Contains('.text-fade-truncate') -or
     -not $acrylicCssText.Contains('.sidebar-item svg') -or
     -not $acrylicCssText.Contains('.dream-task .horizontal-scroll-fade-mask') -or
+    -not $acrylicCssText.Contains('contain-intrinsic-block-size: auto 38px') -or
+    -not $acrylicCssText.Contains('.dream-sidebar-scroll-quiet') -or
     -not $extensionCssText.Contains('.dream-theme-light') -or
     -not $extensionCssText.Contains('[data-angel-component]') -or
     -not $extensionCssText.Contains('[data-angel-component="scroll-bottom"]:is(:hover') -or
@@ -74,12 +81,46 @@ function Test-DreamSkinPatchFileMatches {
     (Get-FileHash -LiteralPath $Installed -Algorithm SHA256).Hash
 }
 
+function Move-DreamSkinPatchDirectoryAtomically {
+  param(
+    [Parameter(Mandatory = $true)][string]$Source,
+    [Parameter(Mandatory = $true)][string]$Destination
+  )
+
+  $sourceFull = [System.IO.Path]::GetFullPath($Source)
+  $destinationFull = [System.IO.Path]::GetFullPath($Destination)
+  if (-not (Test-Path -LiteralPath $sourceFull -PathType Container) -or
+    (Test-Path -LiteralPath $destinationFull)) {
+    throw "Atomic runtime directory move has invalid endpoints: $sourceFull -> $destinationFull"
+  }
+  # PowerShell's FileSystem provider can degrade Move-Item on a directory into
+  # child-by-child moves when an executable below it is open. Directory.Move is
+  # one same-volume Win32 rename: it either commits the whole tree or leaves the
+  # source byte-for-byte intact.
+  [System.IO.Directory]::Move($sourceFull, $destinationFull)
+}
+
+function Get-DreamSkinPatchEngineNodeUsers {
+  param([Parameter(Mandatory = $true)][string]$NodePath)
+
+  $users = @()
+  $processes = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction Stop)
+  foreach ($processInfo in $processes) {
+    $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $processInfo
+    if ($processPath -and (Test-DreamSkinPathEqual -Left $processPath -Right $NodePath)) {
+      $users += [int]$processInfo.ProcessId
+    }
+  }
+  return @($users | Sort-Object -Unique)
+}
+
 if (-not $SourceRoot) {
   $SourceRoot = Split-Path -Parent $PSScriptRoot
 }
 $sourceRoot = [System.IO.Path]::GetFullPath($SourceRoot)
 $commonSourcePath = Join-Path $sourceRoot 'scripts\common-windows.ps1'
 $startSourcePath = Join-Path $sourceRoot 'scripts\start-dream-skin.ps1'
+$injectorSourcePath = Join-Path $sourceRoot 'scripts\injector.mjs'
 $patchSourcePath = Join-Path $sourceRoot 'scripts\patch-dream-skin.ps1'
 $rendererSourcePath = Join-Path $sourceRoot 'assets\renderer-inject.js'
 $cssSourcePath = Join-Path $sourceRoot 'assets\dream-skin.css'
@@ -106,6 +147,7 @@ Assert-DreamSkinPatchSource -Root $sourceRoot
 
 $installedCommon = Join-Path $engine.Scripts 'common-windows.ps1'
 $installedStart = Join-Path $engine.Scripts 'start-dream-skin.ps1'
+$installedInjector = Join-Path $engine.Scripts 'injector.mjs'
 $installedPatch = Join-Path $engine.Scripts 'patch-dream-skin.ps1'
 $installedRenderer = Join-Path $engine.Root 'assets\renderer-inject.js'
 $installedCss = Join-Path $engine.Root 'assets\dream-skin.css'
@@ -114,6 +156,7 @@ $installedExtensionCss = Join-Path $engine.Root 'assets\internet-angel-extension
 $patchIdentityPairs = @(
   @{ Source = $commonSourcePath; Installed = $installedCommon },
   @{ Source = $startSourcePath; Installed = $installedStart },
+  @{ Source = $injectorSourcePath; Installed = $installedInjector },
   @{ Source = $patchSourcePath; Installed = $installedPatch },
   @{ Source = $rendererSourcePath; Installed = $installedRenderer },
   @{ Source = $cssSourcePath; Installed = $installedCss },
@@ -132,12 +175,17 @@ if ($alreadyPatched) {
   return
 }
 if ($DryRun) {
-  Write-Host "Dry run: would patch launcher scripts and renderer/css assets from $sourceRoot."
+  Write-Host "Dry run: would patch launcher, injector, and renderer/css assets from $sourceRoot."
   return
 }
 
 $operationLock = Enter-DreamSkinOperationLock
 try {
+  $engineNodePath = Join-Path $engine.Root 'runtime\node\node.exe'
+  $engineNodeUsers = @(Get-DreamSkinPatchEngineNodeUsers -NodePath $engineNodePath)
+  if ($engineNodeUsers.Count -ne 0) {
+    throw "The managed Dream Skin Node runtime is in use by PID(s) $($engineNodeUsers -join ', '). Stop the exact injector and retry; Codex itself does not need to restart."
+  }
   $token = [guid]::NewGuid().ToString('N')
   $stagingRoot = Join-Path $stateRoot ".engine-patch-$token"
   $backupRoot = Join-Path $stateRoot ".engine-patch-backup-$token"
@@ -149,13 +197,14 @@ try {
     # Clone the complete managed engine first so the patch preserves bundled Node,
     # presets, and every non-patch asset. The committed update is one directory swap;
     # consumers can therefore observe either the old engine or the new one, never a
-    # seven-file mixture.
+    # eight-file mixture.
     Copy-Item -LiteralPath $engine.Root -Destination $stagingRoot -Recurse -Force `
       -ErrorAction Stop
     Assert-DreamSkinRuntimeTree -Path $stagingRoot
 
     $stagedCommon = Join-Path $stagingRoot 'scripts\common-windows.ps1'
     $stagedStart = Join-Path $stagingRoot 'scripts\start-dream-skin.ps1'
+    $stagedInjector = Join-Path $stagingRoot 'scripts\injector.mjs'
     $stagedPatch = Join-Path $stagingRoot 'scripts\patch-dream-skin.ps1'
     $stagedRenderer = Join-Path $stagingRoot 'assets\renderer-inject.js'
     $stagedCss = Join-Path $stagingRoot 'assets\dream-skin.css'
@@ -163,6 +212,7 @@ try {
     $stagedExtensionCss = Join-Path $stagingRoot 'assets\internet-angel-extension.css'
     Copy-Item -LiteralPath $commonSourcePath -Destination $stagedCommon -Force -ErrorAction Stop
     Copy-Item -LiteralPath $startSourcePath -Destination $stagedStart -Force -ErrorAction Stop
+    Copy-Item -LiteralPath $injectorSourcePath -Destination $stagedInjector -Force -ErrorAction Stop
     Copy-Item -LiteralPath $patchSourcePath -Destination $stagedPatch -Force -ErrorAction Stop
     Copy-Item -LiteralPath $rendererSourcePath -Destination $stagedRenderer -Force -ErrorAction Stop
     Copy-Item -LiteralPath $cssSourcePath -Destination $stagedCss -Force -ErrorAction Stop
@@ -170,13 +220,10 @@ try {
       -ErrorAction Stop
     Copy-Item -LiteralPath $extensionCssSourcePath -Destination $stagedExtensionCss -Force `
       -ErrorAction Stop
-    foreach ($stagedScript in @($stagedCommon, $stagedStart, $stagedPatch)) {
-      Unblock-File -LiteralPath $stagedScript -ErrorAction Stop
-    }
-
     $patchPairs = @(
       @{ Relative = 'scripts\common-windows.ps1'; Source = $commonSourcePath; Staged = $stagedCommon; Installed = $installedCommon },
       @{ Relative = 'scripts\start-dream-skin.ps1'; Source = $startSourcePath; Staged = $stagedStart; Installed = $installedStart },
+      @{ Relative = 'scripts\injector.mjs'; Source = $injectorSourcePath; Staged = $stagedInjector; Installed = $installedInjector },
       @{ Relative = 'scripts\patch-dream-skin.ps1'; Source = $patchSourcePath; Staged = $stagedPatch; Installed = $installedPatch },
       @{ Relative = 'assets\renderer-inject.js'; Source = $rendererSourcePath; Staged = $stagedRenderer; Installed = $installedRenderer },
       @{ Relative = 'assets\dream-skin.css'; Source = $cssSourcePath; Staged = $stagedCss; Installed = $installedCss },
@@ -190,17 +237,24 @@ try {
         throw "Staged patch file failed hash verification: $($pair.Relative)"
       }
     }
+    # Only PowerShell entry points participate in MOTW unblocking, and only after
+    # their staged bytes have been authenticated against the selected source.
+    # injector.mjs is data/code consumed by the bundled runtime and is never
+    # unblocked here.
+    foreach ($stagedScript in @($stagedCommon, $stagedStart, $stagedPatch)) {
+      Unblock-File -LiteralPath $stagedScript -ErrorAction Stop
+    }
 
     Assert-DreamSkinRuntimeTree -Path $engine.Root
-    Move-Item -LiteralPath $engine.Root -Destination $backupRoot -ErrorAction Stop
+    Move-DreamSkinPatchDirectoryAtomically -Source $engine.Root -Destination $backupRoot
     $hasBackup = $true
     try {
-      Move-Item -LiteralPath $stagingRoot -Destination $engine.Root -ErrorAction Stop
+      Move-DreamSkinPatchDirectoryAtomically -Source $stagingRoot -Destination $engine.Root
     } catch {
       $swapError = $_.Exception.Message
       if ($hasBackup -and -not (Test-Path -LiteralPath $engine.Root)) {
         try {
-          Move-Item -LiteralPath $backupRoot -Destination $engine.Root -ErrorAction Stop
+          Move-DreamSkinPatchDirectoryAtomically -Source $backupRoot -Destination $engine.Root
           $hasBackup = $false
         } catch {
           $preserveTransactions = $true
@@ -222,9 +276,9 @@ try {
       $verificationError = $_.Exception.Message
       try {
         if (Test-Path -LiteralPath $engine.Root) {
-          Move-Item -LiteralPath $engine.Root -Destination $failedRoot -ErrorAction Stop
+          Move-DreamSkinPatchDirectoryAtomically -Source $engine.Root -Destination $failedRoot
         }
-        Move-Item -LiteralPath $backupRoot -Destination $engine.Root -ErrorAction Stop
+        Move-DreamSkinPatchDirectoryAtomically -Source $backupRoot -Destination $engine.Root
         $hasBackup = $false
       } catch {
         $preserveTransactions = $true

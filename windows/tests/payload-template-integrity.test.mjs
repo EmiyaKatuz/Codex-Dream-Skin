@@ -47,6 +47,7 @@ const PLACEHOLDERS = [
   "__DREAM_THEME_JSON__",
   "__DREAM_SKIN_VERSION_JSON__",
   "__DREAM_SKIN_PAYLOAD_REVISION_JSON__",
+  "__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__",
 ];
 
 async function buildWith(themeFields, safeCss = null) {
@@ -102,7 +103,7 @@ function extractRendererArguments(payload) {
   // Inject an early return into the real renderer IIFE and evaluate only far
   // enough to recover its arguments. Parsing the final JSON-looking object was
   // brittle once the shared Internet Angel IIFE was appended to the payload.
-  const marker = "((cssText, artDataUrl, rawConfig) => {";
+  const marker = "((cssText, artDataUrl, rawConfig, sidebarScrollQuietEnabled) => {";
   const overlayBoundary = payload.lastIndexOf(";\n(() => {");
   assert.notEqual(
     overlayBoundary,
@@ -113,7 +114,7 @@ function extractRendererArguments(payload) {
   const at = rendererPayload.indexOf(marker);
   assert.notEqual(at, -1, "payload must keep the canonical renderer IIFE signature");
   const probe = `${rendererPayload.slice(0, at + marker.length)}
-return { cssText, rawConfig };
+return { cssText, rawConfig, sidebarScrollQuietEnabled };
 ${rendererPayload.slice(at + marker.length)}`;
   return vm.runInNewContext(probe, Object.create(null), { timeout: 10_000 });
 }
@@ -177,6 +178,12 @@ test("an ordinary theme name is unaffected by the fix", async () => {
     shipped.theme.name,
     "The shipped theme must round-trip through the payload unchanged.",
   );
+  assert.equal(extractRendererArguments(shipped.payload).sidebarScrollQuietEnabled, false,
+    "System/Mica payloads must not run an Acrylic-only sidebar timer.");
+  const acrylic = await loadPayload(undefined, null, "acrylic");
+  assert.equal(acrylic.acrylicOverlay, true);
+  assert.equal(extractRendererArguments(acrylic.payload).sidebarScrollQuietEnabled, true,
+    "The Internet Angel Acrylic payload must enable sidebar scroll quiet mode.");
 });
 
 test("legacy palette accent migrates into the normalized colors contract", async () => {
@@ -267,7 +274,8 @@ test("the payload build refuses to emit a corrupted script", async () => {
     .replace("__DREAM_CSS_JSON__", () => '""')
     .replace("__DREAM_ART_JSON__", () => '""')
     .replace("__DREAM_SKIN_VERSION_JSON__", () => '"0"')
-    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => '"0"');
+    .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => '"0"')
+    .replaceAll("__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__", "false");
 
   const spliced = fillRest(
     template.replace("__DREAM_THEME_JSON__", JSON.stringify({ name: "a$&b" })),

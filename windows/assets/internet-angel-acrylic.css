@@ -326,6 +326,89 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
   animation: none !important;
 }
 
+/* Keep the exact Codex sidebar scroller in its own scroll optimization scope.
+   Fixed-height task/project rows can skip style and paint work while offscreen
+   without changing the height of expanded project groups. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll] {
+  will-change: scroll-position;
+}
+
+@supports (content-visibility: auto) {
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+    [data-app-action-sidebar-scroll] :is(
+      [data-app-action-sidebar-thread-row],
+      [data-app-action-sidebar-project-row]
+    ) {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 38px;
+  }
+}
+
+/* During wheel/momentum scrolling, freeze the one active-task spinner and the
+   native group-hover geometry. Real rows and action buttons keep hit-testing;
+   the renderer removes this class 96 ms after the final scroll event. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet .animate-spin {
+  animation-play-state: paused !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet
+  [data-app-action-sidebar-thread-row] [class~="group-hover:min-w-12"] {
+  min-width: 3rem !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet
+  [data-app-action-sidebar-thread-row] [class~="group-hover:inline"] {
+  display: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet
+  [data-app-action-sidebar-project-row] [class~="group-hover/folder-row:w-auto"] {
+  width: 1.5rem !important;
+  overflow: visible !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet :is(
+    [data-app-action-sidebar-thread-row]:not([data-app-action-sidebar-thread-active="true"]),
+    [data-app-action-sidebar-project-row]
+  ):not(:focus-within) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+  translate: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet :is(
+    [data-app-action-sidebar-thread-row],
+    [data-app-action-sidebar-project-row]
+  ) button:not(:focus-visible) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+  translate: none !important;
+  transition: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  [data-app-action-sidebar-scroll].dream-sidebar-scroll-quiet
+  [data-app-action-sidebar-thread-row] [class*="_animateOnGroupHover_"] {
+  animation: none !important;
+  transform: none !important;
+  translate: none !important;
+}
+
 /* Windows' "Transparency effects" accessibility preference is exposed to
    Chromium as reduced transparency. Fall back to the same palette, fully
    opaque, while keeping the original artwork. */

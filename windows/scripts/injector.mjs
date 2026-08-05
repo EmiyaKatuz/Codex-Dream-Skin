@@ -852,7 +852,8 @@ export async function loadPayload(
     .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => JSON.stringify(revision))
     .replace("__DREAM_CSS_JSON__", () => JSON.stringify(injectedCss))
     .replace("__DREAM_ART_JSON__", () => JSON.stringify(artDataUrl))
-    .replace("__DREAM_THEME_JSON__", () => JSON.stringify(loadedTheme.theme));
+    .replace("__DREAM_THEME_JSON__", () => JSON.stringify(loadedTheme.theme))
+    .replace("__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__", () => JSON.stringify(acrylicOverlay));
   const payload = `${basePayload};\n${internetAngelTemplate.replace(
     "__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__",
     () => JSON.stringify(internetAngelClassifier),

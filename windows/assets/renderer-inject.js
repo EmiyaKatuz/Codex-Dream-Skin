@@ -1,4 +1,4 @@
-((cssText, artDataUrl, rawConfig) => {
+((cssText, artDataUrl, rawConfig, sidebarScrollQuietEnabled) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
   const DIFFS_THEME_STYLE_ID = "codex-dream-skin-diffs-theme";
@@ -9,12 +9,14 @@
     "preset-internet-angel-default",
   ]);
   const isInternetAngelTheme = INTERNET_ANGEL_THEME_IDS.has(String(rawConfig?.id || "").trim());
-  const STYLE_REVISION = "9";
+  const STYLE_REVISION = "10";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
   const SHELL_MAIN_SELECTOR = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
   const HEADER_TINT_SELECTOR = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
   const SIDEBAR_SELECTOR = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
+  const SIDEBAR_SCROLL_SELECTOR = ':is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [data-app-action-sidebar-scroll]';
+  const SIDEBAR_SCROLL_QUIET_CLASS = "dream-sidebar-scroll-quiet";
   const SETTINGS_CONTENT_SELECTOR = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
   const MESSAGE_SELECTOR = ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])';
   const COMPOSER_SELECTOR = ':is(.composer-surface-chrome, [data-composer-surface-variant])';
@@ -161,6 +163,7 @@
   const installToken = {};
   const DOM_REFRESH_DEBOUNCE_MS = 1500;
   const INTERACTION_QUIET_MS = 320;
+  const SIDEBAR_SCROLL_QUIET_MS = 96;
   const FALLBACK_REFRESH_MS = 60000;
   const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
   let samplingNativeShell = false;
@@ -231,6 +234,14 @@
     };
   };
 
+  const clearSidebarScrollQuiet = (state) => {
+    if (!state) return;
+    if (state.timer !== null && state.timer !== undefined) clearTimeout(state.timer);
+    state.timer = null;
+    state.target?.classList?.remove?.(SIDEBAR_SCROLL_QUIET_CLASS);
+    state.target = null;
+  };
+
   const previous = window[STATE_KEY];
   if (previous?.observer) previous.observer.disconnect();
   if (previous?.resizeObserver) previous.resizeObserver.disconnect();
@@ -256,6 +267,11 @@
     document.removeEventListener("wheel", previous.interactionHandler, true);
     document.removeEventListener("scroll", previous.interactionHandler, true);
   }
+  if (previous?.sidebarScrollHandler) {
+    document.removeEventListener("wheel", previous.sidebarScrollHandler, true);
+    document.removeEventListener("scroll", previous.sidebarScrollHandler, true);
+  }
+  clearSidebarScrollQuiet(previous?.sidebarScrollQuiet);
   previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
   if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
   document.documentElement?.classList?.remove?.("dream-preview-blink", "dream-preview-blink-half");
@@ -1767,6 +1783,7 @@
     fallbackEnsureCount: 0,
   };
   let compositionDepth = 0;
+  const sidebarScrollQuiet = { target: null, timer: null };
   let lastInteractionAt = -Infinity;
   let lastEnsureErrorLogAt = -Infinity;
   const schedulerNow = () => {
@@ -1860,6 +1877,11 @@
       document.removeEventListener("wheel", state.interactionHandler, true);
       document.removeEventListener("scroll", state.interactionHandler, true);
     }
+    if (state?.sidebarScrollHandler) {
+      document.removeEventListener("wheel", state.sidebarScrollHandler, true);
+      document.removeEventListener("scroll", state.sidebarScrollHandler, true);
+    }
+    clearSidebarScrollQuiet(state?.sidebarScrollQuiet);
     state?.motionQuery?.removeEventListener?.("change", state.motionHandler);
     if (state?.artUrl) URL.revokeObjectURL(state.artUrl);
     delete window[STATE_KEY];
@@ -2101,23 +2123,56 @@
     const target = event?.target?.nodeType === 1
       ? event.target
       : event?.target?.parentElement;
-    const composerInteraction = Boolean(target?.closest?.(
+    if (!target?.closest?.(
       `${COMPOSER_SELECTOR}, [contenteditable="true"], textarea, input`,
-    ));
-    const scrollingSurface = Boolean(target?.closest?.(
-      `${SIDEBAR_SELECTOR}, .thread-scroll-container, [class~="overflow-y-auto"]`,
-    ));
-    if (["compositionstart", "compositionend", "beforeinput"].includes(event?.type)
-      && !composerInteraction) return;
-    if (["wheel", "scroll"].includes(event?.type) && !scrollingSurface) return;
+    )) return;
 
     const hadScheduledWork = Boolean(
-      scheduler.running || scheduler.pending || scheduler.frame || scheduler.timeout,
+      scheduler.running || scheduler.pending || scheduler.frame || scheduler.timeout ||
+      scheduler.navigationTimer,
     );
     if (event?.type === "compositionstart") compositionDepth += 1;
     if (event?.type === "compositionend") compositionDepth = Math.max(0, compositionDepth - 1);
     lastInteractionAt = schedulerNow();
     if (hadScheduledWork) scheduleEnsure(INTERACTION_QUIET_MS);
+  };
+  const sidebarScrollHandler = (event) => {
+    const target = event?.target?.nodeType === 1
+      ? event.target
+      : event?.target?.parentElement;
+    const surface = sidebarScrollQuietEnabled
+      ? (event?.type === "scroll"
+        ? (target?.matches?.(SIDEBAR_SCROLL_SELECTOR) ? target : null)
+        : target?.closest?.(SIDEBAR_SCROLL_SELECTOR))
+      : null;
+    if (sidebarScrollQuietEnabled && surface) {
+      if (sidebarScrollQuiet.target && sidebarScrollQuiet.target !== surface) {
+        sidebarScrollQuiet.target.classList?.remove?.(SIDEBAR_SCROLL_QUIET_CLASS);
+      }
+      if (sidebarScrollQuiet.timer !== null) clearTimeout(sidebarScrollQuiet.timer);
+      if (!surface.classList?.contains?.(SIDEBAR_SCROLL_QUIET_CLASS)) {
+        surface.classList?.add?.(SIDEBAR_SCROLL_QUIET_CLASS);
+      }
+      sidebarScrollQuiet.target = surface;
+      sidebarScrollQuiet.timer = setTimeout(() => {
+        if (sidebarScrollQuiet.target !== surface) return;
+        surface.classList?.remove?.(SIDEBAR_SCROLL_QUIET_CLASS);
+        sidebarScrollQuiet.target = null;
+        sidebarScrollQuiet.timer = null;
+      }, SIDEBAR_SCROLL_QUIET_MS);
+    }
+
+    const hadScheduledWork = Boolean(
+      scheduler.running || scheduler.pending || scheduler.frame || scheduler.timeout ||
+      scheduler.navigationTimer,
+    );
+    if (!hadScheduledWork) return;
+    const scrollingSurface = surface || target?.closest?.(
+      `${SIDEBAR_SELECTOR}, .thread-scroll-container, [class~="overflow-y-auto"]`,
+    );
+    if (!scrollingSurface) return;
+    lastInteractionAt = schedulerNow();
+    scheduleEnsure(INTERACTION_QUIET_MS);
   };
   window.addEventListener("resize", resizeHandler, { passive: true });
   motionQuery?.addEventListener?.("change", motionHandler);
@@ -2126,8 +2181,8 @@
   document.addEventListener("compositionstart", interactionHandler, true);
   document.addEventListener("compositionend", interactionHandler, true);
   document.addEventListener("beforeinput", interactionHandler, true);
-  document.addEventListener("wheel", interactionHandler, { capture: true, passive: true });
-  document.addEventListener("scroll", interactionHandler, { capture: true, passive: true });
+  document.addEventListener("wheel", sidebarScrollHandler, { capture: true, passive: true });
+  document.addEventListener("scroll", sidebarScrollHandler, { capture: true, passive: true });
   if (typeof ResizeObserver === "function") {
     resizeObserver = new ResizeObserver((entries) => {
       let geometryChanged = false;
@@ -2207,8 +2262,10 @@
   };
   const runtimeState = {
     ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler,
-    resizeHandler, navigationHandler, interactionHandler, motionQuery, motionHandler,
+    resizeHandler, navigationHandler, interactionHandler, sidebarScrollHandler, sidebarScrollQuiet,
+    motionQuery, motionHandler,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
+    sidebarScrollQuietEnabled: Boolean(sidebarScrollQuietEnabled),
     themeId: config.themeId,
     revision: PAYLOAD_REVISION,
     styleMode: "style",
@@ -2229,4 +2286,4 @@
     resizeHandler();
   });
   return { installed: true, version: SKIN_VERSION, revision: PAYLOAD_REVISION, adaptive: true };
-})(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__)
+})(__DREAM_CSS_JSON__, __DREAM_ART_JSON__, __DREAM_THEME_JSON__, __DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__)

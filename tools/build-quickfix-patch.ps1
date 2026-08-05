@@ -36,6 +36,7 @@ try {
   foreach ($scriptName in @(
     'common-windows.ps1',
     'config-utf8.ps1',
+    'injector.mjs',
     'patch-dream-skin.ps1',
     'start-dream-skin.ps1',
     'theme-windows.ps1'

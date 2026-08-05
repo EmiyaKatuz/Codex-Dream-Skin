@@ -47,6 +47,9 @@ try {
       throw "The quick-fix archive omits a runtime patch asset: $requiredQuickFixAsset"
     }
   }
+  if (-not $quickFixBuilderSource.Contains("'injector.mjs'")) {
+    throw 'The quick-fix archive omits the injector paired with its renderer payload.'
+  }
   $quickFixOutput = Join-Path $temporaryRoot 'quickfix-output'
   $quickFixExtract = Join-Path $temporaryRoot 'quickfix-extract'
   & $quickFixBuilder -OutputDirectory $quickFixOutput
@@ -69,6 +72,13 @@ try {
       throw "The built quick-fix archive has a missing or stale asset: $requiredQuickFixAsset"
     }
   }
+  $archivedInjector = Join-Path $quickFixExtract 'scripts\injector.mjs'
+  $sourceInjector = Join-Path $Root 'scripts\injector.mjs'
+  if (-not (Test-Path -LiteralPath $archivedInjector -PathType Leaf) -or
+    (Get-FileHash -LiteralPath $sourceInjector -Algorithm SHA256).Hash -cne
+    (Get-FileHash -LiteralPath $archivedInjector -Algorithm SHA256).Hash) {
+    throw 'The built quick-fix archive has a missing or stale injector.'
+  }
   & $patchScript -SourceRoot $Root -StateRoot $stateRoot -DryRun
   if ([System.IO.File]::ReadAllText($installedCommon) -cne 'old common-windows.ps1' -or
     [System.IO.File]::ReadAllText($installedStart) -cne 'old start-dream-skin.ps1' -or
@@ -79,6 +89,7 @@ try {
   & $patchScript -SourceRoot $Root -StateRoot $stateRoot
   $sourceCommon = Join-Path $Root 'scripts\common-windows.ps1'
   $sourceStart = Join-Path $Root 'scripts\start-dream-skin.ps1'
+  $installedInjector = Join-Path $scriptsRoot 'injector.mjs'
   $sourcePatch = Join-Path $Root 'scripts\patch-dream-skin.ps1'
   $installedPatch = Join-Path $scriptsRoot 'patch-dream-skin.ps1'
   $sourceRenderer = Join-Path $Root 'assets\renderer-inject.js'
@@ -93,6 +104,8 @@ try {
       (Get-FileHash -LiteralPath $sourceCommon -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedStart -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceStart -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedInjector -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceInjector -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedPatch -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourcePatch -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedRenderer -Algorithm SHA256).Hash -cne
@@ -104,7 +117,7 @@ try {
     (Get-FileHash -LiteralPath $installedExtensionCss -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceExtensionCss -Algorithm SHA256).Hash -or
     [System.IO.File]::ReadAllText($sentinel) -cne 'keep') {
-    throw 'Runtime patch did not replace the launcher files, renderer/css assets, and patch script while preserving the sentinel file.'
+    throw 'Runtime patch did not replace the launcher, injector, renderer/css assets, and patch script while preserving the sentinel file.'
   }
 
   [System.IO.File]::AppendAllText(
@@ -117,6 +130,8 @@ try {
       (Get-FileHash -LiteralPath $sourceCommon -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedStart -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceStart -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedInjector -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceInjector -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedRenderer -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceRenderer -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedCss -Algorithm SHA256).Hash -cne
@@ -129,7 +144,7 @@ try {
   }
 
   $patchedFiles = @(
-    $installedCommon, $installedStart, $installedPatch, $installedRenderer,
+    $installedCommon, $installedStart, $installedInjector, $installedPatch, $installedRenderer,
     $installedCss, $installedAcrylicCss, $installedExtensionCss
   )
   $beforeIdempotentHashes = @($patchedFiles | ForEach-Object {
@@ -168,24 +183,42 @@ try {
       "`r`n/* stale while bundled node is running */`r`n",
       [System.Text.UTF8Encoding]::new($false)
     )
-    & $patchScript -SourceRoot $Root -StateRoot $stateRoot
-    $activeEngineNode.Refresh()
-    if ($activeEngineNode.HasExited) {
-      throw 'The runtime patch interrupted the active bundled Node process.'
+    $beforeLockedPatch = @(
+      Get-ChildItem -LiteralPath $engineRoot -Recurse -File -Force |
+        Sort-Object FullName |
+        ForEach-Object {
+          "$($_.FullName.Substring($engineRoot.Length + 1))=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
+        }
+    ) -join "`n"
+    $lockedPatchFailed = $false
+    try {
+      & $patchScript -SourceRoot $Root -StateRoot $stateRoot
+    } catch {
+      if ($_.Exception.Message -notlike '*managed Dream Skin Node runtime is in use*') { throw }
+      $lockedPatchFailed = $true
     }
-    if ((Get-FileHash -LiteralPath $installedAcrylicCss -Algorithm SHA256).Hash -cne
-      (Get-FileHash -LiteralPath $sourceAcrylicCss -Algorithm SHA256).Hash) {
-      throw 'The runtime patch did not commit while bundled Node was active.'
+    $activeEngineNode.Refresh()
+    $afterLockedPatch = @(
+      Get-ChildItem -LiteralPath $engineRoot -Recurse -File -Force |
+        Sort-Object FullName |
+        ForEach-Object {
+          "$($_.FullName.Substring($engineRoot.Length + 1))=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
+        }
+    ) -join "`n"
+    if (-not $lockedPatchFailed -or $activeEngineNode.HasExited -or
+      $beforeLockedPatch -cne $afterLockedPatch) {
+      throw 'A locked runtime patch did not fail closed with its live Node and exact engine intact.'
     }
   } finally {
     if (-not $activeEngineNode.HasExited) {
       Stop-Process -Id $activeEngineNode.Id -Force -ErrorAction SilentlyContinue
       $null = $activeEngineNode.WaitForExit(5000)
     }
-    foreach ($oldEngine in Get-ChildItem -LiteralPath $stateRoot -Directory -Force |
-      Where-Object Name -Like '.engine-patch-backup-*') {
-      Remove-Item -LiteralPath $oldEngine.FullName -Recurse -Force -ErrorAction Stop
-    }
+  }
+  & $patchScript -SourceRoot $Root -StateRoot $stateRoot
+  if ((Get-FileHash -LiteralPath $installedAcrylicCss -Algorithm SHA256).Hash -cne
+    (Get-FileHash -LiteralPath $sourceAcrylicCss -Algorithm SHA256).Hash) {
+    throw 'The runtime patch did not commit after the bundled Node released its lock.'
   }
 
   $enginePrefix = $engineRoot.TrimEnd('\') + '\'
@@ -199,27 +232,31 @@ try {
   ) -join "`n"
   $failureSourceRoot = Join-Path $temporaryRoot 'forced-swap-source'
   Copy-Item -LiteralPath $Root -Destination $failureSourceRoot -Recurse -Force
-  $failureCommon = Join-Path $failureSourceRoot 'scripts\common-windows.ps1'
-  [System.IO.File]::AppendAllText(
-    $failureCommon,
+  $failurePatch = Join-Path $failureSourceRoot 'scripts\patch-dream-skin.ps1'
+  $failurePatchText = [System.IO.File]::ReadAllText($failurePatch)
+  $errorPreferenceNeedle = '$ErrorActionPreference = ''Stop'''
+  $directoryMoveNeedle = '  [System.IO.Directory]::Move($sourceFull, $destinationFull)'
+  if (-not $failurePatchText.Contains($errorPreferenceNeedle) -or
+    -not $failurePatchText.Contains($directoryMoveNeedle)) {
+    throw 'Could not install the forced atomic swap failure seam in the patch fixture.'
+  }
+  $failurePatchText = $failurePatchText.Replace(
+    $errorPreferenceNeedle,
+    "$errorPreferenceNeedle`r`n`$script:DreamSkinForceOneSwapFailure = `$true"
+  ).Replace(
+    $directoryMoveNeedle,
     @'
-
-$script:DreamSkinForceOneSwapFailure = $true
-function Move-Item {
-  [CmdletBinding()]
-  param(
-    [Parameter(Mandatory = $true)][string]$LiteralPath,
-    [Parameter(Mandatory = $true)][string]$Destination,
-    [switch]$Force
-  )
   if ($script:DreamSkinForceOneSwapFailure -and
-    [System.IO.Path]::GetFileName($Destination) -ceq 'engine') {
+    [System.IO.Path]::GetFileName($destinationFull) -ceq 'engine') {
     $script:DreamSkinForceOneSwapFailure = $false
     throw 'forced atomic patch swap failure'
   }
-  Microsoft.PowerShell.Management\Move-Item @PSBoundParameters
-}
-'@,
+  [System.IO.Directory]::Move($sourceFull, $destinationFull)
+'@
+  )
+  [System.IO.File]::WriteAllText(
+    $failurePatch,
+    $failurePatchText,
     [System.Text.UTF8Encoding]::new($false)
   )
   $forcedPatchFailed = $false
@@ -258,4 +295,4 @@ function Move-Item {
   Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output 'PASS: runtime patch atomically replaces launcher and renderer/css payloads, preserves state, and restores exact bytes on swap failure.'
+Write-Output 'PASS: runtime patch atomically replaces launcher, injector, and renderer/css payloads, preserves state, and restores exact bytes on swap failure.'

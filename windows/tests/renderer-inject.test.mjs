@@ -23,6 +23,7 @@ const extensionCss = await fs.readFile(
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
 const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
 const sidebarSelector = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
+const sidebarScrollSelector = ':is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) [data-app-action-sidebar-scroll]';
 const settingsContentSelector = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
 assert.ok(template.includes(`const SHELL_MAIN_SELECTOR = '${shellSelector}'`)
   && template.includes(`const HEADER_TINT_SELECTOR = '${headerSelector}'`),
@@ -34,6 +35,14 @@ assert.ok(template.includes("const missingL1 = [")
 const genericComposerMutationBody = template.slice(
   template.indexOf("const hasKnownComposer = Boolean(document.querySelector("),
   template.indexOf("if (hasShellChange || hasGenericComposerNode)"),
+);
+const sidebarScrollHandlerBody = template.slice(
+  template.indexOf("const sidebarScrollHandler = (event) =>"),
+  template.indexOf('window.addEventListener("resize", resizeHandler'),
+);
+const scheduledScrollGuardAt = sidebarScrollHandlerBody.indexOf('if (!hadScheduledWork) return;');
+const broadScrollLookupAt = sidebarScrollHandlerBody.indexOf(
+  '${SIDEBAR_SELECTOR}, .thread-scroll-container',
 );
 assert.ok(template.includes("hasGenericComposerNode")
   && template.includes("const hasKnownComposer = Boolean(document.querySelector(")
@@ -97,14 +106,29 @@ assert.doesNotMatch(acrylicCss, /\[data-ds-part="composer"\][\s\S]{0,220}?\) \*\
   "Composer performance guards must not match every descendant during IME updates.");
 assert.match(acrylicCss, /\) button\s*\{[^}]*transform:\s*none !important;[^}]*translate:\s*none !important;[^}]*transition:\s*none !important/s,
   "Sidebar hover feedback must not start transitions while rows pass under the pointer.");
+assert.match(acrylicCss, /\[data-app-action-sidebar-scroll\]\s*\{[^}]*will-change:\s*scroll-position/s,
+  "Acrylic must isolate the exact native sidebar scrolling surface without promoting every row.");
+assert.match(acrylicCss, /@supports \(content-visibility: auto\)[\s\S]*?\[data-app-action-sidebar-thread-row\],[\s\S]*?\[data-app-action-sidebar-project-row\][\s\S]*?content-visibility:\s*auto;[^}]*contain-intrinsic-block-size:\s*auto 38px/s,
+  "Only fixed-height task and project rows may skip offscreen rendering.");
+assert.match(acrylicCss, /\[data-app-action-sidebar-scroll\]\.dream-sidebar-scroll-quiet \.animate-spin\s*\{[^}]*animation-play-state:\s*paused !important/s,
+  "The active-task spinner must stop invalidating styles while its sidebar scrolls.");
+assert.match(acrylicCss, /\.dream-sidebar-scroll-quiet[\s\S]*?\[data-app-action-sidebar-thread-row\] \[class~="group-hover:min-w-12"\]\s*\{[^}]*min-width:\s*3rem !important/s,
+  "Thread action space must stop resizing as rows cross a stationary pointer.");
+assert.match(acrylicCss, /\.dream-sidebar-scroll-quiet[\s\S]*?\[data-app-action-sidebar-project-row\] \[class~="group-hover\/folder-row:w-auto"\]\s*\{[^}]*width:\s*1\.5rem !important;[^}]*overflow:\s*visible !important/s,
+  "Project action space must keep one stable geometry while scrolling.");
+assert.doesNotMatch(acrylicCss, /\.dream-sidebar-scroll-quiet[\s\S]{0,500}?pointer-events:\s*none/s,
+  "Scroll quiet mode must never make real sidebar rows or controls unclickable.");
+assert.doesNotMatch(acrylicCss, /\.dream-sidebar-scroll-quiet\s+\*/,
+  "The scroll quiet gate must not add a universal descendant selector.");
 assert.doesNotMatch(css, /main\.main-surface|header\.app-header-tint/,
   "No Windows CSS rule may remain locked to the removed pre-26.727 shell classes.");
-const buildPayloadFrom = (rendererTemplate, config = {}) => rendererTemplate
+const buildPayloadFrom = (rendererTemplate, config = {}, sidebarQuietEnabled = true) => rendererTemplate
   .replace("__DREAM_CSS_JSON__", JSON.stringify(".fixture { color: blue; }"))
   .replace("__DREAM_ART_JSON__", JSON.stringify("data:image/png;base64,AA=="))
   .replace("__DREAM_THEME_JSON__", JSON.stringify(config))
   .replace("__DREAM_SKIN_VERSION_JSON__", JSON.stringify("1.3.5"))
-  .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify("test-revision"));
+  .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", JSON.stringify("test-revision"))
+  .replace("__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__", JSON.stringify(sidebarQuietEnabled));
 const buildPayload = (config = {}) => buildPayloadFrom(template, config);
 const payload = buildPayload();
 
@@ -380,6 +404,9 @@ assert.match(css, /\.dream-sidebar-packet\s*\{[^}]*writing-mode:\s*vertical-rl/s
 assert.ok(template.includes('const withoutManagedClasses = (value)')
   && template.includes('const DOM_REFRESH_DEBOUNCE_MS = 1500')
   && template.includes('const INTERACTION_QUIET_MS = 320')
+  && template.includes(`const SIDEBAR_SCROLL_SELECTOR = '${sidebarScrollSelector}'`)
+  && template.includes('const SIDEBAR_SCROLL_QUIET_CLASS = "dream-sidebar-scroll-quiet"')
+  && template.includes('const SIDEBAR_SCROLL_QUIET_MS = 96')
   && template.includes('const FALLBACK_REFRESH_MS = 60000')
   && template.includes('scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)')
   && template.includes('scheduler.running = true')
@@ -390,7 +417,12 @@ assert.ok(template.includes('const withoutManagedClasses = (value)')
   && template.includes('window.addEventListener("resize", resizeHandler')
   && template.includes('document.addEventListener("click", navigationHandler, true)')
   && template.includes('document.addEventListener("compositionstart", interactionHandler, true)')
-  && template.includes('document.addEventListener("scroll", interactionHandler'),
+  && template.includes('document.addEventListener("wheel", sidebarScrollHandler')
+  && template.includes('document.addEventListener("scroll", sidebarScrollHandler')
+  && !template.includes('document.addEventListener("wheel", interactionHandler')
+  && scheduledScrollGuardAt >= 0
+  && broadScrollLookupAt >= 0
+  && scheduledScrollGuardAt < broadScrollLookupAt,
   "Shell and route changes must use trailing scheduling and respect active input/scroll windows.");
 assert.ok(template.includes("const observeRendererStructure = () =>")
   && template.includes("observer.observe(body, { ...attributeOptions, childList: true })")
@@ -402,7 +434,7 @@ assert.ok(template.includes("const classifyRuntimeSurfaces = (records)")
   && template.includes("dream-composer-palette")
   && template.includes("dream-settings-menu"),
   "New portal surfaces must receive local first-frame classification without a full DOM scan.");
-assert.ok(template.includes('const STYLE_REVISION = "9"')
+assert.ok(template.includes('const STYLE_REVISION = "10"')
   && template.includes('existingStyle.dataset.dreamVersion = STYLE_REVISION')
   && !template.includes('existingStyle.dataset.dreamVersion = "3"'),
   "Reinjection must not parse and apply the full stylesheet twice for one refresh.");
@@ -712,6 +744,24 @@ function createFixture({
   };
   const shellSidebar = makePartNode("aside.app-shell-left-panel");
   const floatingSidebar = makePartNode('[data-testid="app-shell-floating-left-panel"]');
+  const sidebarScrollClasses = new Set();
+  let sidebarScrollClosestCalls = 0;
+  const sidebarScroller = {
+    nodeType: 1,
+    classList: makeClassList(sidebarScrollClasses),
+    matches(selector) { return selector === sidebarScrollSelector; },
+    closest(selector) {
+      sidebarScrollClosestCalls += 1;
+      return selector === sidebarScrollSelector ? this : null;
+    },
+  };
+  const sidebarWheelChild = {
+    nodeType: 1,
+    closest(selector) {
+      sidebarScrollClosestCalls += 1;
+      return selector === sidebarScrollSelector ? sidebarScroller : null;
+    },
+  };
   const settingsContentClasses = new Set();
   const unrelatedSettingsContentClasses = new Set();
   const settingsContent = {
@@ -1031,6 +1081,9 @@ function createFixture({
     revokedUrls,
     shellSidebar,
     floatingSidebar,
+    sidebarScroller,
+    sidebarWheelChild,
+    sidebarScrollClasses,
     settingsContentClasses,
     unrelatedSettingsContentClasses,
     settingsNavItemClasses,
@@ -1047,6 +1100,7 @@ function createFixture({
     },
     getTextCandidateStyleReads() { return textCandidateStyleReads; },
     getDiffsContainerQueryCount() { return diffsContainerQueryCount; },
+    getSidebarScrollClosestCalls() { return sidebarScrollClosestCalls; },
     setShellPresent(value) {
       hasMain = value;
       hasSidebar = value;
@@ -1159,6 +1213,12 @@ assert.equal(main.windowListeners.get("popstate")?.size, 1,
   "Route navigation must have one immediate refresh listener.");
 assert.equal(main.documentListeners.get("click")?.size, 1,
   "Interactive route controls must have one delegated refresh listener.");
+assert.equal(main.documentListeners.get("compositionstart")?.size, 1,
+  "IME composition must have one input-only quiet-window listener.");
+assert.equal(main.documentListeners.get("wheel")?.size, 1,
+  "The exact sidebar scroll gate must activate before a wheel default action.");
+assert.equal(main.documentListeners.get("scroll")?.size, 1,
+  "The exact sidebar scroll gate must remain active through momentum scrolling.");
 assert.ok(main.resizeObservers[0].targets.size > 0,
   "The renderer must observe active shell geometry targets.");
 assert.equal(main.context.window.__CODEX_DREAM_SKIN_STATE__.metrics.safePartRefreshCount, 1,
@@ -1180,6 +1240,10 @@ assert.equal(main.windowListeners.get("popstate")?.size, 0,
   "Cleanup must release the navigation listener.");
 assert.equal(main.documentListeners.get("click")?.size, 0,
   "Cleanup must release the delegated click listener.");
+assert.equal(main.documentListeners.get("wheel")?.size, 0,
+  "Cleanup must release the sidebar wheel listener.");
+assert.equal(main.documentListeners.get("scroll")?.size, 0,
+  "Cleanup must release the sidebar scroll listener.");
 assert.equal(main.resizeObservers[0].targets.size, 0,
   "Cleanup must release every geometry target.");
 
@@ -1280,6 +1344,65 @@ assert.equal(textOnlyMutation.getDiffsContainerQueryCount(), textOnlyDiffQueries
 assert.equal(textOnlyMutation.getPendingTimeoutCount(), 0,
   "Text-only IME mutations must not queue a full renderer reconcile.");
 
+const scrollQuiet = createFixture({ shellPresent: true });
+vm.runInNewContext(payload, scrollQuiet.context);
+const scrollQuietState = scrollQuiet.context.window.__CODEX_DREAM_SKIN_STATE__;
+assert.equal(scrollQuietState.sidebarScrollQuietEnabled, true);
+scrollQuietState.sidebarScrollHandler({
+  type: "scroll",
+  target: { nodeType: 1, matches() { return false; } },
+});
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "An unrelated scroll surface must not enter the sidebar quiet state.");
+const closestBeforeExactScroll = scrollQuiet.getSidebarScrollClosestCalls();
+scrollQuietState.sidebarScrollHandler({ type: "scroll", target: scrollQuiet.sidebarScroller });
+assert.equal(scrollQuiet.getSidebarScrollClosestCalls(), closestBeforeExactScroll,
+  "A captured sidebar scroll must match its exact target without walking ancestors.");
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), true,
+  "The native sidebar scroller must enter quiet mode immediately.");
+assert.equal([...scrollQuiet.timeouts.values()].filter(({ delay }) => delay === 96).length, 1,
+  "Sidebar quiet mode must retain one 96 ms trailing timer.");
+const firstQuietTimer = [...scrollQuiet.timeouts.entries()]
+  .find(([, { delay }]) => delay === 96)?.[0];
+scrollQuietState.sidebarScrollHandler({ type: "scroll", target: scrollQuiet.sidebarScroller });
+assert.equal(scrollQuiet.timeouts.has(firstQuietTimer), false,
+  "A continuing sidebar scroll must replace its old quiet timer.");
+assert.equal([...scrollQuiet.timeouts.values()].filter(({ delay }) => delay === 96).length, 1,
+  "A continuing sidebar scroll must never accumulate quiet timers.");
+const latestQuietTimer = [...scrollQuiet.timeouts.entries()]
+  .find(([, { delay }]) => delay === 96)?.[0];
+scrollQuiet.runTimeout(latestQuietTimer);
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "Quiet mode must end after the final sidebar scroll settles.");
+const closestBeforeWheel = scrollQuiet.getSidebarScrollClosestCalls();
+scrollQuietState.sidebarScrollHandler({ type: "wheel", target: scrollQuiet.sidebarWheelChild });
+assert.equal(scrollQuiet.getSidebarScrollClosestCalls(), closestBeforeWheel + 1,
+  "Wheel preflight may perform one precise ancestor lookup to beat the first scroll frame.");
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), true,
+  "Wheel preflight must suppress row hover layout before native scrolling starts.");
+assert.equal(scrollQuietState.cleanup(), true);
+assert.equal(scrollQuiet.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "Cleanup must never leave the native sidebar non-interactive.");
+assert.equal([...scrollQuiet.timeouts.values()].some(({ delay }) => delay === 96), false,
+  "Cleanup must cancel the trailing sidebar quiet timer.");
+assert.equal(scrollQuiet.documentListeners.get("wheel")?.size, 0);
+assert.equal(scrollQuiet.documentListeners.get("scroll")?.size, 0);
+
+const systemScroll = createFixture({ shellPresent: true });
+vm.runInNewContext(buildPayloadFrom(template, {}, false), systemScroll.context);
+assert.equal(systemScroll.context.window.__CODEX_DREAM_SKIN_STATE__.sidebarScrollQuietEnabled, false);
+systemScroll.context.window.__CODEX_DREAM_SKIN_STATE__.sidebarScrollHandler({
+  type: "wheel",
+  target: systemScroll.sidebarWheelChild,
+});
+assert.equal(systemScroll.getSidebarScrollClosestCalls(), 0,
+  "System/Mica scrolls must not pay for an Acrylic-only ancestor lookup.");
+assert.equal(systemScroll.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "System/Mica payloads must never add an unused Acrylic quiet class.");
+assert.equal([...systemScroll.timeouts.values()].some(({ delay }) => delay === 96), false,
+  "System/Mica payloads must never schedule an unused Acrylic quiet timer.");
+assert.equal(systemScroll.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup(), true);
+
 const turnRail = createFixture({ shellPresent: true, turnRowCount: 4 });
 vm.runInNewContext(payload, turnRail.context);
 assert.equal(turnRail.turnRailClasses.has("dream-turn-nav-rail"), true,
@@ -1352,6 +1475,14 @@ navigationRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.navigationHandler({
 });
 assert.equal([...navigationRefresh.timeouts.values()].some(({ delay }) => delay === 48), true,
   "A Codex 26.730 thread route click must still schedule one post-commit refresh.");
+navigationRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.sidebarScrollHandler({
+  type: "wheel",
+  target: navigationRefresh.sidebarWheelChild,
+});
+assert.notEqual(navigationRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.scheduler.timeout, null,
+  "A wheel immediately after a route click must postpone its pending renderer refresh.");
+assert.equal([...navigationRefresh.timeouts.values()].some(({ delay }) => delay >= 300), true,
+  "Click-then-scroll navigation must retain an interaction quiet window.");
 for (const listener of navigationRefresh.windowListeners.get("popstate") ?? []) {
   listener({ type: "popstate" });
 }
@@ -1384,6 +1515,8 @@ assert.equal(guardedRefresh.context.window.__CODEX_DREAM_SKIN_STATE__.ensure(), 
 const reinjected = createFixture({ shellPresent: true });
 vm.runInNewContext(payload, reinjected.context);
 const firstState = reinjected.context.window.__CODEX_DREAM_SKIN_STATE__;
+firstState.sidebarScrollHandler({ type: "wheel", target: reinjected.sidebarWheelChild });
+assert.equal(reinjected.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), true);
 vm.runInNewContext(payload, reinjected.context);
 const secondState = reinjected.context.window.__CODEX_DREAM_SKIN_STATE__;
 assert.notEqual(secondState.installToken, firstState.installToken);
@@ -1394,10 +1527,22 @@ assert.equal(reinjected.windowListeners.get("popstate")?.size, 1,
   "Reinjection must replace rather than duplicate the navigation listener.");
 assert.equal(reinjected.documentListeners.get("click")?.size, 1,
   "Reinjection must replace rather than duplicate the delegated click listener.");
+assert.equal(reinjected.documentListeners.get("wheel")?.size, 1,
+  "Reinjection must replace rather than duplicate the sidebar wheel listener.");
+assert.equal(reinjected.documentListeners.get("scroll")?.size, 1,
+  "Reinjection must replace rather than duplicate the sidebar scroll listener.");
+assert.equal(reinjected.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "Reinjection must restore row hit-testing before the new payload takes ownership.");
+assert.equal([...reinjected.timeouts.values()].some(({ delay }) => delay === 96), false,
+  "Reinjection must cancel the previous payload's quiet timer.");
 assert.equal(reinjected.resizeObservers[0].targets.size, 0,
   "Reinjection must disconnect the previous geometry observer.");
 assert.equal(firstState.cleanup(), false);
+secondState.sidebarScrollHandler({ type: "scroll", target: reinjected.sidebarScroller });
+assert.equal(reinjected.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), true);
 assert.equal(secondState.cleanup(), true);
+assert.equal(reinjected.sidebarScrollClasses.has("dream-sidebar-scroll-quiet"), false,
+  "The active payload cleanup must restore sidebar pointer interaction.");
 
 const auxiliary = createFixture({ shellPresent: false, staleSkin: true });
 const auxiliaryResult = vm.runInNewContext(payload, auxiliary.context);
