@@ -793,9 +793,10 @@
     return all('main, [role="main"]')
       .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
   };
-  const findGenericComposer = () => {
+  const findGenericComposers = () => {
     if (all(".composer-surface-chrome").length) return null;
     const main = resolvedMain();
+    const owners = new Set();
     for (const input of genericInputs()) {
       if (main && !main.contains?.(input) &&
         !input.closest?.('aside, [class*="ComposerLayout" i]')) continue;
@@ -806,11 +807,13 @@
         owner = next;
       }
       if (owner && (!main || main.contains?.(owner) || owner.closest?.('aside'))) {
-        return owner;
+        owners.add(owner);
       }
     }
-    return all('[class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]')
-      .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
+    for (const node of all('[class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]')) {
+      if (!node.closest?.('[role="dialog"], [aria-modal="true"]')) owners.add(node);
+    }
+    return [...owners];
   };
   const safeCssPartNodes = new Set();
   const refreshSafeCssParts = () => {
@@ -836,8 +839,7 @@
       return candidate ? [candidate] : [];
     };
     const fallbackComposer = () => {
-      const owner = findGenericComposer();
-      return owner ? [owner] : [];
+      return findGenericComposers() || [];
     };
     add("root", [document.documentElement]);
     add("sidebar", [...all(SIDEBAR_SELECTOR), ...fallbackSidebar()]);
@@ -867,7 +869,7 @@
   const incrementalSafePartRules = [
     ["message", MESSAGE_SELECTOR],
     ["composer-toolbar", '.composer-surface-chrome [class*="_footer_"]'],
-    ["composer", ".composer-surface-chrome"],
+    ["composer", '.composer-surface-chrome, [class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]'],
     ["thread", ".thread-scroll-container"],
     ["dialog", '[role="dialog"]'],
     ["header", HEADER_TINT_SELECTOR],
@@ -878,8 +880,7 @@
   const incrementalSafePartSelector = incrementalSafePartRules
     .map(([, selector]) => selector).join(", ");
   const classifySafeCssParts = (records) => {
-    const genericComposer = findGenericComposer();
-    if (genericComposer) {
+    for (const genericComposer of findGenericComposers() || []) {
       if (genericComposer.getAttribute?.(PART_ATTR) !== "composer") {
         genericComposer.setAttribute?.(PART_ATTR, "composer");
       }

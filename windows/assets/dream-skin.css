@@ -6256,8 +6256,11 @@ html.codex-dream-skin.dream-home-bottom-open #codex-dream-skin-chrome :where(
   }
 }
 
-/* Codex 26.730 removed .composer-surface-chrome; style the generic part. */
-html.codex-dream-skin [data-ds-part="composer"] {
+/* Codex 26.730 removed .composer-surface-chrome; style the generic part.
+   The right-panel composer is a second ComposerLayoutRoot outside the main
+   surface, so theme it even before the renderer refreshes data-ds-part. */
+html.codex-dream-skin [data-ds-part="composer"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] {
   position: relative;
   z-index: 2;
   isolation: isolate;
@@ -6273,16 +6276,20 @@ html.codex-dream-skin [data-ds-part="composer"] {
   backdrop-filter: blur(12px) saturate(1.08) !important;
 }
 
-html.codex-dream-skin [data-ds-part="composer"]::before {
+html.codex-dream-skin [data-ds-part="composer"]::before,
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"]::before {
   content: none !important;
 }
 
 html.codex-dream-skin [data-ds-part="composer"] > *,
-html.codex-dream-skin [data-ds-part="composer"] [contenteditable="true"] {
+html.codex-dream-skin [data-ds-part="composer"] [contenteditable="true"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] > *,
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [contenteditable="true"] {
   color: var(--dream-text) !important;
 }
 
-html.codex-dream-skin [data-ds-part="composer"]:focus-within {
+html.codex-dream-skin [data-ds-part="composer"]:focus-within,
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"]:focus-within {
   background:
     linear-gradient(135deg,
       color-mix(in oklab, var(--dream-surface-raised) 94%, transparent),
@@ -6293,7 +6300,9 @@ html.codex-dream-skin [data-ds-part="composer"]:focus-within {
 }
 
 html.codex-dream-skin [data-ds-part="composer"] .placeholder,
-html.codex-dream-skin [data-ds-part="composer"] [data-placeholder] {
+html.codex-dream-skin [data-ds-part="composer"] [data-placeholder],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] .placeholder,
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [data-placeholder] {
   color: var(--dream-text-muted) !important;
 }
 
@@ -6364,10 +6373,62 @@ html.codex-dream-skin .dream-terminal-panel .thread-scroll-container {
   background: transparent !important;
 }
 
+/* Projects, pull requests and other full-route pages mount an opaque
+   bg-token-main-surface-primary frame inside the main content viewport.
+   Paint that frame and its search/input surfaces with the active theme so the
+   wallpaper stays visible in both dark and light modes. */
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class~="bg-token-main-surface-primary"] {
+  color: var(--dream-text) !important;
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--dream-surface) 74%, transparent),
+      color-mix(in oklab, var(--dream-surface) 64%, var(--dream-accent) 7%)) !important;
+  border-color: color-mix(in oklab, var(--dream-line-soft) 88%, var(--dream-accent) 12%) !important;
+  backdrop-filter: blur(14px) saturate(1.08) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class~="sticky"][class~="z-30"] {
+  background:
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--dream-surface-raised) 88%, var(--angel-blue) 8%),
+      color-mix(in oklab, var(--dream-surface-raised) 84%, var(--angel-pink) 10%)) !important;
+  border-bottom: 1px solid color-mix(in oklab, var(--dream-line-soft) 88%, var(--dream-accent) 12%) !important;
+  backdrop-filter: blur(12px) saturate(1.05) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class~="sticky"][class~="z-30"]::after {
+  background-image: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--dream-surface) 10%, transparent)) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class*="bg-token-input-background"] {
+  background: color-mix(in oklab, var(--dream-surface-raised) 84%, transparent) !important;
+  border: 1px solid color-mix(in oklab, var(--dream-line-soft) 90%, var(--dream-accent) 10%) !important;
+  box-shadow: var(--dream-shadow) !important;
+  backdrop-filter: blur(12px) saturate(1.05) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] input {
+  background: transparent !important;
+  color: var(--dream-text) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] input::placeholder {
+  color: var(--dream-text-muted) !important;
+}
+
 /* Side chat and generic composers: remove nested inner frames. */
 html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutFooter_"],
 html.codex-dream-skin [data-ds-part="composer"] [class*="_RichTextInput_"],
-html.codex-dream-skin [data-ds-part="composer"] [class*="rounded-2xl"] {
+html.codex-dream-skin [data-ds-part="composer"] [class*="rounded-2xl"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_ComposerLayoutFooter_"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_RichTextInput_"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="rounded-2xl"] {
   background: transparent !important;
   border: 0 !important;
   border-radius: 0 !important;

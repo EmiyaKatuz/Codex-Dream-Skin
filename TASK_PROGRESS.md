@@ -62,6 +62,26 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
   terminal surface) is now translucent and borderless, and is included in the
   generic composer fallback so its bottom input is no longer a separate black
   frame.
+- [complete] Fifth follow-up: the generic composer classifier now marks every
+  `ComposerLayoutRoot`, not just the first one, so the main input and the side
+  chat input both keep `data-ds-part="composer"` after conversation switches.
+  The Windows CSS also themes the second composer before the renderer refresh.
+- [complete] Sixth follow-up: Projects, pull requests and other full-route
+  pages mount an opaque native `bg-token-main-surface-primary` frame inside the
+  main content viewport. Windows CSS now paints that frame, its sticky header,
+  search input and input placeholder with adaptive Dream Skin surfaces, so the
+  wallpaper remains visible in both dark and light modes.
+- [verified] Live CDP after hot injection: side chat composer is marked
+  `data-ds-part="composer"` and the Projects page surface is a translucent
+  theme gradient instead of `rgb(24,24,24)`; `verify-dream-skin.ps1` passes
+  with `pass: true`, and the full Windows test suite passes.
+- [complete] `patch-dream-skin.ps1` now requires the new renderer/CSS markers
+  before reporting "already contains fixes", so an older installed engine is
+  upgraded in place to this revision. Rebuilt
+  `release/CodexDreamSkin-QuickFix-v1.5.12.zip`
+  (`C38EA7DBD5F4FF6C8D5D117E2E41799E0A8FB27AAAD359860FDE537D375FF8F6`) and
+  `release/CodexDreamSkin-Setup-v1.5.12.exe`
+  (`560CE57A8D73671D5687F47FC2FF7C1DA7CEBCB0CC4A9D909CBBB1DBC9FF164A`).
 
 ## Sync latest upstream and publish fork v1.5.12
 
