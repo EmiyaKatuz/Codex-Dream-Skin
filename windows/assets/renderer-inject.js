@@ -837,7 +837,19 @@
     return [...owners];
   };
   const safeCssPartNodes = new Set();
+  const pruneDisconnectedSafeCssParts = () => {
+    let pruned = 0;
+    for (const node of [...safeCssPartNodes]) {
+      if (node?.isConnected !== false) continue;
+      node.removeAttribute?.(PART_ATTR);
+      safeCssPartNodes.delete(node);
+      pruned += 1;
+    }
+    rendererMetrics.safePartPruneCount += pruned;
+    return pruned;
+  };
   const refreshSafeCssParts = () => {
+    rendererMetrics.safePartRefreshCount += 1;
     const desired = new Map();
     const add = (part, nodes) => {
       for (const node of nodes || []) {
@@ -900,8 +912,8 @@
   ];
   const incrementalSafePartSelector = incrementalSafePartRules
     .map(([, selector]) => selector).join(", ");
-  const themeDiffsContainers = () => {
-    for (const host of all("diffs-container")) {
+  const themeDiffsContainers = (hosts = all("diffs-container")) => {
+    for (const host of hosts) {
       const root = host?.shadowRoot;
       if (!root) continue;
       const surface = "color-mix(in oklab, var(--dream-surface) 94%, var(--dream-accent) 5%)";
@@ -954,20 +966,17 @@
     }
   };
   const classifySafeCssParts = (records) => {
-    for (const genericComposer of findGenericComposers() || []) {
-      if (genericComposer.getAttribute?.(PART_ATTR) !== "composer") {
-        genericComposer.setAttribute?.(PART_ATTR, "composer");
-      }
-      safeCssPartNodes.add(genericComposer);
-    }
-    themeDiffsContainers();
     const roots = records
       .flatMap((record) => [...(record.addedNodes || [])])
       .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
     if (!roots.length) return false;
-    for (const node of [...safeCssPartNodes]) {
-      if (!node.isConnected) safeCssPartNodes.delete(node);
+    const diffHosts = new Set();
+    for (const root of roots) {
+      if (root.matches?.("diffs-container")) diffHosts.add(root);
+      for (const host of root.querySelectorAll?.("diffs-container") || []) diffHosts.add(host);
     }
+    if (diffHosts.size) themeDiffsContainers(diffHosts);
+    pruneDisconnectedSafeCssParts();
     const matches = new Set();
     for (const root of roots) {
       if (root.matches?.(incrementalSafePartSelector)) matches.add(root);
@@ -1203,7 +1212,8 @@
 
     for (const row of document.querySelectorAll('button[class*="navigation-row"]')) {
       row.classList.add("dream-turn-nav-row");
-      row.parentElement?.classList.add("dream-turn-nav-rail");
+      (row.closest?.(".vertical-scroll-fade-mask") || row.parentElement)
+        ?.classList.add("dream-turn-nav-rail");
       const marker = row.querySelector?.('[class*="_marker_"]')
         || row.firstElementChild?.firstElementChild
         || row.firstElementChild;
@@ -1751,6 +1761,10 @@
     ensureMaxMs: 0,
     observerBatches: 0,
     observerRecords: 0,
+    safePartRefreshCount: 0,
+    safePartPruneCount: 0,
+    fallbackProbeCount: 0,
+    fallbackEnsureCount: 0,
   };
   let compositionDepth = 0;
   let lastInteractionAt = -Infinity;
@@ -1810,7 +1824,6 @@
       scheduler.running = false;
       observer?.takeRecords?.();
       observeRendererStructure();
-      try { refreshSafeCssParts(); } catch {}
       if (scheduler.pending) {
         scheduler.pending = false;
         scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
@@ -2077,11 +2090,12 @@
     }
     const target = event?.target?.closest?.(
       'a[href], [role="link"], [role="tab"], [role="menuitem"], ' +
-      '[data-settings-panel-slug], aside.app-shell-left-panel button, ' +
-      'button[aria-controls], button[aria-expanded], button[aria-haspopup]',
+      '[data-settings-panel-slug], [data-app-action-sidebar-thread-row], ' +
+      '[data-app-action-sidebar-select-project], button[aria-controls], ' +
+      ':is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) ' +
+      'button.sidebar-item:not([aria-haspopup])',
     );
-    const sidebarInteraction = Boolean(event?.target?.closest?.('aside'));
-    if (target || sidebarInteraction) scheduleNavigationRefresh();
+    if (target) scheduleNavigationRefresh();
   };
   const interactionHandler = (event) => {
     const target = event?.target?.nodeType === 1
@@ -2141,16 +2155,19 @@
       return withoutManagedClasses(record.oldValue) !==
         withoutManagedClasses(record.target?.getAttribute?.("class"));
     });
-    const hasGenericComposerNode = records.some((record) =>
+    const hasKnownComposer = Boolean(document.querySelector(
+      `${COMPOSER_SELECTOR}, [data-ds-part="composer"]`,
+    ));
+    const hasGenericComposerNode = !hasKnownComposer && records.some((record) =>
       [...(record.addedNodes || [])].some((node) =>
         node?.nodeType === 1 && (
           node.matches?.(
             'textarea, [contenteditable="true"], [role="textbox"], ' +
-            '[class*="composer" i], [class*="prompt" i]',
+            '[class*="ComposerLayoutRoot" i]',
           ) ||
           node.querySelector?.(
             'textarea, [contenteditable="true"], [role="textbox"], ' +
-            '[class*="composer" i], [class*="prompt" i]',
+            '[class*="ComposerLayoutRoot" i]',
           )
         )
       )
@@ -2160,7 +2177,24 @@
     }
   });
   observeRendererStructure();
-  const timer = setInterval(() => scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS), FALLBACK_REFRESH_MS);
+  const fallbackProbe = () => {
+    rendererMetrics.fallbackProbeCount += 1;
+    pruneDisconnectedSafeCssParts();
+    const root = document.documentElement;
+    const style = document.getElementById(STYLE_ID);
+    const shellMain = document.querySelector(SHELL_MAIN_SELECTOR) ||
+      document.querySelector("main") ||
+      document.querySelector('[role="main"]');
+    if (!root?.classList?.contains("codex-dream-skin") ||
+      root.getAttribute?.("data-dream-skin") !== "active" ||
+      !style?.isConnected ||
+      style.dataset?.dreamVersion !== STYLE_REVISION ||
+      !shellMain) {
+      rendererMetrics.fallbackEnsureCount += 1;
+      scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+    }
+  };
+  const timer = setInterval(fallbackProbe, FALLBACK_REFRESH_MS);
   const missingL1 = [
     ...(!document.querySelector(SHELL_MAIN_SELECTOR) ? ["shell-main"] : []),
     ...(!document.querySelector(SIDEBAR_SELECTOR) ? ["left-panel"] : []),

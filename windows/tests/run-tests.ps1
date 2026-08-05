@@ -1447,7 +1447,8 @@ args = [
     'STYLE_REVISION', 'PAYLOAD_REVISION', 'artMetadata', 'detectShellAppearance',
     'data-dream-skin', 'ResizeObserver', 'MutationObserver',
     'DOM_REFRESH_DEBOUNCE_MS', 'runEnsureSafely', 'styleMode: "style"',
-    'data-ds-part', 'refreshSafeCssParts'
+    'data-ds-part', 'refreshSafeCssParts', 'const fallbackProbe = () =>',
+    '[data-app-action-sidebar-thread-row]'
   )) {
     if (-not $rendererSource.Contains($requiredRendererBehavior)) {
       throw "Renderer adaptive behavior is missing: $requiredRendererBehavior"

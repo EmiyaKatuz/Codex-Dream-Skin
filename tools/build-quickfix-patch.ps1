@@ -24,7 +24,12 @@ try {
   Copy-Item -LiteralPath (Join-Path $windowsRoot 'VERSION') -Destination $packageRoot -Force
   Copy-Item -LiteralPath (Join-Path $windowsRoot 'installer\quickfix\fix.ps1') `
     -Destination $packageRoot -Force
-  foreach ($assetName in @('renderer-inject.js', 'dream-skin.css')) {
+  foreach ($assetName in @(
+    'renderer-inject.js',
+    'dream-skin.css',
+    'internet-angel-acrylic.css',
+    'internet-angel-extension.css'
+  )) {
     Copy-Item -LiteralPath (Join-Path $windowsRoot "assets\$assetName") `
       -Destination (Join-Path $packageRoot "assets\$assetName") -Force
   }

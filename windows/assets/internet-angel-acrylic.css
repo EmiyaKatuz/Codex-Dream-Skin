@@ -239,22 +239,6 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   backdrop-filter: none !important;
 }
 
-/* Avoid stacked filters below the four owners above. Portal descendants that
-   need a filter are mounted outside these trees and are unaffected. */
-html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
-  aside.app-shell-left-panel,
-  [data-testid="app-shell-floating-left-panel"],
-  .composer-surface-chrome,
-  [data-composer-surface-variant],
-  [data-ds-part="composer"],
-  [role="dialog"],
-  [role="menu"],
-  [role="listbox"]
-) * {
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
 /* High-frequency surfaces stay transparent, but leave their blur to the
    native DWM Acrylic backdrop. Re-blurring a scrolling sidebar or a live
    ProseMirror composition inside Chromium forces expensive repaint and style
@@ -270,15 +254,16 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]:not(#codex-drea
   backdrop-filter: none !important;
 }
 
-/* Avoid changing the composited geometry of dozens of rows as the pointer
-   passes over them during scroll. Color and border feedback remain intact. */
+/* Avoid starting transitions or composited geometry changes on dozens of rows
+   as they pass under a stationary pointer during scroll. Hover feedback stays
+   intact, but applies immediately. */
 html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   aside.app-shell-left-panel,
   [data-testid="app-shell-floating-left-panel"]
 ) button {
   transform: none !important;
   translate: none !important;
-  transition: color 80ms linear, border-color 80ms linear, background-color 80ms linear !important;
+  transition: none !important;
 }
 
 html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
@@ -301,6 +286,41 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   aside.app-shell-left-panel,
   [data-testid="app-shell-floating-left-panel"]
 ).vertical-scroll-fade-mask {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  animation: none !important;
+}
+
+/* Codex 26.730 adds per-row text masks and a separate conversation turn rail.
+   Both sit directly on scroll hot paths: hard clipping is cheaper than
+   re-rasterizing gradient masks, and the native rail remains fully readable. */
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"]
+) :is(.text-fade-truncate, [class*="_clipViewport_"]) {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  aside.app-shell-left-panel,
+  [data-testid="app-shell-floating-left-panel"]
+) .sidebar-item svg {
+  filter: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
+  .dream-turn-nav-rail,
+  [class*="_railList_"].vertical-scroll-fade-mask
+) {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  animation: none !important;
+  filter: none !important;
+}
+
+html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
+  .dream-task .horizontal-scroll-fade-mask {
   -webkit-mask-image: none !important;
   mask-image: none !important;
   animation: none !important;

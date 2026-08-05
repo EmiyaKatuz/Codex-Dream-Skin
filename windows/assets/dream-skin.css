@@ -4809,7 +4809,7 @@ html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [cla
   box-shadow: inset 0 -2px var(--angel-pink) !important;
 }
 
-html.codex-dream-skin * {
+html.codex-dream-skin {
   scrollbar-color: color-mix(in oklab, var(--angel-pink) 70%, var(--angel-blue)) transparent;
   scrollbar-width: thin;
 }
