@@ -1101,6 +1101,7 @@ args = [
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\install-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\manage-auto-launch-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\manage-window-effects.ps1') -Destination $releaseFixtureScripts -Force
+  Copy-Item -LiteralPath (Join-Path $Root 'scripts\patch-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\restore-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\start-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\theme-windows.ps1') -Destination $releaseFixtureScripts -Force
@@ -1396,6 +1397,11 @@ args = [
   if (-not $startSource.Contains('Get-DreamSkinVerifiedCdpIdentityForAnyRegistered')) {
     throw 'Start lost the any-registered endpoint fallback for Store auto-updates.'
   }
+  if (-not $commonSource.Contains('Test-DreamSkinListenerOwnerAlive') -or
+    -not $commonSource.Contains('Resolve-DreamSkinStartPort') -or
+    -not $startSource.Contains('Resolve-DreamSkinStartPort -Port $Port')) {
+    throw 'Start lost stale-listener port recovery after a Codex restart.'
+  }
   $verifyScriptSource = Read-DreamSkinUtf8File -Path (Join-Path $Root 'scripts\verify-dream-skin.ps1')
   if (-not $verifyScriptSource.Contains(". (Join-Path `$PSScriptRoot 'theme-windows.ps1')")) {
     throw 'Verify must dot-source theme-windows.ps1 before using theme store helpers such as Get-DreamSkinThemePaths.'
@@ -1450,6 +1456,8 @@ args = [
   & (Join-Path $PSScriptRoot 'auto-launch-safety.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'acrylic-window.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'window-effects.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'port-stale-listener.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'runtime-patch.tests.ps1') -Root $Root
   $projectRoot = Split-Path -Parent $Root
   $syncToolPath = Join-Path $projectRoot 'tools\sync-runtime-assets.mjs'
   $syncToolResult = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @($syncToolPath, '--check')

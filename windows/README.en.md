@@ -52,6 +52,16 @@ Pass `-Port` during installation to use a fixed custom port. Valid ports range f
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\install-dream-skin.ps1 -Port 9444
 ```
 
+## Apply a hotfix without uninstalling
+
+When a patch is published for an already installed runtime, run this from the updated checkout:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\patch-dream-skin.ps1
+```
+
+The patch script replaces only the affected launcher scripts inside `%LOCALAPPDATA%\CodexDreamSkin\engine`, stages and hash-verifies the replacements, and preserves active themes, saved themes, config backups, tray settings, and the running Codex session. It does not uninstall or reinstall Dream Skin and does not require closing Codex. Add `-DryRun` to preview the patch without changing files.
+
 ## Update
 
 Exit the Dream Skin tray and close Codex, update the checkout (`git pull`, or download the latest source again), then rerun the install command above. The installer atomically replaces the managed runtime and rebuilds its shortcuts without deleting the active theme, saved themes, or imported images.
@@ -240,7 +250,7 @@ Older tray shortcuts combined hidden PowerShell with `ExecutionPolicy Bypass`, w
 
 ### The port is occupied
 
-When `-Port` is omitted, the launcher searches for a free port beginning at `9335`. If another process owns an explicitly requested port, choose a different port rather than stopping an unknown listener.
+When `-Port` is omitted, the launcher searches for a free port beginning at `9335`. If an explicitly requested port is held by a live unverified listener, choose a different port rather than stopping an unknown process. A listener whose owning process no longer exists is treated as stale: the launcher warns and automatically selects the next free loopback port.
 
 ### Verification cannot find a CDP endpoint
 

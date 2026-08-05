@@ -12,6 +12,10 @@ const linuxTemplate = await fs.readFile(
   "utf8",
 );
 const css = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
+const extensionCss = await fs.readFile(
+  path.join(windowsRoot, "assets", "internet-angel-extension.css"),
+  "utf8",
+);
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
 const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
 const sidebarSelector = 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]';
@@ -19,6 +23,48 @@ const settingsContentSelector = '[class~="scrollbar-stable"][class~="flex-1"][cl
 assert.ok(template.includes(`const SHELL_MAIN_SELECTOR = '${shellSelector}'`)
   && template.includes(`const HEADER_TINT_SELECTOR = '${headerSelector}'`),
 "The Windows renderer must use the same Codex 26.727 shell/header unions as its CSS.");
+assert.ok(template.includes("const missingL1 = [")
+  && template.includes('level: missingL1.length ? "L0" : "L1"')
+  && template.includes("missingL1,"),
+  "The Windows renderer scope must expose missingL1 so live verification can accept a generic composer.");
+assert.ok(template.includes("hasGenericComposerNode")
+  && template.includes('[class*="composer" i]')
+  && template.includes("scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)")
+  && template.includes("composerOwnerSelector")
+  && template.includes("owner.parentElement?.closest?.(composerOwnerSelector)")
+  && template.includes("owner.closest?.('aside')")
+  && template.includes("const findGenericComposers = () =>")
+  && template.includes("for (const genericComposer of findGenericComposers() || [])")
+  && template.includes("safeCssPartNodes.add(genericComposer)")
+  && template.includes('[class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]')
+  && template.includes("const themeDiffsContainers = () =>")
+  && template.includes('all("diffs-container")')
+  && template.includes("DIFFS_THEME_STYLE_ID")
+  && template.includes("const appearanceFromClasses = (classes) =>")
+  && template.includes("const sidebarInteraction = Boolean(event?.target?.closest?.('aside'))")
+  && template.includes("scheduleEnsure(64)")
+  && template.includes('[contenteditable], [role="textbox"], [data-placeholder]')
+  && template.includes("node.closest?.('[class*=\"ComposerLayout\" i]')")
+  && template.includes('all(\'[class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]\')')
+  && template.includes('[class*="terminal-panel" i]'),
+  "The Windows renderer must re-run classification and mark the outermost composer, including side chat.");
+assert.ok(css.includes('html.codex-dream-skin [data-ds-part="composer"]')
+  && css.includes("aside:not(.app-shell-left-panel)")
+  && css.includes("aside:not(.app-shell-left-panel):not([role=\"dialog\"])")
+  && css.includes("color-mix(in oklab, var(--dream-surface) 68%, transparent)")
+  && css.includes('[class*="file-diff"]')
+  && css.includes('html.codex-dream-skin [class~="scroll-mt-4"][data-message-author-role]')
+  && css.includes('html.codex-dream-skin .dream-terminal-panel')
+  && css.includes('[data-ds-part="composer"] [class*="_ComposerLayoutFooter_"]')
+  && css.includes('aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"]')
+  && css.includes('[class*="_MainContentFrame_"] [class~="bg-token-main-surface-primary"]')
+  && css.includes('[class*="_MainContentFrame_"] [class*="bg-token-input-background"]')
+  && css.includes("diffs-container")
+  && css.includes('[aria-modal="true"]')
+  && css.includes('[class*="_ComposerLayoutBody_"]')
+  && extensionCss.includes(".dream-theme-light")
+  && extensionCss.includes("[data-angel-component]"),
+  "Windows CSS must style generic/side-chat composers, right sidebar, and keep the wallpaper visible.");
 assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
   && css.includes("data-app-shell-main-content-top-fade")
   && css.includes("data-local-conversation-user-anchor")

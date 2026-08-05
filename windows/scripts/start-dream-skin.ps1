@@ -314,8 +314,7 @@ try {
         throw 'The Codex theme sync did not preserve opaqueWindows = false for Desktop Acrylic.'
       }
       if (-not (Test-DreamSkinPortAvailable -Port $Port)) {
-        if ($PortExplicit) { throw "Port $Port is already occupied by an unverified listener. Choose another port." }
-        $Port = Select-DreamSkinPort -PreferredPort $Port
+        $Port = Resolve-DreamSkinStartPort -Port $Port -PortExplicit $PortExplicit
       }
       $arguments = @('--remote-debugging-address=127.0.0.1', "--remote-debugging-port=$Port")
       if ($ProfilePath) {

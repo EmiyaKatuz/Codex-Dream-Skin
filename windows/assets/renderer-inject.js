@@ -1,6 +1,7 @@
 ((cssText, artDataUrl, rawConfig) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
+  const DIFFS_THEME_STYLE_ID = "codex-dream-skin-diffs-theme";
   const PART_ATTR = "data-ds-part";
   const FLOATING_SIDEBAR_SELECTOR = '[data-testid="app-shell-floating-left-panel"]';
   const INTERNET_ANGEL_THEME_IDS = new Set([
@@ -395,11 +396,20 @@
   const detectShellAppearance = () => {
     const root = document.documentElement;
     const body = document.body;
-    const classes = `${root?.className || ""} ${body?.className || ""}`
-      .toLowerCase()
-      .replace(/\bdream-theme-(?:dark|light)\b/g, "");
-    if (/\b(dark|electron-dark|theme-dark|appearance-dark)\b/.test(classes)) return "dark";
-    if (/\b(light|electron-light|theme-light|appearance-light)\b/.test(classes)) return "light";
+    const appearanceFromClasses = (classes) => {
+      const normalized = `${classes || ""}`
+        .toLowerCase()
+        .replace(/\bdream-theme-(?:dark|light)\b/g, "");
+      if (/\belectron-light\b|\btheme-light\b|\bappearance-light\b|\blight\b/.test(normalized)) {
+        return "light";
+      }
+      if (/\belectron-dark\b|\btheme-dark\b|\bappearance-dark\b|\bdark\b/.test(normalized)) {
+        return "dark";
+      }
+      return null;
+    };
+    const rootAppearance = appearanceFromClasses(root?.className);
+    if (rootAppearance) return rootAppearance;
 
     const dataTheme = (
       root?.getAttribute?.("data-theme") ||
@@ -409,8 +419,10 @@
       body?.getAttribute?.("data-appearance") ||
       ""
     ).toLowerCase();
-    if (dataTheme.includes("dark")) return "dark";
     if (dataTheme.includes("light")) return "light";
+    if (dataTheme.includes("dark")) return "dark";
+    const bodyAppearance = appearanceFromClasses(body?.className);
+    if (bodyAppearance) return bodyAppearance;
 
     try {
       const hadSkin = root?.classList?.contains?.("codex-dream-skin");
@@ -773,6 +785,48 @@
     chrome.classList.toggle("dream-home-shell", Boolean(home));
   };
 
+  const all = (selector) => {
+    try { return [...document.querySelectorAll(selector)]; } catch { return []; }
+  };
+  const genericInputs = () => all('textarea, [contenteditable], [role="textbox"], [data-placeholder]')
+    .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'))
+    .filter((node) => node.closest?.('[class*="ComposerLayout" i]') ||
+      node.matches?.('textarea, [contenteditable], [role="textbox"]'));
+  const composerOwnerSelector =
+    '[data-testid*="composer" i], [data-testid*="prompt" i], ' +
+    '[class*="composer" i], [class*="prompt" i], [class*="terminal-panel" i]';
+  const resolvedMain = () => {
+    const exact = all(SHELL_MAIN_SELECTOR)[0];
+    if (exact) return exact;
+    for (const input of genericInputs()) {
+      const main = input.closest?.('main, [role="main"]');
+      if (main && typeof main.setAttribute === "function") return main;
+    }
+    return all('main, [role="main"]')
+      .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
+  };
+  const findGenericComposers = () => {
+    if (all(".composer-surface-chrome").length) return null;
+    const main = resolvedMain();
+    const owners = new Set();
+    for (const input of genericInputs()) {
+      if (main && !main.contains?.(input) &&
+        !input.closest?.('aside, [class*="ComposerLayout" i]')) continue;
+      let owner = input.closest?.(composerOwnerSelector);
+      while (owner) {
+        const next = owner.parentElement?.closest?.(composerOwnerSelector);
+        if (!next || next === owner) break;
+        owner = next;
+      }
+      if (owner && (!main || main.contains?.(owner) || owner.closest?.('aside'))) {
+        owners.add(owner);
+      }
+    }
+    for (const node of all('[class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]')) {
+      if (!node.closest?.('[role="dialog"], [aria-modal="true"]')) owners.add(node);
+    }
+    return [...owners];
+  };
   const safeCssPartNodes = new Set();
   const refreshSafeCssParts = () => {
     const desired = new Map();
@@ -782,21 +836,6 @@
           desired.set(node, part);
         }
       }
-    };
-    const all = (selector) => {
-      try { return [...document.querySelectorAll(selector)]; } catch { return []; }
-    };
-    const genericInputs = () => all('textarea, [contenteditable="true"], [role="textbox"]')
-      .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'));
-    const resolvedMain = () => {
-      const exact = all(SHELL_MAIN_SELECTOR)[0];
-      if (exact) return exact;
-      for (const input of genericInputs()) {
-        const main = input.closest?.('main, [role="main"]');
-        if (main && typeof main.setAttribute === "function") return main;
-      }
-      return all('main, [role="main"]')
-        .find((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]')) ?? null;
     };
     const fallbackSidebar = () => {
       if (all(SIDEBAR_SELECTOR).length) return [];
@@ -812,17 +851,7 @@
       return candidate ? [candidate] : [];
     };
     const fallbackComposer = () => {
-      if (all(".composer-surface-chrome").length) return [];
-      const main = resolvedMain();
-      for (const input of genericInputs()) {
-        if (main && !main.contains?.(input)) continue;
-        const owner = input.closest?.(
-          '[data-testid*="composer" i], [data-testid*="prompt" i], ' +
-          '[class*="composer" i], [class*="prompt" i]',
-        );
-        if (owner && (!main || main.contains?.(owner))) return [owner];
-      }
-      return [];
+      return findGenericComposers() || [];
     };
     add("root", [document.documentElement]);
     add("sidebar", [...all(SIDEBAR_SELECTOR), ...fallbackSidebar()]);
@@ -852,7 +881,7 @@
   const incrementalSafePartRules = [
     ["message", MESSAGE_SELECTOR],
     ["composer-toolbar", '.composer-surface-chrome [class*="_footer_"]'],
-    ["composer", ".composer-surface-chrome"],
+    ["composer", '.composer-surface-chrome, [class*="ComposerLayoutRoot" i], [class*="terminal-panel" i]'],
     ["thread", ".thread-scroll-container"],
     ["dialog", '[role="dialog"]'],
     ["header", HEADER_TINT_SELECTOR],
@@ -862,7 +891,67 @@
   ];
   const incrementalSafePartSelector = incrementalSafePartRules
     .map(([, selector]) => selector).join(", ");
+  const themeDiffsContainers = () => {
+    for (const host of all("diffs-container")) {
+      const root = host?.shadowRoot;
+      if (!root) continue;
+      const surface = "color-mix(in oklab, var(--dream-surface) 94%, var(--dream-accent) 5%)";
+      const surfaceRaised = "color-mix(in oklab, var(--dream-surface-raised) 94%, var(--dream-accent) 6%)";
+      const fg = "var(--dream-text)";
+      const mutedFg = "color-mix(in oklab, var(--dream-text) 76%, var(--dream-accent))";
+      const setStyle = (element, property, value) => {
+        element?.style?.setProperty(property, value, "important");
+      };
+      const setAll = (selector, property, value) => {
+        for (const element of root.querySelectorAll(selector)) setStyle(element, property, value);
+      };
+      setStyle(host, "--diffs-bg", surface);
+      setStyle(host, "--diffs-fg", fg);
+      setStyle(host, "--diffs-bg-context", surfaceRaised);
+      setStyle(host, "background-color", surface);
+      setStyle(host, "color", fg);
+      setAll("[data-file]", "--diffs-bg", surface);
+      setAll("[data-file]", "--diffs-fg", fg);
+      setAll("[data-file]", "--codex-diffs-surface", surface);
+      setAll("[data-file]", "--codex-diffs-context-surface", surfaceRaised);
+      setAll("[data-file]", "--codex-diffs-header-surface", surfaceRaised);
+      setAll("[data-file]", "--codex-diffs-separator-surface", surfaceRaised);
+      setAll("[data-file]", "--codex-diffs-hover-surface", surfaceRaised);
+      setAll("[data-file]", "background-color", surface);
+      setAll(
+        "pre, code, [data-content], [data-gutter], [data-column-number], [data-gutter-buffer], [data-diffs-header], [data-file-info]",
+        "background-color",
+        surface,
+      );
+      setAll("pre, code, [data-content], [data-line]", "color", fg);
+      setAll("[data-line] span, [data-line-number-content], [data-column-number]", "color", mutedFg);
+      setAll("[data-line] span", "background-color", "transparent");
+      setAll("[data-file]", "scrollbar-color", "color-mix(in oklab, var(--angel-cyan) 52%, transparent) transparent");
+      let themeStyle = root.querySelector(`style[data-dream-skin="${DIFFS_THEME_STYLE_ID}"]`);
+      if (!themeStyle) {
+        themeStyle = document.createElement("style");
+        themeStyle.setAttribute("data-dream-skin", DIFFS_THEME_STYLE_ID);
+        root.appendChild(themeStyle);
+      }
+      if (themeStyle.dataset.dreamRevision !== STYLE_REVISION) {
+        themeStyle.textContent = [
+          "[data-code]::-webkit-scrollbar { width: 10px !important; height: 10px !important; }",
+          "[data-code]::-webkit-scrollbar-track { background: transparent !important; }",
+          "[data-code]::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--angel-cyan) 52%, transparent) !important; border-radius: 6px !important; }",
+          "::selection { background: color-mix(in oklab, var(--angel-pink) 38%, transparent) !important; }",
+        ].join("\n");
+        themeStyle.dataset.dreamRevision = STYLE_REVISION;
+      }
+    }
+  };
   const classifySafeCssParts = (records) => {
+    for (const genericComposer of findGenericComposers() || []) {
+      if (genericComposer.getAttribute?.(PART_ATTR) !== "composer") {
+        genericComposer.setAttribute?.(PART_ATTR, "composer");
+      }
+      safeCssPartNodes.add(genericComposer);
+    }
+    themeDiffsContainers();
     const roots = records
       .flatMap((record) => [...(record.addedNodes || [])])
       .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
@@ -911,6 +1000,7 @@
     root.classList.add("codex-dream-skin");
     applyProfile(root);
     refreshSafeCssParts();
+    themeDiffsContainers();
 
     let style = document.getElementById(STYLE_ID);
     if (!style) {
@@ -1711,6 +1801,7 @@
       scheduler.running = false;
       observer?.takeRecords?.();
       observeRendererStructure();
+      try { refreshSafeCssParts(); } catch {}
       if (scheduler.pending) {
         scheduler.pending = false;
         scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
@@ -1967,7 +2058,7 @@
     if (scheduler.navigationTimer) clearTimeout(scheduler.navigationTimer);
     scheduler.navigationTimer = setTimeout(() => {
       scheduler.navigationTimer = null;
-      scheduleEnsure();
+      scheduleEnsure(64);
     }, 48);
   };
   const navigationHandler = (event) => {
@@ -1980,7 +2071,8 @@
       '[data-settings-panel-slug], aside.app-shell-left-panel button, ' +
       'button[aria-controls], button[aria-expanded], button[aria-haspopup]',
     );
-    if (target) scheduleNavigationRefresh();
+    const sidebarInteraction = Boolean(event?.target?.closest?.('aside'));
+    if (target || sidebarInteraction) scheduleNavigationRefresh();
   };
   const interactionHandler = (event) => {
     const target = event?.target?.nodeType === 1
@@ -2040,10 +2132,36 @@
       return withoutManagedClasses(record.oldValue) !==
         withoutManagedClasses(record.target?.getAttribute?.("class"));
     });
-    if (hasShellChange) scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+    const hasGenericComposerNode = records.some((record) =>
+      [...(record.addedNodes || [])].some((node) =>
+        node?.nodeType === 1 && (
+          node.matches?.(
+            'textarea, [contenteditable="true"], [role="textbox"], ' +
+            '[class*="composer" i], [class*="prompt" i]',
+          ) ||
+          node.querySelector?.(
+            'textarea, [contenteditable="true"], [role="textbox"], ' +
+            '[class*="composer" i], [class*="prompt" i]',
+          )
+        )
+      )
+    );
+    if (hasShellChange || hasGenericComposerNode) {
+      scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS);
+    }
   });
   observeRendererStructure();
   const timer = setInterval(() => scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS), FALLBACK_REFRESH_MS);
+  const missingL1 = [
+    ...(!document.querySelector(SHELL_MAIN_SELECTOR) ? ["shell-main"] : []),
+    ...(!document.querySelector(SIDEBAR_SELECTOR) ? ["left-panel"] : []),
+    ...(!document.querySelector(HEADER_TINT_SELECTOR) ? ["header-tint"] : []),
+  ];
+  const scope = {
+    level: missingL1.length ? "L0" : "L1",
+    baseState: "fork-windows",
+    missingL1,
+  };
   const runtimeState = {
     ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler,
     resizeHandler, navigationHandler, interactionHandler, motionQuery, motionHandler,
@@ -2053,7 +2171,7 @@
     styleMode: "style",
     styleNode: null,
     metrics: rendererMetrics,
-    scope: { level: "L1", baseState: "fork-windows" },
+    scope,
   };
   window[STATE_KEY] = runtimeState;
   runEnsureSafely();

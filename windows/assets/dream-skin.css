@@ -2706,6 +2706,27 @@ html.codex-dream-skin [role="listbox"] {
   backdrop-filter: blur(18px) saturate(1.16) !important;
 }
 
+/* Radix dialogs can mount without role=dialog on the visible surface; keep
+   aria-modal/content markers themed too so New Chat and similar overlays never
+   fall back to the native dark/light frame. */
+html.codex-dream-skin [aria-modal="true"],
+html.codex-dream-skin [data-radix-dialog-content] {
+  color: var(--dream-text) !important;
+  border: 2px solid var(--angel-blue) !important;
+  border-radius: 6px !important;
+  background: color-mix(in oklab, var(--dream-surface-raised) 96%, transparent) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--angel-cyan) 44%, transparent),
+    5px 5px 0 color-mix(in oklab, var(--angel-pink) 58%, var(--angel-ink)),
+    0 20px 52px color-mix(in oklab, var(--angel-ink) 34%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(1.16) !important;
+}
+
+html.codex-dream-skin [aria-modal="true"] [class*="bg-token-main-surface-primary"],
+html.codex-dream-skin [data-radix-dialog-content] [class*="bg-token-main-surface-primary"] {
+  background: color-mix(in oklab, var(--dream-surface) 72%, transparent) !important;
+}
+
 /* Composer Add and slash-command palettes use a bespoke Codex surface rather
    than role=menu. Theme both the classified node and its first mounted frame. */
 html.codex-dream-skin .dream-composer-palette {
@@ -3062,7 +3083,7 @@ html.codex-dream-skin :where(
    positioning shell; Codex paints a second dropdown surface inside it. Skin
    both layers so no olive native rectangle can cover the themed frame. */
 html.codex-dream-skin .dream-turn-preview-tooltip {
-  padding: 5px !important;
+  padding: 0 !important;
   border: 1.5px solid var(--angel-cyan) !important;
   border-radius: 13px !important;
   background:
@@ -3143,6 +3164,29 @@ html.codex-dream-skin :where(
   color: color-mix(in oklab, var(--dream-text-muted) 78%, var(--angel-cyan)) !important;
   border-left: 2px solid color-mix(in oklab, var(--angel-pink) 76%, var(--angel-violet)) !important;
   line-height: 1.48 !important;
+}
+
+html.codex-dream-skin.dream-theme-light :where(
+  .dream-turn-preview-title,
+  [role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"] [class~="font-medium"]
+) {
+  color: var(--dream-text) !important;
+  text-shadow: none !important;
+}
+
+html.codex-dream-skin.dream-theme-light :where(
+  .dream-turn-preview-surface,
+  [role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]
+) {
+  background:
+    radial-gradient(circle at 92% 14%, color-mix(in oklab, var(--angel-pink) 18%, transparent) 0 2px, transparent 3px),
+    linear-gradient(108deg,
+      color-mix(in oklab, var(--dream-surface-raised) 92%, var(--angel-blue) 8%),
+      color-mix(in oklab, var(--dream-surface-raised) 90%, var(--angel-violet) 10%) 58%,
+      color-mix(in oklab, var(--dream-surface-raised) 94%, var(--angel-pink) 6%)) !important;
+  box-shadow:
+    inset 3px 0 color-mix(in oklab, var(--angel-cyan) 74%, transparent),
+    inset 0 -2px color-mix(in oklab, var(--angel-pink) 48%, transparent) !important;
 }
 
 /* The left conversation navigator is a dense set of fixed-size hit targets.
@@ -3282,6 +3326,17 @@ html.codex-dream-skin input::placeholder,
 html.codex-dream-skin textarea::placeholder {
   color: var(--dream-text-muted) !important;
   opacity: .9;
+}
+
+/* Some native inputs omit type="text"/"search"; in light mode they would stay
+   on the dark default surface. Keep every editable input adaptive. */
+html.codex-dream-skin.dream-theme-light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface-raised) 88%, transparent) !important;
+}
+
+html.codex-dream-skin.dream-theme-light input::placeholder {
+  color: var(--dream-text-muted) !important;
 }
 
 html.codex-dream-skin [role="checkbox"],
@@ -6254,4 +6309,240 @@ html.codex-dream-skin.dream-home-bottom-open #codex-dream-skin-chrome :where(
     opacity: 0 !important;
     transform: none !important;
   }
+}
+
+/* Codex 26.730 removed .composer-surface-chrome; style the generic part.
+   The right-panel composer is a second ComposerLayoutRoot outside the main
+   surface, so theme it even before the renderer refreshes data-ds-part. */
+html.codex-dream-skin [data-ds-part="composer"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] {
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  overflow: visible !important;
+  color: var(--dream-text) !important;
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--dream-surface-raised) 86%, transparent),
+      color-mix(in oklab, var(--dream-surface-raised) 76%, var(--dream-accent) 5%)) !important;
+  border: 1px solid color-mix(in oklab, var(--dream-line-soft) 92%, var(--dream-accent) 8%) !important;
+  border-radius: 25px !important;
+  box-shadow: var(--dream-shadow) !important;
+  backdrop-filter: blur(12px) saturate(1.08) !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"]::before,
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"]::before {
+  content: none !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"] > *,
+html.codex-dream-skin [data-ds-part="composer"] [contenteditable="true"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] > *,
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [contenteditable="true"] {
+  color: var(--dream-text) !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"]:focus-within,
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"]:focus-within {
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--dream-surface-raised) 94%, transparent),
+      color-mix(in oklab, var(--dream-surface-raised) 88%, var(--dream-accent) 6%)) !important;
+  border-color: color-mix(in oklab, var(--dream-accent) 72%, var(--dream-line-soft)) !important;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--dream-accent) 26%, transparent),
+    var(--dream-shadow) !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"] .placeholder,
+html.codex-dream-skin [data-ds-part="composer"] [data-placeholder],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] .placeholder,
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [data-placeholder] {
+  color: var(--dream-text-muted) !important;
+}
+
+/* Right sidebar and side-chat surfaces must not stay native black. */
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) {
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface) 78%, transparent) !important;
+  border-left: 1px solid var(--dream-line-soft) !important;
+  backdrop-filter: blur(10px) saturate(1.05) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class~="bg-token-main-surface-primary"] {
+  background: transparent !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class~="rounded-lg"],
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class~="rounded-md"] {
+  background: color-mix(in oklab, var(--dream-surface-raised) 62%, transparent) !important;
+  border: 1px solid var(--dream-line-soft) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="bg-token-main-surface-primary"],
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="file-diff"] {
+  background: color-mix(in oklab, var(--dream-surface) 55%, transparent) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="file-diff"] > div {
+  background: transparent !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="file-diff"] div {
+  background: transparent !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="file-diff"] [class*="codeBlock"] {
+  background: color-mix(in oklab, var(--dream-surface) 42%, transparent) !important;
+}
+
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) {
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface) 78%, transparent) !important;
+  border-left: 1px solid var(--dream-line-soft) !important;
+  backdrop-filter: blur(10px) saturate(1.05) !important;
+}
+
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="bg-token-main-surface-primary"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="file-diff"] {
+  background: color-mix(in oklab, var(--dream-surface) 55%, transparent) !important;
+}
+
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="file-diff"] div {
+  background: transparent !important;
+}
+
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="file-diff"] [class*="codeBlock"] {
+  background: color-mix(in oklab, var(--dream-surface) 42%, transparent) !important;
+}
+
+html.codex-dream-skin .dream-terminal-panel {
+  background: color-mix(in oklab, var(--dream-surface) 55%, transparent) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+html.codex-dream-skin .dream-terminal-panel .thread-scroll-container {
+  background: transparent !important;
+}
+
+/* Projects, pull requests and other full-route pages mount an opaque
+   bg-token-main-surface-primary frame inside the main content viewport.
+   Paint that frame and its search/input surfaces with the active theme so the
+   wallpaper stays visible in both dark and light modes. */
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class~="bg-token-main-surface-primary"] {
+  color: var(--dream-text) !important;
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--dream-surface) 74%, transparent),
+      color-mix(in oklab, var(--dream-surface) 64%, var(--dream-accent) 7%)) !important;
+  border-color: color-mix(in oklab, var(--dream-line-soft) 88%, var(--dream-accent) 12%) !important;
+  backdrop-filter: blur(14px) saturate(1.08) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class~="sticky"][class~="z-30"] {
+  background:
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--dream-surface-raised) 88%, var(--angel-blue) 8%),
+      color-mix(in oklab, var(--dream-surface-raised) 84%, var(--angel-pink) 10%)) !important;
+  border-bottom: 1px solid color-mix(in oklab, var(--dream-line-soft) 88%, var(--dream-accent) 12%) !important;
+  backdrop-filter: blur(12px) saturate(1.05) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class~="sticky"][class~="z-30"]::after {
+  background-image: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--dream-surface) 10%, transparent)) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class*="bg-token-input-background"] {
+  background: color-mix(in oklab, var(--dream-surface-raised) 84%, transparent) !important;
+  border: 1px solid color-mix(in oklab, var(--dream-line-soft) 90%, var(--dream-accent) 10%) !important;
+  box-shadow: var(--dream-shadow) !important;
+  backdrop-filter: blur(12px) saturate(1.05) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] input {
+  background: transparent !important;
+  color: var(--dream-text) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] input::placeholder {
+  color: var(--dream-text-muted) !important;
+}
+
+/* The source-code viewer is a shadow-DOM diffs-container with an opaque
+   native black surface. The renderer also themes its shadow internals with
+   inline styles; this host rule keeps the first frame from flashing black. */
+html.codex-dream-skin diffs-container,
+html.codex-dream-skin DIFFS-CONTAINER {
+  color: var(--dream-text) !important;
+  background-color: color-mix(in oklab, var(--dream-surface) 94%, var(--dream-accent) 5%) !important;
+  --diffs-bg: color-mix(in oklab, var(--dream-surface) 94%, var(--dream-accent) 5%) !important;
+  --diffs-fg: var(--dream-text) !important;
+}
+
+/* Side chat and generic composers: remove nested inner frames. */
+html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutFooter_"],
+html.codex-dream-skin [data-ds-part="composer"] [class*="_RichTextInput_"],
+html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutBody_"],
+html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutAttachments_"],
+html.codex-dream-skin [data-ds-part="composer"] [class*="rounded-2xl"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_ComposerLayoutFooter_"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_RichTextInput_"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_ComposerLayoutBody_"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="_ComposerLayoutAttachments_"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="_ComposerLayoutRoot_"] [class*="rounded-2xl"] {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+html.codex-dream-skin [class~="scroll-mt-4"],
+html.codex-dream-skin [class~="scroll-mt-4"][data-message-author-role],
+html.codex-dream-skin [class~="scroll-mt-4"][data-local-conversation-user-anchor],
+html.codex-dream-skin [class~="scroll-mt-4"][data-local-conversation-final-assistant] {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Keep the Internet Angel wallpaper visible on task routes while preserving reading. */
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-task:not(.dream-home-shell),
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell) [role="main"].dream-task {
+  background:
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--dream-surface) 68%, transparent),
+      color-mix(in oklab, var(--dream-surface) 42%, transparent) 52%,
+      color-mix(in oklab, var(--dream-surface) 56%, transparent)) !important;
+}
+
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-task:not(.dream-home-shell)::after,
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell) .dream-task::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--dream-surface) 38%, transparent),
+      color-mix(in oklab, var(--dream-surface) 24%, transparent) 50%,
+      color-mix(in oklab, var(--dream-surface) 32%, transparent)),
+    repeating-linear-gradient(0deg,
+      color-mix(in oklab, var(--angel-cyan) 2%, transparent) 0 1px,
+      transparent 1px 4px);
+  backdrop-filter: blur(1px) saturate(.9);
 }

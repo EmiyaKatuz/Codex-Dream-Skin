@@ -2,6 +2,100 @@
 
 Updated: 2026-08-05 CST (Asia/Shanghai)
 
+## Codex 26.730 generic composer fix
+
+- [diagnosed] Codex `26.730.7989.0` replaced `.composer-surface-chrome` with
+  the CSS Modules class `_ComposerLayoutFooter_*`, so the older Windows
+  renderer stopped theming the composer/dialog input.
+- [complete] Merged the upstream v1.5.12 generic renderer fallback and repaired
+  the Windows renderer: it now exposes `missingL1` in its runtime scope,
+  reclassifies when a generic composer mounts, and re-runs part refresh after
+  every ensure so a composer mounted during classification is not missed.
+- [verified] Live CDP on Codex 26.730 reports
+  `data-ds-part="composer"` on `_ComposerLayoutFooter_yeer6_335`;
+  `verify-dream-skin.ps1` passes with `genericInput` visible, engine version
+  `1.5.12`, revision `7fab22fba48bb00ee568`, and no hidden-document failure.
+
+## Codex 26.730 wallpaper and generic composer CSS
+
+- [diagnosed] The v1.5.12 Windows CSS only themed `.composer-surface-chrome`,
+  which Codex 26.730 no longer renders, and task-route `main` was opaque
+  `--dream-surface`, hiding the 超天酱 body wallpaper behind a purple surface.
+- [complete] Windows `dream-skin.css` now styles `[data-ds-part="composer"]`
+  with the Internet Angel input surface, and keeps task-route `main` and its
+  `::after` overlay translucent so the body wallpaper remains visible.
+- [verified] Live computed styles show the 超天酱 blob image on `body`,
+  semi-transparent task `main` gradient, and a themed generic composer;
+  `verify-dream-skin.ps1` passes with `genericInput` visible.
+
+## Codex 26.730 side chat, project preview, and persistent composer
+
+- [diagnosed] The right sidebar and side-chat composer kept native black
+  `bg-token-main-surface-primary`, the side composer was outside the main
+  surface and never got `data-ds-part="composer"`, and switching conversations
+  mounted a new composer that was not reclassified until a manual refresh.
+- [complete] The Windows renderer now marks the outermost generic composer
+  container, accepts side-chat composers inside `aside`, re-establishes the
+  part on every mutation batch, and schedules a fast refresh when the user
+  clicks inside any sidebar. Windows CSS now themes the right sidebar and its
+  inner token surfaces instead of leaving them black.
+- [verified] Live CDP: switching between conversations and back keeps
+  `data-ds-part="composer"` on `_ComposerLayoutRoot_yeer6_3` within ~900ms;
+  the right sidebar background is themed and its `bg-token-main-surface-primary`
+  children are transparent.
+- [complete] Built `release/CodexDreamSkin-Setup-v1.5.12.exe` and
+  `release/CodexDreamSkin-QuickFix-v1.5.12.zip`; the quick-fix package contains
+  a runnable `fix.ps1` plus the patched renderer/css/launcher files.
+- [complete] Follow-up: broadened generic composer input discovery, removed
+  nested inner frames inside generic/side-chat composers, and neutralized
+  native black project/diff surfaces in the right sidebar. Live CDP reports no
+  `rgb(0,0,0)`/`rgb(24,24,24)` surfaces in the right sidebar after the fix.
+- [complete] Second follow-up: `scroll-mt-4` message wrappers that carry
+  `data-message-author-role`/conversation anchors are now transparent and
+  borderless, so the main thread and side chat no longer draw a second frame
+  around the real message bubble; composer fallback also marks
+  `ComposerLayoutRoot` directly when no input is detected.
+- [complete] Third follow-up: right-sidebar/diff theming no longer depends on
+  being inside the main surface, so project previews rendered in any non-left
+  `aside` (outside dialogs) are themed instead of black.
+- [complete] Fourth follow-up: `dream-terminal-panel` (the right side chat /
+  terminal surface) is now translucent and borderless, and is included in the
+  generic composer fallback so its bottom input is no longer a separate black
+  frame.
+- [complete] Fifth follow-up: the generic composer classifier now marks every
+  `ComposerLayoutRoot`, not just the first one, so the main input and the side
+  chat input both keep `data-ds-part="composer"` after conversation switches.
+  The Windows CSS also themes the second composer before the renderer refresh.
+- [complete] Sixth follow-up: Projects, pull requests and other full-route
+  pages mount an opaque native `bg-token-main-surface-primary` frame inside the
+  main content viewport. Windows CSS now paints that frame, its sticky header,
+  search input and input placeholder with adaptive Dream Skin surfaces, so the
+  wallpaper remains visible in both dark and light modes.
+- [complete] Seventh follow-up: the right-side source-code viewer is a
+  shadow-DOM `diffs-container` with an opaque native black surface. The
+  renderer now themes its host, file, code, gutter and line-number surfaces
+  with inline styles plus a small shadow style for scrollbars and selection,
+  so source files follow the active Dream Skin theme in dark and light modes.
+- [complete] Eighth follow-up: light mode no longer leaves native dark
+  surfaces behind. Windows CSS now themes route frames, the new-chat composer
+  body, dialog/Radix overlays, user/assistant bubbles, edited-card badges and
+  file rows, environment panels, the left sidebar surface/rows/icons, source
+  tooltips, and the scroll-to-bottom hover state with adaptive Dream colors.
+  Appearance detection also prefers root classes and light before data
+  attributes, so stale debug attributes cannot force light mode back to dark.
+- [verified] Live CDP after hot injection: side chat composer is marked
+  `data-ds-part="composer"`, the Projects page surface is a translucent theme
+  gradient instead of `rgb(24,24,24)`, and the source-code viewer background is
+  themed instead of `rgb(17,17,17)`; `verify-dream-skin.ps1` passes with
+  `pass: true`, and the full Windows test suite passes.
+- [complete] `patch-dream-skin.ps1` now requires the new renderer/CSS markers
+  before reporting "already contains fixes", so an older installed engine is
+  upgraded in place to this revision. Rebuilt
+  `release/CodexDreamSkin-QuickFix-v1.5.12.zip`
+  (`32691827C1127A1716201B17004B7308630515D60E9480443711A22A0B224162`) and
+  `release/CodexDreamSkin-Setup-v1.5.12.exe`
+  (`F4ABD8B32448FA1CF77A4FB57F03A498CD08C8A60526837FC4797453E7266D16`).
+
 ## Sync latest upstream and publish fork v1.5.12
 
 - [goal] Merge `upstream/main` at `0a727a539fc9cd298ad4827c6cefbd4a2192db79` into the fork, resolve conflicts in favor of this repository's INTERNET ANGEL, Linux, floating-sidebar, Windows Acrylic and exact-process/HWND architecture, then publish a verified `v1.5.12` Release.
@@ -15,6 +109,33 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
 - [ci] PR #20 is mergeable. Run `30968153557` passed Static checks, Windows PowerShell 5.1 and macOS repository regressions. Windows PowerShell 7 failed only because the child operation-lock contention probe exceeded its 10-second process-start deadline; the product mutex uses a zero-millisecond second-owner timeout and behaved fail closed.
 - [verified] The production mutex remains unchanged. The child probe now runs non-interactively, allows 30 seconds for runner process startup, and explicitly waits for exact-process termination after a timeout kill. The focused auto-launch safety test passes under Windows PowerShell 5.1 and PowerShell 7.
 - [pending] Push the upstream merge and CI test correction, require all four PR checks on the exact new head, mark the PR ready, merge it, then verify the public Release plus DMG, Setup.exe and `SHA256SUMS.txt` downloads.
+
+## Windows stale CDP listener recovery
+
+- [diagnosed] Codex auto-restart can leave the old CDP listener on `9335`
+  owned by a process that no longer exists, so the next reapply fails and
+  Codex is reopened without the debug endpoint.
+- [complete] The launcher now detects stale dead-owner listeners and scans to
+  the next free loopback port even when `-Port` was explicit; live unverified
+  listeners still fail closed.
+- [verified] The Windows PowerShell suite, installer static checks, Node
+  regressions and payload validation pass. On the affected machine the stale
+  `9335` listener resolves to the next free port `9336`.
+
+## In-place runtime patch
+
+- [complete] Added `windows/scripts/patch-dream-skin.ps1` so existing
+  installations can be fixed without uninstalling or reinstalling. It stages
+  and hash-verifies the affected launcher scripts plus the patch script
+  itself, backs up the originals, replaces them in the installed engine,
+  verifies the result, and preserves themes, config backups, tray settings,
+  and the running Codex session.
+- [verified] The patch ran against the real installed engine on this machine:
+  installed launcher files and the patch script now match the source hashes,
+  active theme and config backup remain present, Codex stayed running, and no
+  patch transaction directories remain.
+- [verified] Runtime-patch regression, stale-listener regression, installer
+  static checks, and the full Windows PowerShell suite pass.
 
 Updated: 2026-08-02 CST (Asia/Shanghai)
 

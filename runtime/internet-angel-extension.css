@@ -1402,3 +1402,194 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] ::-webkit-scro
     transition-duration: .01ms !important;
   }
 }
+
+/* Light mode: the Angel paper token is fixed light, so every text-bearing
+   component must follow the adaptive Dream text color. Code, terminal and
+   dark badge surfaces keep their light glyph color. */
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light {
+  --angel-paper: var(--dream-text) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component] {
+  color: var(--dream-text) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component] :where(button, a, p, span, div, li, h1, h2, h3, h4, h5, h6, label, td, th) {
+  color: var(--dream-text) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="sidebar"] {
+  background: linear-gradient(180deg,
+    color-mix(in oklab, var(--dream-surface) 88%, transparent),
+    color-mix(in oklab, var(--dream-surface) 82%, var(--angel-violet) 5%)) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="sidebar-row"]:hover,
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="sidebar-row"][data-state="active"],
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="sidebar-row"][aria-current="page"] {
+  background: color-mix(in oklab, var(--dream-surface-raised) 88%, var(--angel-cyan) 8%) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="sidebar-control"] svg,
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="sidebar-row"] svg {
+  color: var(--dream-text) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component] :is(pre, code, [class*="codeBlock"], [class*="font-vscode-editor"]) {
+  color: var(--angel-paper) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component] :is(pre, code, [class*="codeBlock"]) :where(span, div) {
+  color: var(--angel-paper) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component] :is(.xterm, .xterm-viewport, .xterm-screen, .xterm-rows) :where(div, span) {
+  color: var(--angel-paper) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="edited-card-stats"],
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="activity-output"] {
+  color: var(--angel-paper) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light :is(
+  [data-message-author-role="user"],
+  [data-user-message-bubble="true"],
+  [data-angel-component="message-user"]
+) {
+  color: var(--dream-text) !important;
+  border: 1px solid color-mix(in oklab, var(--angel-pink) 48%, var(--dream-line-soft)) !important;
+  border-left: 4px solid var(--angel-pink) !important;
+  border-radius: 6px !important;
+  background: linear-gradient(110deg,
+    color-mix(in oklab, var(--dream-surface-raised) 94%, var(--angel-pink) 8%),
+    color-mix(in oklab, var(--dream-surface-raised) 90%, var(--angel-violet) 9%)) !important;
+  box-shadow: 2px 2px 0 color-mix(in oklab, var(--angel-violet) 28%, transparent) !important;
+  text-shadow: none !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="message-assistant"] :is(table, blockquote, details, [class*="codeBlock"]) {
+  color: var(--angel-paper) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="message-assistant"] :is(td, blockquote, details, summary) :where(span, div, p, li) {
+  color: var(--angel-paper) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="edited-card"] :where(button, span, div),
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="edited-card-files"] :where(button, span, div) {
+  color: var(--dream-text) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="edited-card-stats"] {
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface-raised) 88%, var(--angel-pink) 10%) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="environment"] {
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface-raised) 92%, transparent) !important;
+  border: 1px solid color-mix(in oklab, var(--dream-line-soft) 90%, var(--dream-accent) 10%) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="scroll-bottom"]:is(:hover, :focus-visible) {
+  color: var(--dream-text) !important;
+  border-color: var(--angel-pink) !important;
+  filter: none !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-radix-popper-content-wrapper] > div,
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-radix-menu-content],
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-radix-popover-content] {
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface-raised) 96%, transparent) !important;
+  border: 2px solid var(--angel-blue) !important;
+  border-radius: 6px !important;
+  box-shadow:
+    inset 3px 0 var(--angel-cyan),
+    3px 3px 0 color-mix(in oklab, var(--angel-pink) 48%, transparent) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [role="tooltip"],
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-radix-tooltip-content],
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-slot="tooltip-content"] {
+  color: var(--dream-text) !important;
+  border: 2px solid var(--angel-blue) !important;
+  border-radius: 7px !important;
+  background: color-mix(in oklab, var(--dream-surface-raised) 94%, transparent) !important;
+  box-shadow:
+    inset 3px 0 var(--angel-cyan),
+    3px 3px 0 color-mix(in oklab, var(--angel-pink) 52%, transparent) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [role="tooltip"] :where(p, span, div, li, td, th, h1, h2, h3),
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-radix-tooltip-content] :where(p, span, div, li, td, th, h1, h2, h3),
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-slot="tooltip-content"] :where(p, span, div, li, td, th, h1, h2, h3) {
+  color: var(--dream-text) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="edited-card-files"] button,
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="edited-card-files"] button * {
+  color: var(--dream-text) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="edited-card-file-stats"],
+html[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-theme-light
+  [data-angel-component="edited-card-file-path"] {
+  color: var(--dream-text) !important;
+}
+
+html.codex-dream-skin.dream-theme-light #codex-dream-skin-chrome .dream-angel-webcam-card,
+html.codex-dream-skin.dream-theme-light .dream-home button.dream-codex-preset > span:first-child > span:first-child,
+html.codex-dream-skin.dream-theme-light .dream-home .dream-preset-icon,
+html.codex-dream-skin.dream-theme-light .dream-home button.dream-generated-preset > span:first-child > span:first-child,
+html.codex-dream-skin.dream-theme-light .dream-home .group\/home-suggestions button > span:first-child > span:first-child,
+html.codex-dream-skin.dream-theme-light [data-angel-component="settings-content"] [role="switch"] > span[data-state] > span[data-state],
+html.codex-dream-skin.dream-theme-light [data-angel-component="settings-content"] [role="slider"],
+html.codex-dream-skin.dream-theme-light .dream-subagent-row > svg:first-child,
+html.codex-dream-skin.dream-theme-light .dream-subagent-row-archive > svg:first-child {
+  background: var(--dream-surface-raised) !important;
+}
+
+html.codex-dream-skin.dream-theme-light .dream-home [data-feature="game-source"]::before,
+html.codex-dream-skin.dream-theme-light .dream-home [data-feature="game-source"] button,
+html.codex-dream-skin.dream-theme-light #codex-dream-skin-chrome .dream-angel-dose-strip i,
+html.codex-dream-skin.dream-theme-light .dream-side-workspace::before {
+  color: var(--dream-text) !important;
+  background: linear-gradient(90deg,
+    var(--angel-cyan),
+    var(--dream-surface-raised) 48%,
+    var(--angel-pink)) !important;
+}

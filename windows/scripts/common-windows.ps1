@@ -318,6 +318,7 @@ function Install-DreamSkinRuntimeEngine {
     'scripts\install-dream-skin.ps1',
     'scripts\manage-auto-launch-dream-skin.ps1',
     'scripts\manage-window-effects.ps1',
+    'scripts\patch-dream-skin.ps1',
     'scripts\restore-dream-skin.ps1',
     'scripts\start-dream-skin.ps1',
     'scripts\theme-windows.ps1',
@@ -1402,6 +1403,34 @@ function Get-DreamSkinPortListeners {
     throw 'Get-NetTCPConnection is required to verify CDP listener ownership.'
   }
   return @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue)
+}
+
+function Test-DreamSkinListenerOwnerAlive {
+  param([Parameter(Mandatory = $true)][object]$Listener)
+  $ownerProcessId = [int]$Listener.OwningProcess
+  if ($ownerProcessId -le 0) { return $false }
+  return $null -ne (Get-CimInstance Win32_Process `
+    -Filter "ProcessId = $ownerProcessId" -ErrorAction SilentlyContinue)
+}
+
+function Resolve-DreamSkinStartPort {
+  param(
+    [Parameter(Mandatory = $true)][int]$Port,
+    [Parameter(Mandatory = $true)][bool]$PortExplicit
+  )
+  if (Test-DreamSkinPortAvailable -Port $Port) { return $Port }
+
+  $listeners = @(Get-DreamSkinPortListeners -Port $Port)
+  $staleListeners = @($listeners | Where-Object {
+    -not (Test-DreamSkinListenerOwnerAlive -Listener $_)
+  })
+  if ($PortExplicit -and $staleListeners.Count -lt $listeners.Count) {
+    throw "Port $Port is already occupied by an unverified listener. Choose another port."
+  }
+  if ($PortExplicit -and $staleListeners.Count -gt 0) {
+    Write-Warning "Port $Port is held by a stale listener whose owning process no longer exists; selecting another port."
+  }
+  return Select-DreamSkinPort -PreferredPort $Port
 }
 
 function Test-DreamSkinPortAvailable {
