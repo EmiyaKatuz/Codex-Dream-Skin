@@ -6315,6 +6315,32 @@ html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [cla
   border: 1px solid var(--dream-line-soft) !important;
 }
 
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="bg-token-main-surface-primary"],
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="file-diff"] {
+  background: color-mix(in oklab, var(--dream-surface) 55%, transparent) !important;
+}
+
+html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) aside:not(.app-shell-left-panel) [class*="file-diff"] > div {
+  background: transparent !important;
+}
+
+/* Side chat and generic composers: remove nested inner frames. */
+html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutFooter_"],
+html.codex-dream-skin [data-ds-part="composer"] [class*="_RichTextInput_"],
+html.codex-dream-skin [data-ds-part="composer"] [class*="rounded-2xl"] {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+html.codex-dream-skin [class~="scroll-mt-4"] {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
 /* Keep the Internet Angel wallpaper visible on task routes while preserving reading. */
 html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
   main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-task:not(.dream-home-shell),

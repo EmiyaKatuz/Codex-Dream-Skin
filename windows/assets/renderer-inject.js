@@ -776,8 +776,10 @@
   const all = (selector) => {
     try { return [...document.querySelectorAll(selector)]; } catch { return []; }
   };
-  const genericInputs = () => all('textarea, [contenteditable="true"], [role="textbox"]')
-    .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'));
+  const genericInputs = () => all('textarea, [contenteditable], [role="textbox"], [data-placeholder]')
+    .filter((node) => !node.closest?.('[role="dialog"], [aria-modal="true"]'))
+    .filter((node) => node.closest?.('[class*="ComposerLayout" i]') ||
+      node.matches?.('textarea, [contenteditable], [role="textbox"]'));
   const composerOwnerSelector =
     '[data-testid*="composer" i], [data-testid*="prompt" i], ' +
     '[class*="composer" i], [class*="prompt" i]';

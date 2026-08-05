@@ -46,6 +46,10 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
 - [complete] Built `release/CodexDreamSkin-Setup-v1.5.12.exe` and
   `release/CodexDreamSkin-QuickFix-v1.5.12.zip`; the quick-fix package contains
   a runnable `fix.ps1` plus the patched renderer/css/launcher files.
+- [complete] Follow-up: broadened generic composer input discovery, removed
+  nested inner frames inside generic/side-chat composers, and neutralized
+  native black project/diff surfaces in the right sidebar. Live CDP reports no
+  `rgb(0,0,0)`/`rgb(24,24,24)` surfaces in the right sidebar after the fix.
 
 ## Sync latest upstream and publish fork v1.5.12
 
