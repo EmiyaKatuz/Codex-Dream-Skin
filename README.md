@@ -26,6 +26,27 @@
 - macOS 提供 DMG 与菜单栏 App；Linux 提供脚本安装和发行归档。
 - 主题运行时使用本机回环 CDP，不改动官方 Codex 二进制、应用签名、`WindowsApps` 权限或 `app.asar`。
 
+## 主题展示与 Studio
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="docs/images/悟空.png" alt="社区主题「悟空（WUKONG）」在桌面模拟器里的实机效果" width="420"><br>
+      <sub>「悟空（WUKONG）」by JamesOpsLab</sub>
+    </td>
+    <td align="center">
+      <img src="docs/images/DeepSeek-鲸鱼娘.png" alt="社区主题「DeepSeek-鲸鱼娘」在桌面模拟器里的实机效果" width="420"><br>
+      <sub>「DeepSeek-鲸鱼娘」by powerdog996</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/images/studio-custom-look.png" alt="在 DreamSkin.cc 在线 Studio 里调好的一套自定义背景效果" width="900">
+  <br>
+  <sub>在线 Studio · 换一张喜欢的背景图，调好焦点与配色，就是你自己的主题</sub>
+</p>
+
 ## 安装
 
 ### Windows Release
