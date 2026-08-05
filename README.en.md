@@ -26,27 +26,6 @@ This independent fork builds on [Fei-Away/Codex-Dream-Skin](https://github.com/F
 - Provides a macOS DMG and menu-bar app plus Linux install and release scripts.
 - Uses loopback-only CDP while leaving official Codex binaries, signatures, `WindowsApps` permissions, and `app.asar` unchanged.
 
-## Theme showcase and Studio
-
-<table align="center">
-  <tr>
-    <td align="center">
-      <img src="docs/images/悟空.png" alt="Community theme 悟空（WUKONG） rendered live on desktop" width="420"><br>
-      <sub>悟空（WUKONG） by JamesOpsLab</sub>
-    </td>
-    <td align="center">
-      <img src="docs/images/DeepSeek-鲸鱼娘.png" alt="Community theme DeepSeek-鲸鱼娘 rendered live on desktop" width="420"><br>
-      <sub>DeepSeek-鲸鱼娘 by powerdog996</sub>
-    </td>
-  </tr>
-</table>
-
-<p align="center">
-  <img src="docs/images/studio-custom-look.png" alt="A custom background tuned in the DreamSkin.cc online Studio" width="900">
-  <br>
-  <sub>Online Studio · swap in a background you like, dial in the focal point and palette — now it's your theme</sub>
-</p>
-
 ## Install
 
 ### Windows Release
