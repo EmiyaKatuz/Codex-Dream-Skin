@@ -55,6 +55,9 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
   borderless, so the main thread and side chat no longer draw a second frame
   around the real message bubble; composer fallback also marks
   `ComposerLayoutRoot` directly when no input is detected.
+- [complete] Third follow-up: right-sidebar/diff theming no longer depends on
+  being inside the main surface, so project previews rendered in any non-left
+  `aside` (outside dialogs) are themed instead of black.
 
 ## Sync latest upstream and publish fork v1.5.12
 

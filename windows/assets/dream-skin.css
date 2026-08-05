@@ -6332,6 +6332,26 @@ html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [cla
   background: color-mix(in oklab, var(--dream-surface) 42%, transparent) !important;
 }
 
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) {
+  color: var(--dream-text) !important;
+  background: color-mix(in oklab, var(--dream-surface) 78%, transparent) !important;
+  border-left: 1px solid var(--dream-line-soft) !important;
+  backdrop-filter: blur(10px) saturate(1.05) !important;
+}
+
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="bg-token-main-surface-primary"],
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="file-diff"] {
+  background: color-mix(in oklab, var(--dream-surface) 55%, transparent) !important;
+}
+
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="file-diff"] div {
+  background: transparent !important;
+}
+
+html.codex-dream-skin aside:not(.app-shell-left-panel):not([role="dialog"]) [class*="file-diff"] [class*="codeBlock"] {
+  background: color-mix(in oklab, var(--dream-surface) 42%, transparent) !important;
+}
+
 /* Side chat and generic composers: remove nested inner frames. */
 html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutFooter_"],
 html.codex-dream-skin [data-ds-part="composer"] [class*="_RichTextInput_"],

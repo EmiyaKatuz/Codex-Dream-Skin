@@ -39,6 +39,7 @@ assert.ok(template.includes("hasGenericComposerNode")
   "The Windows renderer must re-run classification and mark the outermost composer, including side chat.");
 assert.ok(css.includes('html.codex-dream-skin [data-ds-part="composer"]')
   && css.includes("aside:not(.app-shell-left-panel)")
+  && css.includes("aside:not(.app-shell-left-panel):not([role=\"dialog\"])")
   && css.includes("color-mix(in oklab, var(--dream-surface) 68%, transparent)")
   && css.includes('[class*="file-diff"]')
   && css.includes('html.codex-dream-skin [class~="scroll-mt-4"][data-message-author-role]')
