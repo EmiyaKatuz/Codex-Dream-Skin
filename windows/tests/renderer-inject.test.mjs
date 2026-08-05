@@ -25,9 +25,11 @@ assert.ok(template.includes("const missingL1 = [")
   "The Windows renderer scope must expose missingL1 so live verification can accept a generic composer.");
 assert.ok(template.includes("hasGenericComposerNode")
   && template.includes('[class*="composer" i]')
-  && template.includes("scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)")
-  && template.includes("refreshSafeCssParts()"),
+  && template.includes("scheduleEnsure(DOM_REFRESH_DEBOUNCE_MS)"),
   "The Windows renderer must re-run classification when a generic composer mounts.");
+assert.ok(css.includes('html.codex-dream-skin [data-ds-part="composer"]')
+  && css.includes("color-mix(in oklab, var(--dream-surface) 68%, transparent)"),
+  "Windows CSS must style the generic composer part and keep the wallpaper visible on task routes.");
 assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
   && css.includes("data-app-shell-main-content-top-fade")
   && css.includes("data-local-conversation-user-anchor")

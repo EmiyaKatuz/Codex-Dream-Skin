@@ -14,7 +14,19 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
 - [verified] Live CDP on Codex 26.730 reports
   `data-ds-part="composer"` on `_ComposerLayoutFooter_yeer6_335`;
   `verify-dream-skin.ps1` passes with `genericInput` visible, engine version
-  `1.5.12`, revision `99d8b4da15d45d52b96c`, and no hidden-document failure.
+  `1.5.12`, revision `7fab22fba48bb00ee568`, and no hidden-document failure.
+
+## Codex 26.730 wallpaper and generic composer CSS
+
+- [diagnosed] The v1.5.12 Windows CSS only themed `.composer-surface-chrome`,
+  which Codex 26.730 no longer renders, and task-route `main` was opaque
+  `--dream-surface`, hiding the 超天酱 body wallpaper behind a purple surface.
+- [complete] Windows `dream-skin.css` now styles `[data-ds-part="composer"]`
+  with the Internet Angel input surface, and keeps task-route `main` and its
+  `::after` overlay translucent so the body wallpaper remains visible.
+- [verified] Live computed styles show the 超天酱 blob image on `body`,
+  semi-transparent task `main` gradient, and a themed generic composer;
+  `verify-dream-skin.ps1` passes with `genericInput` visible.
 
 ## Sync latest upstream and publish fork v1.5.12
 

@@ -6255,3 +6255,76 @@ html.codex-dream-skin.dream-home-bottom-open #codex-dream-skin-chrome :where(
     transform: none !important;
   }
 }
+
+/* Codex 26.730 removed .composer-surface-chrome; style the generic part. */
+html.codex-dream-skin [data-ds-part="composer"] {
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  overflow: visible !important;
+  color: var(--dream-text) !important;
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--dream-surface-raised) 86%, transparent),
+      color-mix(in oklab, var(--dream-surface-raised) 76%, var(--dream-accent) 5%)) !important;
+  border: 1px solid color-mix(in oklab, var(--dream-line-soft) 92%, var(--dream-accent) 8%) !important;
+  border-radius: 22px !important;
+  box-shadow: var(--dream-shadow) !important;
+  backdrop-filter: blur(12px) saturate(1.08) !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"]::before {
+  content: none !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"] > *,
+html.codex-dream-skin [data-ds-part="composer"] [contenteditable="true"] {
+  color: var(--dream-text) !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"]:focus-within {
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--dream-surface-raised) 94%, transparent),
+      color-mix(in oklab, var(--dream-surface-raised) 88%, var(--dream-accent) 6%)) !important;
+  border-color: color-mix(in oklab, var(--dream-accent) 72%, var(--dream-line-soft)) !important;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--dream-accent) 26%, transparent),
+    var(--dream-shadow) !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"] .placeholder,
+html.codex-dream-skin [data-ds-part="composer"] [data-placeholder] {
+  color: var(--dream-text-muted) !important;
+}
+
+/* Keep the Internet Angel wallpaper visible on task routes while preserving reading. */
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-task:not(.dream-home-shell),
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell) [role="main"].dream-task {
+  background:
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--dream-surface) 68%, transparent),
+      color-mix(in oklab, var(--dream-surface) 42%, transparent) 52%,
+      color-mix(in oklab, var(--dream-surface) 56%, transparent)) !important;
+}
+
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]).dream-task:not(.dream-home-shell)::after,
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(.dream-home-shell) .dream-task::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--dream-surface) 38%, transparent),
+      color-mix(in oklab, var(--dream-surface) 24%, transparent) 50%,
+      color-mix(in oklab, var(--dream-surface) 32%, transparent)),
+    repeating-linear-gradient(0deg,
+      color-mix(in oklab, var(--angel-cyan) 2%, transparent) 0 1px,
+      transparent 1px 4px);
+  backdrop-filter: blur(1px) saturate(.9);
+}
