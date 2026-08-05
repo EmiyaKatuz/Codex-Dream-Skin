@@ -6422,6 +6422,17 @@ html.codex-dream-skin main:is(.main-surface, [data-app-shell-main-surface], [cla
   color: var(--dream-text-muted) !important;
 }
 
+/* The source-code viewer is a shadow-DOM diffs-container with an opaque
+   native black surface. The renderer also themes its shadow internals with
+   inline styles; this host rule keeps the first frame from flashing black. */
+html.codex-dream-skin diffs-container,
+html.codex-dream-skin DIFFS-CONTAINER {
+  color: var(--dream-text) !important;
+  background-color: color-mix(in oklab, var(--dream-surface) 94%, var(--dream-accent) 5%) !important;
+  --diffs-bg: color-mix(in oklab, var(--dream-surface) 94%, var(--dream-accent) 5%) !important;
+  --diffs-fg: var(--dream-text) !important;
+}
+
 /* Side chat and generic composers: remove nested inner frames. */
 html.codex-dream-skin [data-ds-part="composer"] [class*="_ComposerLayoutFooter_"],
 html.codex-dream-skin [data-ds-part="composer"] [class*="_RichTextInput_"],

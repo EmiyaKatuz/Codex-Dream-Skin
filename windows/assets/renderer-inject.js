@@ -1,6 +1,7 @@
 ((cssText, artDataUrl, rawConfig) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
+  const DIFFS_THEME_STYLE_ID = "codex-dream-skin-diffs-theme";
   const PART_ATTR = "data-ds-part";
   const FLOATING_SIDEBAR_SELECTOR = '[data-testid="app-shell-floating-left-panel"]';
   const INTERNET_ANGEL_THEME_IDS = new Set([
@@ -879,6 +880,59 @@
   ];
   const incrementalSafePartSelector = incrementalSafePartRules
     .map(([, selector]) => selector).join(", ");
+  const themeDiffsContainers = () => {
+    for (const host of all("diffs-container")) {
+      const root = host?.shadowRoot;
+      if (!root) continue;
+      const surface = "color-mix(in oklab, var(--dream-surface) 94%, var(--dream-accent) 5%)";
+      const surfaceRaised = "color-mix(in oklab, var(--dream-surface-raised) 94%, var(--dream-accent) 6%)";
+      const fg = "var(--dream-text)";
+      const mutedFg = "color-mix(in oklab, var(--dream-text) 76%, var(--dream-accent))";
+      const setStyle = (element, property, value) => {
+        element?.style?.setProperty(property, value, "important");
+      };
+      const setAll = (selector, property, value) => {
+        for (const element of root.querySelectorAll(selector)) setStyle(element, property, value);
+      };
+      setStyle(host, "--diffs-bg", surface);
+      setStyle(host, "--diffs-fg", fg);
+      setStyle(host, "--diffs-bg-context", surfaceRaised);
+      setStyle(host, "background-color", surface);
+      setStyle(host, "color", fg);
+      setAll("[data-file]", "--diffs-bg", surface);
+      setAll("[data-file]", "--diffs-fg", fg);
+      setAll("[data-file]", "--codex-diffs-surface", surface);
+      setAll("[data-file]", "--codex-diffs-context-surface", surfaceRaised);
+      setAll("[data-file]", "--codex-diffs-header-surface", surfaceRaised);
+      setAll("[data-file]", "--codex-diffs-separator-surface", surfaceRaised);
+      setAll("[data-file]", "--codex-diffs-hover-surface", surfaceRaised);
+      setAll("[data-file]", "background-color", surface);
+      setAll(
+        "pre, code, [data-content], [data-gutter], [data-column-number], [data-gutter-buffer], [data-diffs-header], [data-file-info]",
+        "background-color",
+        surface,
+      );
+      setAll("pre, code, [data-content], [data-line]", "color", fg);
+      setAll("[data-line] span, [data-line-number-content], [data-column-number]", "color", mutedFg);
+      setAll("[data-line] span", "background-color", "transparent");
+      setAll("[data-file]", "scrollbar-color", "color-mix(in oklab, var(--angel-cyan) 52%, transparent) transparent");
+      let themeStyle = root.querySelector(`style[data-dream-skin="${DIFFS_THEME_STYLE_ID}"]`);
+      if (!themeStyle) {
+        themeStyle = document.createElement("style");
+        themeStyle.setAttribute("data-dream-skin", DIFFS_THEME_STYLE_ID);
+        root.appendChild(themeStyle);
+      }
+      if (themeStyle.dataset.dreamRevision !== STYLE_REVISION) {
+        themeStyle.textContent = [
+          "[data-code]::-webkit-scrollbar { width: 10px !important; height: 10px !important; }",
+          "[data-code]::-webkit-scrollbar-track { background: transparent !important; }",
+          "[data-code]::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--angel-cyan) 52%, transparent) !important; border-radius: 6px !important; }",
+          "::selection { background: color-mix(in oklab, var(--angel-pink) 38%, transparent) !important; }",
+        ].join("\n");
+        themeStyle.dataset.dreamRevision = STYLE_REVISION;
+      }
+    }
+  };
   const classifySafeCssParts = (records) => {
     for (const genericComposer of findGenericComposers() || []) {
       if (genericComposer.getAttribute?.(PART_ATTR) !== "composer") {
@@ -886,6 +940,7 @@
       }
       safeCssPartNodes.add(genericComposer);
     }
+    themeDiffsContainers();
     const roots = records
       .flatMap((record) => [...(record.addedNodes || [])])
       .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
@@ -934,6 +989,7 @@
     root.classList.add("codex-dream-skin");
     applyProfile(root);
     refreshSafeCssParts();
+    themeDiffsContainers();
 
     let style = document.getElementById(STYLE_ID);
     if (!style) {

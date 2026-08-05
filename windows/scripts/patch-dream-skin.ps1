@@ -30,9 +30,11 @@ function Assert-DreamSkinPatchSource {
     -not $rendererText.Contains('composerOwnerSelector') -or
     -not $rendererText.Contains("owner.closest?.('aside')") -or
     -not $rendererText.Contains('findGenericComposers') -or
+    -not $rendererText.Contains('themeDiffsContainers') -or
     -not $cssText.Contains('[data-ds-part="composer"]') -or
     -not $cssText.Contains('aside:not(.app-shell-left-panel)') -or
-    -not $cssText.Contains('_MainContentFrame_')) {
+    -not $cssText.Contains('_MainContentFrame_') -or
+    -not $cssText.Contains('diffs-container')) {
     throw 'Patch source does not contain the required Codex 26.730 runtime fixes.'
   }
 }
@@ -80,8 +82,10 @@ $alreadyPatched = (Test-Path -LiteralPath $installedCommon -PathType Leaf) -and
   (Read-DreamSkinUtf8File -Path $installedPatch).Contains('assets\renderer-inject.js') -and
   (Read-DreamSkinUtf8File -Path $installedRenderer).Contains('composerOwnerSelector') -and
   (Read-DreamSkinUtf8File -Path $installedRenderer).Contains('findGenericComposers') -and
+  (Read-DreamSkinUtf8File -Path $installedRenderer).Contains('themeDiffsContainers') -and
   (Read-DreamSkinUtf8File -Path $installedCss).Contains('aside:not(.app-shell-left-panel)') -and
-  (Read-DreamSkinUtf8File -Path $installedCss).Contains('_MainContentFrame_')
+  (Read-DreamSkinUtf8File -Path $installedCss).Contains('_MainContentFrame_') -and
+  (Read-DreamSkinUtf8File -Path $installedCss).Contains('diffs-container')
 if ($alreadyPatched) {
   Write-Host "The installed Dream Skin runtime at $($engine.Root) already contains the Codex 26.730 fixes."
   return

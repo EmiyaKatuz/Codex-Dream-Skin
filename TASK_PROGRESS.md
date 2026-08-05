@@ -71,17 +71,23 @@ Updated: 2026-08-05 CST (Asia/Shanghai)
   main content viewport. Windows CSS now paints that frame, its sticky header,
   search input and input placeholder with adaptive Dream Skin surfaces, so the
   wallpaper remains visible in both dark and light modes.
+- [complete] Seventh follow-up: the right-side source-code viewer is a
+  shadow-DOM `diffs-container` with an opaque native black surface. The
+  renderer now themes its host, file, code, gutter and line-number surfaces
+  with inline styles plus a small shadow style for scrollbars and selection,
+  so source files follow the active Dream Skin theme in dark and light modes.
 - [verified] Live CDP after hot injection: side chat composer is marked
-  `data-ds-part="composer"` and the Projects page surface is a translucent
-  theme gradient instead of `rgb(24,24,24)`; `verify-dream-skin.ps1` passes
-  with `pass: true`, and the full Windows test suite passes.
+  `data-ds-part="composer"`, the Projects page surface is a translucent theme
+  gradient instead of `rgb(24,24,24)`, and the source-code viewer background is
+  themed instead of `rgb(17,17,17)`; `verify-dream-skin.ps1` passes with
+  `pass: true`, and the full Windows test suite passes.
 - [complete] `patch-dream-skin.ps1` now requires the new renderer/CSS markers
   before reporting "already contains fixes", so an older installed engine is
   upgraded in place to this revision. Rebuilt
   `release/CodexDreamSkin-QuickFix-v1.5.12.zip`
-  (`C38EA7DBD5F4FF6C8D5D117E2E41799E0A8FB27AAAD359860FDE537D375FF8F6`) and
+  (`035076274D46911DB2FC357B3F63DDE3D45C60D289068218E302B755951E4BBF`) and
   `release/CodexDreamSkin-Setup-v1.5.12.exe`
-  (`560CE57A8D73671D5687F47FC2FF7C1DA7CEBCB0CC4A9D909CBBB1DBC9FF164A`).
+  (`0ED678B348DC15E4DC63F8531C84CEFB217F9C57BC9FC8AF856DCDE7BE00F587`).
 
 ## Sync latest upstream and publish fork v1.5.12
 
