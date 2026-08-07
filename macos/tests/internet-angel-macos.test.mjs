@@ -615,6 +615,15 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
     rect: { left: 0, top: 48, width: 220, height: 820 },
   });
   leftWorkspace.addQuery(workspaceEvidenceSelector, workspaceEvidence);
+  const workspaceToolbar = makeNode({
+    className: "contain:layout_paint",
+    rect: { left: 1240, top: 48, width: 205, height: 46 },
+  });
+  workspaceToolbar.addQuery(
+    workspaceEvidenceSelector,
+    delayedWorkspaceEvidence ? [] : workspaceEvidence,
+  );
+  workspaceToolbar.closestNodes.set("aside", workspaceAside);
 
   const makeSidebarControls = () => {
     const mode = makeNode();
@@ -806,6 +815,7 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
     ['[class*="contain:layout_paint"], [class~="bg-token-main-surface-primary"]', [
       workspaceOuter,
       workspace,
+      workspaceToolbar,
       leftWorkspace,
     ]],
     ['[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])', [
@@ -1049,6 +1059,7 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
     workspaceEvidence,
     workspaceMutationRoot,
     workspaceOuter,
+    workspaceToolbar,
   };
 }
 
@@ -1110,12 +1121,17 @@ assert.equal(component(fixture.radixSourcesAction), "environment-action");
 assert.equal(component(fixture.changesShell), "changes-shell");
 assert.equal(component(fixture.changesClipHost), "changes-clip-host");
 assert.equal(component(fixture.changesPill), "changes-pill");
-assert.equal(component(fixture.workspace), "side-workspace");
+assert.equal(
+  component(fixture.workspace),
+  "side-workspace",
+  "The full-height right workspace must win over its compact toolbar descendants.",
+);
 assert.equal(
   component(fixture.workspaceOuter),
   null,
   "Only the innermost right-docked workspace surface may be themed.",
 );
+assert.equal(component(fixture.workspaceToolbar), null);
 assert.equal(
   component(fixture.leftWorkspace),
   null,

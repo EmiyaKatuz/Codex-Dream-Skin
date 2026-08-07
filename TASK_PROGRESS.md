@@ -62,6 +62,29 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   contains the shared classifier change, three synchronized platform assets,
   the divider-drag regression and verified plan/progress updates. It has not
   been pushed; PR #24 remains draft and does not yet include this commit.
+- [follow-up diagnosed] Manual divider acceptance kept the color stable but
+  exposed a wrong target: live CDP showed the new structural path marked a
+  `205 x 46` toolbar scroller while the actual `319 x 995` workspace stayed
+  unmarked. The `aside` shortcut accidentally bypassed the existing
+  `height >= 180` guard even though the approved design only removed horizontal
+  width/position thresholds.
+- [follow-up red] A fixture matching the live compact toolbar now fails against
+  `912943d`: the full-height workspace is `null` instead of `side-workspace`.
+  The minimal correction retains the height guard for `aside` candidates so
+  narrow/full-height panels remain eligible and compact toolbar descendants do
+  not enter smallest-surface selection.
+- [follow-up green] The focused fixture, shared regression, runtime sync and
+  Windows/Linux payload checks pass after restoring the `height >= 180` guard
+  on the structural path. Live one-shot revision `222f0d16ef9fa13eac3c`
+  marks the `319 x 995` full workspace, whose computed style has the Internet
+  Angel gradient and blue left border; the `46px` toolbar and `203 x 46` tab
+  scroller are unmarked.
+- [follow-up verified] The complete macOS suite exits `0` with SwiftPM, 10
+  XCTest cases, signed switch/runtime-state integration and Doctor passing.
+  All eight portable Windows Node regressions pass, along with shared runtime
+  synchronization, Windows/Linux payload checks, Markdown verification and
+  `git diff --check`. Native Windows/Linux visual checks still require CI or
+  their target platforms.
 
 ## Codex 26.727 delayed turn-navigation theming diagnosis
 
