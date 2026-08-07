@@ -60,8 +60,8 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   marked ready.
 - [committed] Commit `912943d` (`fix: stabilize side workspace classification`)
   contains the shared classifier change, three synchronized platform assets,
-  the divider-drag regression and verified plan/progress updates. It has not
-  been pushed; PR #24 remains draft and does not yet include this commit.
+  the divider-drag regression and verified plan/progress updates. It is pushed
+  and included in Draft PR #24.
 - [follow-up diagnosed] Manual divider acceptance kept the color stable but
   exposed a wrong target: live CDP showed the new structural path marked a
   `205 x 46` toolbar scroller while the actual `319 x 995` workspace stayed
@@ -87,9 +87,8 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   their target platforms.
 - [follow-up committed] Commit `9a70b39` (`fix: keep workspace toolbar
   unmarked`) contains the retained height guard, live toolbar fixture, synced
-  platform assets and verification record. It has not been pushed; PR #24
-  remains draft and does not yet contain this or the preceding four local
-  commits.
+  platform assets and verification record. It and the preceding local
+  follow-up commits are pushed and included in Draft PR #24.
 - [visual regression reported] Manual acceptance confirmed divider dragging no
   longer changes the panel color, but the full document workspace now appears
   to have no Internet Angel background.
@@ -120,6 +119,11 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   was blocked only by Swift/Clang cache permissions; the identical command
   passed outside the managed sandbox. Native Windows/Linux visual checks remain
   CI/target-platform evidence rather than macOS inference.
+- [cascade committed and pushed] Commit `573a547` (`fix: restore side workspace
+  theme background`) contains the one-line shared CSS correction, synchronized
+  platform assets, regression assertion and this verification record. Draft PR
+  #24 includes the code commit; its title and body are updated in Chinese with
+  the delayed-mount, divider, toolbar-target and CSS-cascade root causes.
 
 ## Codex 26.727 delayed turn-navigation theming diagnosis
 
@@ -254,9 +258,10 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
 - [pull request] Branch `codex/dynamic-panel-theming-race` is pushed to the
   `Maker-Wen` fork. Draft PR #24 targets fork `main`:
   `https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/pull/24`.
-  The only later branch change is this progress-only Markdown record; required
-  checks must remain green on the final PR head. The PR remains draft pending
-  sanitized home/task screenshots and the repeated visual acceptance above.
+  Code head `573a547` is followed only by this progress-status record. Required
+  checks must pass on the final PR head. The PR remains draft pending sanitized
+  home/task screenshots, a post-fix divider drag confirmation and the repeated
+  visual acceptance above.
 - [scope] Nothing has been merged, released, or made downloadable.
 
 ## Codex 26.730 generic composer fix
