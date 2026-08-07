@@ -84,20 +84,25 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   checks pass: shared Internet Angel regression, focused macOS fixture, and
   runtime asset synchronization. Execution will use an isolated
   `codex/dynamic-panel-theming-race` branch and test-first task reviews.
-- [implemented locally] Commits `f04da7f` through `fdbe563` add the first-paint
+- [implemented locally] Commits `f04da7f` through `053d35a` add the first-paint
   turn-navigation CSS fallback, one filtered body subtree observer, a shared
   animation-frame refresh slot, timeout supersession, composition handling,
-  cleanup, three-platform synchronization, and focused regression coverage.
+  cleanup, three-platform synchronization, focused regression coverage, and
+  macOS/Windows unreleased changelog entries.
 - [reviewed] Spec, CSS, observer and final quality reviews passed. Commit
   `fdbe563` closes the last two review findings with the existing bare Git
   evidence selector and `[data-sonner-toast]`; the observer still checks only
   added/removed element roots and does not inspect mutation targets, text or
   attributes.
 - [verified automation] Shared Internet Angel regression, runtime sync check,
-  focused macOS fixture, runtime/macOS JS syntax, Windows payload, Linux
-  payload and `git diff --check` pass. The complete macOS suite also passes,
-  including SwiftPM build, 10 XCTest cases, Node/shell security regressions,
-  signed-runtime switch integration and Doctor.
+  focused macOS fixture, all-repository JavaScript syntax, macOS shell syntax,
+  macOS/Windows/Linux payload and `git diff --check` pass. The complete macOS
+  suite also passes, including SwiftPM build, 10 XCTest cases, Node/shell
+  security regressions, signed-runtime switch integration and Doctor. All 25
+  portable Windows Node tests pass outside the managed sandbox; the one-shot
+  fixture requires loopback listen permission. The nine release/runtime
+  version sources remain synchronized at `1.5.12`, and the four platform
+  copies of each shared Internet Angel JS/CSS file have matching SHA-256.
 - [verified live renderer] Codex `26.730.61639` (build `6234`), bundled Node
   `v24.14.0`, Dream Skin `1.5.12` and worktree revision
   `8f4234fc8512196dc4ec` pass the live verifier on the visible thread renderer.
@@ -121,9 +126,16 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   Environment switch iterations were not automated. The live screenshot and
   synthetic real-renderer evidence pass, but that repetitive visual loop still
   requires manual acceptance before release.
-- [scope] Local implementation and commits exist only on
-  `codex/dynamic-panel-theming-race`. Nothing has been pushed, merged, released,
-  or made downloadable.
+- [cross-platform gap] Native Windows PowerShell 5.1/7 regressions remain PR CI
+  gates. Native Windows and Linux Codex visual smoke tests were not executable
+  on the macOS host; Linux is covered by byte-identical shared assets, syntax
+  and payload checks, but these do not replace native visual acceptance.
+- [pull request] Branch `codex/dynamic-panel-theming-race` is pushed to the
+  `Maker-Wen` fork. Draft PR #24 targets fork `main`:
+  `https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/pull/24`.
+  It remains draft pending exact-head CI, sanitized home/task screenshots and
+  the repeated visual acceptance above.
+- [scope] Nothing has been merged, released, or made downloadable.
 
 ## Codex 26.730 generic composer fix
 
