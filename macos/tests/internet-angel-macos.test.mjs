@@ -527,6 +527,7 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
   const sourcesSection = makeNode();
   const sourcesHeader = makeNode({ className: "group/section-toggle", text: "Sources" });
   const sourcesAction = makeNode({ text: "View all" });
+  const environmentGitSelector = '[data-testid*="git"], [aria-label*="git" i], [class*="git-"]';
   const gitSignal = makeNode();
   environmentHeader.parentElement = environmentSection;
   sourcesHeader.parentElement = sourcesSection;
@@ -534,7 +535,26 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
   environment
     .addQuery('button[class~="group/section-toggle"]', [environmentHeader, sourcesHeader])
     .addQuery("button", [environmentHeader, environmentAction, sourcesHeader, sourcesAction])
-    .addQuery('[data-testid*="git"], [aria-label*="git" i], [class*="git-"]', gitSignal);
+    .addQuery(environmentGitSelector, gitSignal);
+
+  const structuralEnvironment = makeNode({
+    className: "relative rounded-3xl bg-token-dropdown-background",
+    rect: { left: 1378, top: 58, width: 300, height: 199 },
+    text: "Tools",
+  });
+  const structuralEnvironmentSection = makeNode();
+  const structuralEnvironmentHeader = makeNode({ className: "group/section-toggle", text: "Tools" });
+  const structuralEnvironmentAction = makeNode({ text: "Open" });
+  const structuralGitHost = makeNode();
+  const structuralGitSignal = makeNode({ matches: ['[data-testid*="git"]'] });
+  structuralGitSignal.setAttribute("data-testid", "git-status");
+  structuralEnvironmentHeader.parentElement = structuralEnvironmentSection;
+  structuralGitSignal.parentElement = structuralGitHost;
+  structuralEnvironment.closestNodes.set('[class~="absolute"][class~="z-40"]', environmentHost);
+  structuralEnvironment
+    .addQuery('button[class~="group/section-toggle"]', structuralEnvironmentHeader)
+    .addQuery("button", [structuralEnvironmentHeader, structuralEnvironmentAction])
+    .addQuery(environmentGitSelector, structuralGitSignal);
 
   const radixEnvironmentHost = makeNode();
   radixEnvironmentHost.setAttribute("data-radix-popper-content-wrapper", "");
@@ -561,7 +581,7 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
       radixSourcesHeader,
       radixSourcesAction,
     ])
-    .addQuery('[data-testid*="git"], [aria-label*="git" i], [class*="git-"]', radixGitSignal);
+    .addQuery(environmentGitSelector, radixGitSignal);
 
   const lookalike = makeNode({
     className: "rounded-3xl bg-token-dropdown-background",
@@ -751,6 +771,16 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
     changesClipHost,
   );
 
+  const systemToast = makeNode({
+    matches: ["[data-sonner-toast]"],
+    text: "Rate limit reset opportunity",
+  });
+  const systemToastAction = makeNode({ text: "View reset" });
+  systemToast.setAttribute("data-sonner-toast", "");
+  systemToast.addQuery("button", systemToastAction);
+  systemToast.isConnected = false;
+  systemToastAction.isConnected = false;
+
   const shell = makeNode();
   const body = makeNode();
   sidebar.parentElement = body;
@@ -759,6 +789,7 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
     [`${shellSelector} [class~="sticky"][class~="bottom-0"]`, [sticky]],
     ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [
       environment,
+      structuralEnvironment,
       radixEnvironment,
       lookalike,
     ]],
@@ -783,6 +814,7 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
     ['button[class*="navigation-row"]', [turnRow]],
     [settingsNavSelector, [settingsNav]],
     [settingsContentSelector, [unrelatedSettingsScroll, settingsScroll]],
+    ["body div, body section, body aside", []],
   ]);
   const document = {
     body,
@@ -909,6 +941,11 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
     summaryPanel,
     streamingActivity,
     streamingActivityHeader,
+    structuralEnvironment,
+    structuralGitHost,
+    structuralGitSignal,
+    systemToast,
+    systemToastAction,
     palette,
     paletteHeading,
     paletteItem,
@@ -942,6 +979,18 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
         removedNodes: [],
       });
     },
+    mountSystemToast() {
+      systemToast.isConnected = true;
+      systemToastAction.isConnected = true;
+      systemToast.parentElement = body;
+      documentQueries.set("body div, body section, body aside", [systemToast]);
+      notifyBodyMutation({
+        type: "childList",
+        target: body,
+        addedNodes: [systemToast],
+        removedNodes: [],
+      });
+    },
     removeFixedSidebar() {
       documentQueries.set(sidebarSelector, []);
       for (const node of fixedSidebarNodes) node.isConnected = false;
@@ -970,6 +1019,17 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
         target: workspace,
         addedNodes: [],
         removedNodes: [workspaceMutationRoot],
+      });
+    },
+    removeStructuralEnvironmentGitEvidence() {
+      structuralEnvironment.addQuery(environmentGitSelector, []);
+      structuralGitSignal.isConnected = false;
+      structuralGitSignal.parentElement = null;
+      notifyBodyMutation({
+        type: "childList",
+        target: structuralGitHost,
+        addedNodes: [],
+        removedNodes: [structuralGitSignal],
       });
     },
     window,
@@ -1160,6 +1220,34 @@ delayedWorkspace.removeWorkspaceEvidence();
 assert.equal(component(delayedWorkspace.workspace), "side-workspace", "Removal reconciles on the frame boundary.");
 delayedWorkspace.flushFrames();
 assert.equal(component(delayedWorkspace.workspace), null);
+
+const dynamicSystemToast = activateOverlayFixture();
+const dynamicSystemToastMetrics = dynamicSystemToast.window[registryKey].metrics;
+assert.equal(component(dynamicSystemToast.systemToast), null);
+dynamicSystemToast.mountSystemToast();
+assert.equal(
+  dynamicSystemToast.frames.size,
+  1,
+  "A Sonner toast mount must schedule without a click or navigation fallback.",
+);
+assert.equal(component(dynamicSystemToast.systemToast), null);
+dynamicSystemToast.flushFrames();
+assert.equal(component(dynamicSystemToast.systemToast), "system-toast");
+assert.equal(dynamicSystemToastMetrics.classifyRuns, 2);
+
+const detachedEnvironmentEvidence = activateOverlayFixture();
+assert.equal(component(detachedEnvironmentEvidence.structuralEnvironment), "environment");
+assert.equal(component(detachedEnvironmentEvidence.structuralGitHost), null);
+assert.equal(component(detachedEnvironmentEvidence.structuralGitSignal), null);
+detachedEnvironmentEvidence.removeStructuralEnvironmentGitEvidence();
+assert.equal(
+  detachedEnvironmentEvidence.frames.size,
+  1,
+  "Detached Git evidence must schedule without consulting the mutation target.",
+);
+assert.equal(component(detachedEnvironmentEvidence.structuralEnvironment), "environment");
+detachedEnvironmentEvidence.flushFrames();
+assert.equal(component(detachedEnvironmentEvidence.structuralEnvironment), null);
 
 const coalescedMutations = activateOverlayFixture({ delayedWorkspaceEvidence: true });
 const coalescedMetrics = coalescedMutations.window[registryKey].metrics;
