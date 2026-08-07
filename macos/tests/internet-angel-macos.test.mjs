@@ -413,6 +413,22 @@ for (const [windowsComponent, macosComponent] of windowsToMacosParity) {
   );
 }
 
+function splitSelectorList(selector) {
+  const selectors = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < selector.length; index += 1) {
+    if (selector[index] === "(") depth += 1;
+    else if (selector[index] === ")") depth -= 1;
+    else if (selector[index] === "," && depth === 0) {
+      selectors.push(selector.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  selectors.push(selector.slice(start).trim());
+  return selectors;
+}
+
 class FixtureNode {
   constructor({ className = "", matches = [], rect = {}, text = "" } = {}) {
     this.attributes = new Map();
@@ -453,9 +469,10 @@ class FixtureNode {
     return matches;
   }
   matches(selector) {
-    if (selector.includes("[data-angel-component]")
+    const alternatives = splitSelectorList(selector);
+    if (alternatives.includes("[data-angel-component]")
       && this.attributes.has("data-angel-component")) return true;
-    return [...this.matchSelectors].some((candidate) => selector.includes(candidate));
+    return alternatives.some((alternative) => this.matchSelectors.has(alternative));
   }
   closest(selector) { return this.closestNodes.get(selector) || null; }
   getBoundingClientRect() {
@@ -599,7 +616,7 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
   sidebar.addQuery("button, [role=button]", sidebarControls.buttons);
   const floatingSidebar = makeNode({
     className: "flex h-full min-h-0 flex-col overflow-hidden",
-    matches: ['[data-testid="app-shell-floating-left-panel"]'],
+    matches: [':is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"])'],
   });
   floatingSidebar.setAttribute("data-testid", "app-shell-floating-left-panel");
   const floatingSidebarControls = makeSidebarControls();
@@ -1159,6 +1176,8 @@ assert.equal(coalescedMetrics.classifyRuns, 2, "A coalesced frame runs classify 
 
 const ignoredMutations = activateOverlayFixture({ delayedWorkspaceEvidence: true });
 const ignoredMetrics = ignoredMutations.window[registryKey].metrics;
+const ordinaryMessageChild = new FixtureNode({ className: "whitespace-pre-wrap" });
+ordinaryMessageChild.parentElement = ignoredMutations.assistantMessage;
 ignoredMutations.bodyMutation({
   type: "childList",
   target: ignoredMutations.context.document.body,
@@ -1167,8 +1186,8 @@ ignoredMutations.bodyMutation({
 });
 ignoredMutations.bodyMutation({
   type: "childList",
-  target: ignoredMutations.context.document.body,
-  addedNodes: [new FixtureNode({ className: "whitespace-pre-wrap" })],
+  target: ignoredMutations.assistantMessage,
+  addedNodes: [ordinaryMessageChild],
   removedNodes: [],
 });
 assert.equal(ignoredMutations.frames.size, 0, "Text and ordinary message content must not request a frame.");
@@ -1188,10 +1207,7 @@ frameBeatsTimer.flushTimers();
 assert.equal(frameBeatsTimerMetrics.classifyRuns, 2, "The cancelled timer must not classify again.");
 
 const composing = activateOverlayFixture({ delayedWorkspaceEvidence: true });
-composing.listeners.get("click")({ target: { closest: () => ({}) } });
-assert.equal(composing.timers.size, 1);
 composing.listeners.get("compositionstart")();
-assert.equal(composing.timers.size, 0, "compositionstart must cancel a pending timer.");
 composing.mountWorkspaceEvidence();
 assert.equal(composing.frames.size, 0, "Mutations during composition must not schedule a frame.");
 assert.equal(composing.timers.size, 0);
@@ -1199,6 +1215,21 @@ composing.listeners.get("compositionend")();
 assert.equal(composing.frames.size, 1, "compositionend must schedule exactly one frame.");
 composing.flushFrames();
 assert.equal(component(composing.workspace), "side-workspace");
+
+const timerOnlyComposition = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const timerOnlyCompositionMetrics = timerOnlyComposition.window[registryKey].metrics;
+timerOnlyComposition.listeners.get("click")({ target: { closest: () => ({}) } });
+assert.equal(timerOnlyComposition.timers.size, 1);
+assert.equal([...timerOnlyComposition.timers.values()][0].delay, 120);
+timerOnlyComposition.listeners.get("compositionstart")();
+assert.equal(timerOnlyComposition.timers.size, 0, "compositionstart must cancel a pending timer.");
+assert.equal(timerOnlyComposition.frames.size, 0);
+timerOnlyComposition.listeners.get("compositionend")();
+assert.equal(timerOnlyComposition.frames.size, 1, "The cancelled timer must defer exactly one frame.");
+assert.equal(timerOnlyCompositionMetrics.classifyRuns, 1);
+timerOnlyComposition.flushFrames();
+assert.equal(timerOnlyCompositionMetrics.classifyRuns, 2);
+assert.equal(timerOnlyComposition.frames.size, 0);
 
 const compositionCancelsFrame = activateOverlayFixture({ delayedWorkspaceEvidence: true });
 compositionCancelsFrame.mountWorkspaceEvidence();

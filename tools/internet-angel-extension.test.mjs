@@ -73,6 +73,16 @@ assert.match(sourceScript, /subtree\s*:\s*true/);
 assert.doesNotMatch(sourceScript, /new MutationObserver\(scheduleRefresh\)/);
 assert.doesNotMatch(sourceScript, /characterData\s*:\s*true/);
 assert.doesNotMatch(sourceScript, /attributes\s*:\s*true/);
+assert.match(
+  sourceScript,
+  /const hasMutationHint = \(node\) => node\?\.nodeType === 1\s*&& \(node\.matches\?\.\(mutationHintSelector\) \|\| node\.querySelector\?\.\(mutationHintSelector\)\);/,
+  "mutation filtering must inspect only element roots and their descendants",
+);
+assert.match(
+  sourceScript,
+  /const refreshAfterMutation = \(records\) => \{[\s\S]*?record\.addedNodes[\s\S]*?record\.removedNodes[\s\S]*?if \(!changedNodes\.some\(hasMutationHint\)\) continue;\s*scheduleFrameRefresh\(\);/,
+  "the observer must schedule a frame only for relevant added or removed nodes",
+);
 
 for (const platform of ["windows", "macos", "linux"]) {
   assert.match(
