@@ -31,6 +31,33 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   Angel regression, focused macOS fixture and runtime synchronization check all
   pass on `e630196`. The linked worktree remains isolated on
   `codex/dynamic-panel-theming-race`.
+- [red verified] The focused macOS fixture now models a right `aside`, a
+  left-sidebar workspace lookalike, a `220px` narrow state and a wide state
+  whose left edge is before the viewport's `45%` threshold. With production
+  code unchanged, the narrow-state assertion failed as expected: actual
+  component `null`, expected `side-workspace`.
+- [green verified] `classifyWorkspaces()` now accepts evidence-bearing
+  candidates inside an `aside` that is not the existing left-sidebar selector;
+  older non-`aside` DOM retains the original geometry fallback. The focused
+  macOS fixture, shared Internet Angel regression and runtime synchronization
+  check pass after syncing the shared JavaScript to all three platform assets.
+- [cross-platform verified] Windows and Linux payload checks pass with the
+  synchronized shared extension. All eight portable Windows Node regressions
+  pass; the one-shot fixture required running outside the managed sandbox for
+  loopback listen permission. Windows PowerShell and native Windows/Linux
+  visual acceptance remain CI/platform checks and are not inferred from shared
+  asset identity.
+- [macOS suite verified] The complete macOS suite exits `0`, including SwiftPM
+  build, 10 XCTest cases, shared/runtime/security regressions, signed theme
+  switching, runtime-state integration and Doctor. The initial Doctor failure
+  was traced to the live renderer still carrying the prior revision; a normal
+  one-shot worktree injection installed revision `fbee674dfd4d73814556`, after
+  which Doctor and the full suite passed without changing app files or signing.
+- [manual acceptance gap] The automated fixture proves narrow/wide divider
+  geometry and the live renderer has the worktree payload, but Computer Use
+  cannot control the Codex app in this environment. A visible divider drag in
+  the real document panel remains user/manual acceptance before the draft PR is
+  marked ready.
 
 ## Codex 26.727 delayed turn-navigation theming diagnosis
 

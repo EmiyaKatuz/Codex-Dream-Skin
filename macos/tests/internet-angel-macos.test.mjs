@@ -607,6 +607,14 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
   workspace.addQuery(workspaceEvidenceSelector, delayedWorkspaceEvidence ? [] : workspaceEvidence);
   workspaceMutationRoot.isConnected = !delayedWorkspaceEvidence;
   workspace.parentElement = workspaceOuter;
+  const workspaceAside = makeNode({ matches: ["aside"] });
+  workspaceOuter.closestNodes.set("aside", workspaceAside);
+  workspace.closestNodes.set("aside", workspaceAside);
+  const leftWorkspace = makeNode({
+    className: "bg-token-main-surface-primary",
+    rect: { left: 0, top: 48, width: 220, height: 820 },
+  });
+  leftWorkspace.addQuery(workspaceEvidenceSelector, workspaceEvidence);
 
   const makeSidebarControls = () => {
     const mode = makeNode();
@@ -632,6 +640,8 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
   const settingsNavSelector = 'nav:has([data-settings-panel-slug])';
   const settingsContentSelector = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
   const sidebar = makeNode({ className: "app-shell-left-panel" });
+  leftWorkspace.closestNodes.set("aside", sidebar);
+  leftWorkspace.closestNodes.set(sidebarSelector, sidebar);
   const sidebarControls = makeSidebarControls();
   sidebar.addQuery("button, [role=button]", sidebarControls.buttons);
   const floatingSidebar = makeNode({
@@ -796,6 +806,7 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
     ['[class*="contain:layout_paint"], [class~="bg-token-main-surface-primary"]', [
       workspaceOuter,
       workspace,
+      leftWorkspace,
     ]],
     ['[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])', [
       environment,
@@ -921,6 +932,7 @@ function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer =
     goalStep,
     goalMode,
     listeners,
+    leftWorkspace,
     lookalike,
     nodes,
     observers,
@@ -1103,6 +1115,11 @@ assert.equal(
   component(fixture.workspaceOuter),
   null,
   "Only the innermost right-docked workspace surface may be themed.",
+);
+assert.equal(
+  component(fixture.leftWorkspace),
+  null,
+  "A workspace-like surface inside the left sidebar must stay unmarked.",
 );
 assert.equal(component(fixture.sidebar), "sidebar");
 assert.equal(component(fixture.sidebarMode), "sidebar-control");
@@ -1328,6 +1345,29 @@ compositionCancelsFrame.listeners.get("compositionend")();
 assert.equal(compositionCancelsFrame.frames.size, 1);
 compositionCancelsFrame.flushFrames();
 assert.equal(component(compositionCancelsFrame.workspace), "side-workspace");
+
+const dividerDrag = activateOverlayFixture();
+dividerDrag.workspaceOuter.rect = { left: 1438, top: 28, width: 240, height: 840 };
+dividerDrag.workspace.rect = { left: 1458, top: 48, width: 220, height: 820 };
+dividerDrag.listeners.get("resize")();
+dividerDrag.flushFrames();
+assert.equal(
+  component(dividerDrag.workspace),
+  "side-workspace",
+  "A right-aside workspace must stay themed below the legacy 260px threshold.",
+);
+
+dividerDrag.workspaceOuter.rect = { left: 678, top: 28, width: 1000, height: 840 };
+dividerDrag.workspace.rect = { left: 698, top: 48, width: 980, height: 820 };
+dividerDrag.listeners.get("resize")();
+dividerDrag.flushFrames();
+assert.equal(
+  component(dividerDrag.workspace),
+  "side-workspace",
+  "A right-aside workspace must stay themed left of the legacy 45% threshold.",
+);
+assert.equal(component(dividerDrag.workspaceOuter), null);
+assert.equal(component(dividerDrag.leftWorkspace), null);
 
 const resized = activateOverlayFixture();
 const resizedMetrics = resized.window[registryKey].metrics;

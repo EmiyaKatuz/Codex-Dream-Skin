@@ -366,6 +366,9 @@
     const candidates = [...document.querySelectorAll(selectors.workspace)].filter((candidate) => {
       const evidence = candidate.querySelector?.(selectors.workspaceEvidence);
       if (!evidence) return false;
+      const inRightAside = candidate.closest?.("aside")
+        && !candidate.closest?.(selectors.sidebar);
+      if (inRightAside) return true;
       const box = candidate.getBoundingClientRect?.() || { left: 0, width: 0, height: 0, right: 0 };
       const right = Number.isFinite(box.right) ? box.right : box.left + box.width;
       return box.width >= 260 && box.height >= 180
