@@ -48,6 +48,18 @@ const overlayScript = await fs.readFile(overlayScriptPath, "utf8");
 const baseCss = await fs.readFile(path.join(macosRoot, "assets", "dream-skin.css"), "utf8");
 const windowsRenderer = await fs.readFile(path.join(windowsRoot, "assets", "renderer-inject.js"), "utf8");
 const windowsCss = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
+
+function assertCssRule(selectorFragments, declarationPattern, message) {
+  const rules = overlayCss.match(/[^{}]+\{[^{}]*\}/g) || [];
+  assert.ok(rules.some((rule) => {
+    const boundary = rule.indexOf("{");
+    const selector = rule.slice(0, boundary);
+    const declarations = rule.slice(boundary + 1);
+    return selectorFragments.every((fragment) => selector.includes(fragment))
+      && declarationPattern.test(declarations);
+  }), message);
+}
+
 for (const assetName of ["internet-angel-extension.css", "internet-angel-extension.js"]) {
   assert.match(injectorSource, new RegExp(assetName.replaceAll(".", "\\.")));
   assert.match(appDelegateSource, new RegExp(assetName.replaceAll(".", "\\.")));
@@ -159,6 +171,26 @@ for (const selector of [
 }
 assert.match(overlayCss, /@media \(max-width:/);
 assert.match(overlayCss, /prefers-reduced-motion: reduce/);
+assertCssRule(
+  ['button[class*="navigation-row"]'],
+  /background:\s*transparent\s*!important/,
+  "Turn rows must have a first-paint structural fallback.",
+);
+assertCssRule(
+  ['button[class*="navigation-row"]', '[class*="_marker_"]'],
+  /width:\s*10px\s*!important/,
+  "Turn markers must use the themed idle width before JavaScript classification.",
+);
+assertCssRule(
+  ['button[class*="navigation-row"]', '[class*="_marker_"]', ":hover", ":focus-visible"],
+  /width:\s*28px\s*!important/,
+  "Structural turn markers must retain the themed hover and focus state.",
+);
+assertCssRule(
+  ['button[class*="navigation-row"]', '[class*="_marker_"].opacity-60', '[aria-current="true"]'],
+  /width:\s*18px\s*!important/,
+  "Structural turn markers must retain both existing active-state signals.",
+);
 assert.ok(
   overlayCss.includes('div[class~="border-token-border"][class*="bg-token-dropdown-background"]'),
   "The Add palette needs a theme-gated structural first-frame fallback before lifecycle classification.",
