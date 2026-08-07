@@ -84,7 +84,46 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   checks pass: shared Internet Angel regression, focused macOS fixture, and
   runtime asset synchronization. Execution will use an isolated
   `codex/dynamic-panel-theming-race` branch and test-first task reviews.
-- [scope] Diagnosis only. No runtime fix, commit, push, PR, or Release was made.
+- [implemented locally] Commits `f04da7f` through `fdbe563` add the first-paint
+  turn-navigation CSS fallback, one filtered body subtree observer, a shared
+  animation-frame refresh slot, timeout supersession, composition handling,
+  cleanup, three-platform synchronization, and focused regression coverage.
+- [reviewed] Spec, CSS, observer and final quality reviews passed. Commit
+  `fdbe563` closes the last two review findings with the existing bare Git
+  evidence selector and `[data-sonner-toast]`; the observer still checks only
+  added/removed element roots and does not inspect mutation targets, text or
+  attributes.
+- [verified automation] Shared Internet Angel regression, runtime sync check,
+  focused macOS fixture, runtime/macOS JS syntax, Windows payload, Linux
+  payload and `git diff --check` pass. The complete macOS suite also passes,
+  including SwiftPM build, 10 XCTest cases, Node/shell security regressions,
+  signed-runtime switch integration and Doctor.
+- [verified live renderer] Codex `26.730.61639` (build `6234`), bundled Node
+  `v24.14.0`, Dream Skin `1.5.12` and worktree revision
+  `8f4234fc8512196dc4ec` pass the live verifier on the visible thread renderer.
+  The verifier reports no horizontal overflow and valid composer, sidebar,
+  payload and viewport coverage; a local screenshot was captured outside the
+  repository.
+- [verified live observer fixture] On the real Chromium renderer, adding and
+  removing an ordinary hidden child under an already marked message caused
+  zero classifications. A hidden Sonner fixture classified as `system-toast`
+  in one frame, and a hidden Environment fixture classified as `environment`;
+  removing its last detached Git evidence caused one reconciliation frame and
+  cleared the mark. All temporary nodes were removed in a `finally` cleanup.
+- [performance evidence] Three resize requests in one frame produced exactly
+  one classification. The initial live pass was `40ms`; five warm passes were
+  `22.1`, `25.8`, `29.5`, `24.6` and `18.5ms` with 149 marked nodes, including
+  121 sidebar rows. This is higher than the older 3.5-3.7ms sample, but the
+  classifier itself is unchanged and the current DOM is substantially larger;
+  ordinary message mutations did not schedule it.
+- [manual acceptance gap] The current automation environment refuses Computer
+  Use control of the Codex app, so the planned 20 visible task/workspace/
+  Environment switch iterations were not automated. The live screenshot and
+  synthetic real-renderer evidence pass, but that repetitive visual loop still
+  requires manual acceptance before release.
+- [scope] Local implementation and commits exist only on
+  `codex/dynamic-panel-theming-race`. Nothing has been pushed, merged, released,
+  or made downloadable.
 
 ## Codex 26.730 generic composer fix
 
