@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让 Internet Angel 导航行在首次绘制时立即获得主题外观，并在其他动态表面的结构证据挂载后最迟于下一动画帧完成分类，同时不因普通流式文本重新分类。
+**Goal:** 让 Internet Angel 导航行在首次绘制时立即获得主题外观，在其他动态表面的结构证据挂载后最迟于下一动画帧完成分类，并让右侧工作区在分隔条拖动后保持主题标记，同时不因普通流式文本重新分类。
 
-**Architecture:** 保持 `runtime/internet-angel-extension.js` 和 `.css` 为仅有的可编辑共享源。只为稳定的对话导航 DOM 增加结构 CSS 选择器；将多个浅层观察器替换为一个带过滤器的 `document.body` 子树观察器；相关 mutation、窗口缩放和输入法组合结束共用一个合并的动画帧刷新，同时保留 120 ms 交互兜底。
+**Architecture:** 保持 `runtime/internet-angel-extension.js` 和 `.css` 为仅有的可编辑共享源。只为稳定的对话导航 DOM 增加结构 CSS 选择器；将多个浅层观察器替换为一个带过滤器的 `document.body` 子树观察器；相关 mutation、窗口缩放和输入法组合结束共用一个合并的动画帧刷新，同时保留 120 ms 交互兜底。右侧工作区优先使用非左栏 `aside` 的稳定结构归属，旧版非 `aside` DOM 继续使用现有几何条件。
 
 **Tech Stack:** 浏览器 DOM API、限定作用域的 CSS、Node.js `vm` fixture、仓库运行时资源同步、macOS shell/Swift 回归、Windows 和 Linux payload 检查。
 
@@ -768,3 +768,140 @@
   ```
 
   此命令不要暂存 `docs/macos-dynamic-panel-theming-race.md`，因为它早于本计划，仍是未跟踪的用户/诊断文件。
+
+### 任务 6：稳定分隔条拖动后的右侧工作区分类
+
+**文件：**
+- 修改：`macos/tests/internet-angel-macos.test.mjs:593-609`
+- 修改：`macos/tests/internet-angel-macos.test.mjs:784-818`
+- 修改：`macos/tests/internet-angel-macos.test.mjs:1080-1110`
+- 修改：`runtime/internet-angel-extension.js:365-379`
+- 生成：`macos/assets/internet-angel-extension.js`
+- 生成：`windows/assets/internet-angel-extension.js`
+- 生成：`linux/assets/internet-angel-extension.js`
+- 修改：`TASK_PROGRESS.md`
+
+- [ ] **步骤 1：让 fixture 表达右侧 `aside` 归属和左栏排除**
+
+  在现有 workspace fixture 中增加一个右侧 `aside` 宿主，并让外层、内层工作区都能通过 `closest("aside")` 找到它：
+
+  ```js
+  const workspaceAside = makeNode({ matches: ["aside"] });
+  workspaceOuter.closestNodes.set("aside", workspaceAside);
+  workspace.closestNodes.set("aside", workspaceAside);
+  ```
+
+  再增加一个带 `workspaceEvidence`、宽度小于 `260px` 的左栏伪候选。创建 `sidebar` 后，将它同时登记为该候选的 `aside` 和 `selectors.sidebar` 最近祖先：
+
+  ```js
+  const leftWorkspace = makeNode({
+    className: "bg-token-main-surface-primary",
+    rect: { left: 0, top: 48, width: 220, height: 820 },
+  });
+  leftWorkspace.addQuery(workspaceEvidenceSelector, workspaceEvidence);
+
+  leftWorkspace.closestNodes.set("aside", sidebar);
+  leftWorkspace.closestNodes.set(sidebarSelector, sidebar);
+  ```
+
+  将 `leftWorkspace` 加入 workspace 的 `documentQueries` 候选并从 fixture 返回。现有初始断言旁增加：
+
+  ```js
+  assert.equal(
+    component(fixture.leftWorkspace),
+    null,
+    "A workspace-like surface inside the left sidebar must stay unmarked.",
+  );
+  ```
+
+- [ ] **步骤 2：增加分隔条拖窄、拖宽的回归并确认 RED**
+
+  在现有 resize 合并测试前增加一个独立 fixture。每次改变外层和内层矩形后，通过现有 resize 监听器执行一次完整重新分类：
+
+  ```js
+  const dividerDrag = activateOverlayFixture();
+  dividerDrag.workspaceOuter.rect = { left: 1438, top: 28, width: 240, height: 840 };
+  dividerDrag.workspace.rect = { left: 1458, top: 48, width: 220, height: 820 };
+  dividerDrag.listeners.get("resize")();
+  dividerDrag.flushFrames();
+  assert.equal(
+    component(dividerDrag.workspace),
+    "side-workspace",
+    "A right-aside workspace must stay themed below the legacy 260px threshold.",
+  );
+
+  dividerDrag.workspaceOuter.rect = { left: 678, top: 28, width: 1000, height: 840 };
+  dividerDrag.workspace.rect = { left: 698, top: 48, width: 980, height: 820 };
+  dividerDrag.listeners.get("resize")();
+  dividerDrag.flushFrames();
+  assert.equal(
+    component(dividerDrag.workspace),
+    "side-workspace",
+    "A right-aside workspace must stay themed left of the legacy 45% threshold.",
+  );
+  assert.equal(component(dividerDrag.workspaceOuter), null);
+  assert.equal(component(dividerDrag.leftWorkspace), null);
+  ```
+
+  运行：
+
+  ```bash
+  node macos/tests/internet-angel-macos.test.mjs
+  ```
+
+  预期：第一个新增拖窄断言失败，实际值为 `null`。这证明测试命中旧的 `260px` 几何条件，而不是测试搭建错误。
+
+- [ ] **步骤 3：为右侧 `aside` 增加最小结构路径**
+
+  在 `classifyWorkspaces()` 保留 `workspaceEvidence` 必要条件。证据存在后，先接受位于 `aside` 且不属于 `selectors.sidebar` 的候选；其他候选继续执行原有几何条件：
+
+  ```js
+  const inRightAside = candidate.closest?.("aside")
+    && !candidate.closest?.(selectors.sidebar);
+  if (inRightAside) return true;
+  ```
+
+  候选排序和 `mark(candidates[0], "side-workspace")` 保持不变，因此嵌套候选仍只标记面积最小的有效表面。不增加新 helper、配置或 CSS。
+
+- [ ] **步骤 4：同步三平台副本并确认 GREEN**
+
+  运行：
+
+  ```bash
+  node tools/sync-runtime-assets.mjs
+  node macos/tests/internet-angel-macos.test.mjs
+  node tools/internet-angel-extension.test.mjs
+  node tools/sync-runtime-assets.mjs --check
+  ```
+
+  预期：两个测试输出各自现有的 `PASS:` 行；同步检查静默以 `0` 退出。窄、宽、左栏排除和最小表面断言全部通过。
+
+- [ ] **步骤 5：运行跨平台 payload 和完整 macOS 回归**
+
+  运行：
+
+  ```bash
+  node windows/scripts/injector.mjs --check-payload
+  node linux/scripts/injector.mjs --check-payload
+  ./macos/tests/run-tests.sh
+  git diff --check
+  ```
+
+  预期：payload 检查和完整 macOS 回归均以 `0` 退出；没有空白错误。Windows/Linux 原生视觉验收仍由 CI 或对应平台完成，不把共享副本一致误述为原生验证。
+
+- [ ] **步骤 6：提交共享修复并记录验证状态**
+
+  在 `TASK_PROGRESS.md` 记录 RED、GREEN、同步、payload、完整回归和实机拖动缺口。然后只提交本任务涉及的共享源、三个生成副本、测试、计划和进度记录：
+
+  ```bash
+  git add runtime/internet-angel-extension.js \
+    macos/assets/internet-angel-extension.js \
+    windows/assets/internet-angel-extension.js \
+    linux/assets/internet-angel-extension.js \
+    macos/tests/internet-angel-macos.test.mjs \
+    docs/superpowers/plans/2026-08-06-dynamic-panel-theming-race.md \
+    TASK_PROGRESS.md
+  git commit -m "fix: stabilize side workspace classification"
+  ```
+
+  不修改或暂存右侧内部黑色子层、快捷键搜索带、`diffs-container` Shadow DOM 以及用户的未跟踪诊断报告。

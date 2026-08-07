@@ -22,6 +22,15 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   in the existing design. No production code has been changed for this
   follow-up. After user review, update the implementation plan and proceed with
   a failing fixture before changing the shared classifier.
+- [plan updated] User approved the written design and requested implementation.
+  The existing implementation plan now has a focused TDD task for a right
+  non-left-sidebar `aside`, legacy geometry fallback, smallest-surface
+  selection, left-sidebar exclusion, three-platform synchronization and
+  cross-platform payload verification.
+- [baseline verified] Before the divider-drag follow-up, the shared Internet
+  Angel regression, focused macOS fixture and runtime synchronization check all
+  pass on `e630196`. The linked worktree remains isolated on
+  `codex/dynamic-panel-theming-race`.
 
 ## Codex 26.727 delayed turn-navigation theming diagnosis
 
