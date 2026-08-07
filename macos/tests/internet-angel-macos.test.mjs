@@ -48,6 +48,18 @@ const overlayScript = await fs.readFile(overlayScriptPath, "utf8");
 const baseCss = await fs.readFile(path.join(macosRoot, "assets", "dream-skin.css"), "utf8");
 const windowsRenderer = await fs.readFile(path.join(windowsRoot, "assets", "renderer-inject.js"), "utf8");
 const windowsCss = await fs.readFile(path.join(windowsRoot, "assets", "dream-skin.css"), "utf8");
+
+function assertCssRule(selectorFragments, declarationPattern, message) {
+  const rules = overlayCss.match(/[^{}]+\{[^{}]*\}/g) || [];
+  assert.ok(rules.some((rule) => {
+    const boundary = rule.indexOf("{");
+    const selector = rule.slice(0, boundary);
+    const declarations = rule.slice(boundary + 1);
+    return selectorFragments.every((fragment) => selector.includes(fragment))
+      && declarationPattern.test(declarations);
+  }), message);
+}
+
 for (const assetName of ["internet-angel-extension.css", "internet-angel-extension.js"]) {
   assert.match(injectorSource, new RegExp(assetName.replaceAll(".", "\\.")));
   assert.match(appDelegateSource, new RegExp(assetName.replaceAll(".", "\\.")));
@@ -159,6 +171,38 @@ for (const selector of [
 }
 assert.match(overlayCss, /@media \(max-width:/);
 assert.match(overlayCss, /prefers-reduced-motion: reduce/);
+assertCssRule(
+  ['button[class*="navigation-row"]'],
+  /background:\s*transparent\s*!important/,
+  "Turn rows must have a first-paint structural fallback.",
+);
+assertCssRule(
+  ['button[class*="navigation-row"]', '[class*="_marker_"]'],
+  /width:\s*10px\s*!important/,
+  "Turn markers must use the themed idle width before JavaScript classification.",
+);
+assertCssRule(
+  ['button[class*="navigation-row"]', '[class*="_marker_"]', ":hover", ":focus-visible"],
+  /width:\s*28px\s*!important/,
+  "Structural turn markers must retain the themed hover and focus state.",
+);
+assertCssRule(
+  ['button[class*="navigation-row"]', '[class*="_marker_"].opacity-60', '[aria-current="true"]'],
+  /width:\s*18px\s*!important/,
+  "Structural turn markers must retain both existing active-state signals.",
+);
+const structuralTurnActiveIndex = overlayCss.indexOf(
+  'button[class*="navigation-row"] [class*="_marker_"].opacity-60',
+);
+const structuralTurnHoverIndex = overlayCss.indexOf(
+  '):is(:hover, :focus-visible) :is(',
+);
+assert.notEqual(structuralTurnActiveIndex, -1, "The structural turn active rule must remain present.");
+assert.notEqual(structuralTurnHoverIndex, -1, "The structural turn hover rule must remain present.");
+assert.ok(
+  structuralTurnActiveIndex < structuralTurnHoverIndex,
+  "Turn marker hover styling must follow active styling so hover retains priority.",
+);
 assert.ok(
   overlayCss.includes('div[class~="border-token-border"][class*="bg-token-dropdown-background"]'),
   "The Add palette needs a theme-gated structural first-frame fallback before lifecycle classification.",
@@ -286,6 +330,11 @@ const sideWorkspaceRule = overlayCss.match(
   /\[data-angel-component=["']side-workspace["']\]\s*\{([^}]*)\}/,
 )?.[1] || "";
 assert.notEqual(sideWorkspaceRule, "", "The side workspace paint rule must remain present.");
+assertCssRule(
+  ['html:root', '[data-angel-component="side-workspace"]'],
+  /background:\s*[\s\S]*!important/,
+  "Explicit workspace paint must outrank the base token-surface transparency rule.",
+);
 assert.doesNotMatch(
   sideWorkspaceRule,
   /position\s*:/,
@@ -310,7 +359,7 @@ assert.ok(
   "The Environment/Sources portal must fit narrow macOS windows.",
 );
 assert.doesNotMatch(overlayScript, /classList\.(?:add|remove|toggle)/);
-assert.doesNotMatch(overlayScript, /subtree\s*:\s*true/);
+assert.match(overlayScript, /subtree\s*:\s*true/);
 
 const windowsToMacosParity = [
   ["composer-palette", "composer-palette"],
@@ -369,12 +418,31 @@ for (const [windowsComponent, macosComponent] of windowsToMacosParity) {
   );
 }
 
+function splitSelectorList(selector) {
+  const selectors = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < selector.length; index += 1) {
+    if (selector[index] === "(") depth += 1;
+    else if (selector[index] === ")") depth -= 1;
+    else if (selector[index] === "," && depth === 0) {
+      selectors.push(selector.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  selectors.push(selector.slice(start).trim());
+  return selectors;
+}
+
 class FixtureNode {
-  constructor({ className = "", rect = {}, text = "" } = {}) {
+  constructor({ className = "", matches = [], rect = {}, text = "" } = {}) {
     this.attributes = new Map();
     this.className = className;
     this.isConnected = true;
+    this.matchSelectors = new Set(matches);
+    this.nodeType = 1;
     this.parentElement = null;
+    this.queryChildren = new Set();
     this.queries = new Map();
     this.closestNodes = new Map();
     this.rect = { left: 0, top: 0, width: 0, height: 0, ...rect };
@@ -385,6 +453,7 @@ class FixtureNode {
     const values = Array.isArray(nodes) ? nodes : [nodes];
     this.queries.set(selector, values);
     for (const node of values) {
+      this.queryChildren.add(node);
       if (!node.parentElement) node.parentElement = this;
     }
     return this;
@@ -394,7 +463,22 @@ class FixtureNode {
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   removeAttribute(name) { this.attributes.delete(name); }
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
-  querySelectorAll(selector) { return this.queries.get(selector) || []; }
+  querySelectorAll(selector) {
+    if (this.queries.has(selector)) return this.queries.get(selector);
+    const matches = [];
+    const visit = (node) => {
+      if (node.matches(selector)) matches.push(node);
+      for (const child of node.queryChildren) visit(child);
+    };
+    for (const child of this.queryChildren) visit(child);
+    return matches;
+  }
+  matches(selector) {
+    const alternatives = splitSelectorList(selector);
+    if (alternatives.includes("[data-angel-component]")
+      && this.attributes.has("data-angel-component")) return true;
+    return alternatives.some((alternative) => this.matchSelectors.has(alternative));
+  }
   closest(selector) { return this.closestNodes.get(selector) || null; }
   getBoundingClientRect() {
     return {
@@ -405,7 +489,7 @@ class FixtureNode {
   }
 }
 
-function makeOverlayFixture({ modernComposer = false } = {}) {
+function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer = false } = {}) {
   const nodes = [];
   const makeNode = (options) => {
     const node = new FixtureNode(options);
@@ -448,6 +532,7 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
   const sourcesSection = makeNode();
   const sourcesHeader = makeNode({ className: "group/section-toggle", text: "Sources" });
   const sourcesAction = makeNode({ text: "View all" });
+  const environmentGitSelector = '[data-testid*="git"], [aria-label*="git" i], [class*="git-"]';
   const gitSignal = makeNode();
   environmentHeader.parentElement = environmentSection;
   sourcesHeader.parentElement = sourcesSection;
@@ -455,7 +540,26 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
   environment
     .addQuery('button[class~="group/section-toggle"]', [environmentHeader, sourcesHeader])
     .addQuery("button", [environmentHeader, environmentAction, sourcesHeader, sourcesAction])
-    .addQuery('[data-testid*="git"], [aria-label*="git" i], [class*="git-"]', gitSignal);
+    .addQuery(environmentGitSelector, gitSignal);
+
+  const structuralEnvironment = makeNode({
+    className: "relative rounded-3xl bg-token-dropdown-background",
+    rect: { left: 1378, top: 58, width: 300, height: 199 },
+    text: "Tools",
+  });
+  const structuralEnvironmentSection = makeNode();
+  const structuralEnvironmentHeader = makeNode({ className: "group/section-toggle", text: "Tools" });
+  const structuralEnvironmentAction = makeNode({ text: "Open" });
+  const structuralGitHost = makeNode();
+  const structuralGitSignal = makeNode({ matches: ['[data-testid*="git"]'] });
+  structuralGitSignal.setAttribute("data-testid", "git-status");
+  structuralEnvironmentHeader.parentElement = structuralEnvironmentSection;
+  structuralGitSignal.parentElement = structuralGitHost;
+  structuralEnvironment.closestNodes.set('[class~="absolute"][class~="z-40"]', environmentHost);
+  structuralEnvironment
+    .addQuery('button[class~="group/section-toggle"]', structuralEnvironmentHeader)
+    .addQuery("button", [structuralEnvironmentHeader, structuralEnvironmentAction])
+    .addQuery(environmentGitSelector, structuralGitSignal);
 
   const radixEnvironmentHost = makeNode();
   radixEnvironmentHost.setAttribute("data-radix-popper-content-wrapper", "");
@@ -482,7 +586,7 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
       radixSourcesHeader,
       radixSourcesAction,
     ])
-    .addQuery('[data-testid*="git"], [aria-label*="git" i], [class*="git-"]', radixGitSignal);
+    .addQuery(environmentGitSelector, radixGitSignal);
 
   const lookalike = makeNode({
     className: "rounded-3xl bg-token-dropdown-background",
@@ -499,16 +603,32 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     className: "contain:layout_paint bg-token-main-surface-primary",
     rect: { left: 1240, top: 48, width: 438, height: 820 },
   });
-  const workspaceEvidence = makeNode();
-  workspaceOuter.addQuery(
-    '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container',
-    workspaceEvidence,
-  );
-  workspace.addQuery(
-    '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container',
-    workspaceEvidence,
-  );
+  const workspaceEvidence = makeNode({ matches: ['[role="tablist"]'] });
+  const workspaceMutationRoot = makeNode();
+  workspaceEvidence.setAttribute("role", "tablist");
+  const workspaceEvidenceSelector = '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container';
+  workspaceMutationRoot.addQuery(workspaceEvidenceSelector, workspaceEvidence);
+  workspaceOuter.addQuery(workspaceEvidenceSelector, delayedWorkspaceEvidence ? [] : workspaceEvidence);
+  workspace.addQuery(workspaceEvidenceSelector, delayedWorkspaceEvidence ? [] : workspaceEvidence);
+  workspaceMutationRoot.isConnected = !delayedWorkspaceEvidence;
   workspace.parentElement = workspaceOuter;
+  const workspaceAside = makeNode({ matches: ["aside"] });
+  workspaceOuter.closestNodes.set("aside", workspaceAside);
+  workspace.closestNodes.set("aside", workspaceAside);
+  const leftWorkspace = makeNode({
+    className: "bg-token-main-surface-primary",
+    rect: { left: 0, top: 48, width: 220, height: 820 },
+  });
+  leftWorkspace.addQuery(workspaceEvidenceSelector, workspaceEvidence);
+  const workspaceToolbar = makeNode({
+    className: "contain:layout_paint",
+    rect: { left: 1240, top: 48, width: 205, height: 46 },
+  });
+  workspaceToolbar.addQuery(
+    workspaceEvidenceSelector,
+    delayedWorkspaceEvidence ? [] : workspaceEvidence,
+  );
+  workspaceToolbar.closestNodes.set("aside", workspaceAside);
 
   const makeSidebarControls = () => {
     const mode = makeNode();
@@ -534,9 +654,14 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
   const settingsNavSelector = 'nav:has([data-settings-panel-slug])';
   const settingsContentSelector = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
   const sidebar = makeNode({ className: "app-shell-left-panel" });
+  leftWorkspace.closestNodes.set("aside", sidebar);
+  leftWorkspace.closestNodes.set(sidebarSelector, sidebar);
   const sidebarControls = makeSidebarControls();
   sidebar.addQuery("button, [role=button]", sidebarControls.buttons);
-  const floatingSidebar = makeNode({ className: "flex h-full min-h-0 flex-col overflow-hidden" });
+  const floatingSidebar = makeNode({
+    className: "flex h-full min-h-0 flex-col overflow-hidden",
+    matches: [':is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"])'],
+  });
   floatingSidebar.setAttribute("data-testid", "app-shell-floating-left-panel");
   const floatingSidebarControls = makeSidebarControls();
   floatingSidebar.addQuery("button, [role=button]", floatingSidebarControls.buttons);
@@ -670,6 +795,16 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     changesClipHost,
   );
 
+  const systemToast = makeNode({
+    matches: ["[data-sonner-toast]"],
+    text: "Rate limit reset opportunity",
+  });
+  const systemToastAction = makeNode({ text: "View reset" });
+  systemToast.setAttribute("data-sonner-toast", "");
+  systemToast.addQuery("button", systemToastAction);
+  systemToast.isConnected = false;
+  systemToastAction.isConnected = false;
+
   const shell = makeNode();
   const body = makeNode();
   sidebar.parentElement = body;
@@ -678,12 +813,15 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     [`${shellSelector} [class~="sticky"][class~="bottom-0"]`, [sticky]],
     ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [
       environment,
+      structuralEnvironment,
       radixEnvironment,
       lookalike,
     ]],
     ['[class*="contain:layout_paint"], [class~="bg-token-main-surface-primary"]', [
       workspaceOuter,
       workspace,
+      workspaceToolbar,
+      leftWorkspace,
     ]],
     ['[class*="rounded-3xl"][class*="bg-token-dropdown-background"]:has(> [class*="overflow-y-auto"] [class*="group/summary-panel-item"])', [
       environment,
@@ -702,6 +840,7 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     ['button[class*="navigation-row"]', [turnRow]],
     [settingsNavSelector, [settingsNav]],
     [settingsContentSelector, [unrelatedSettingsScroll, settingsScroll]],
+    ["body div, body section, body aside", []],
   ]);
   const document = {
     body,
@@ -729,10 +868,14 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
   };
   let nextTimer = 0;
   const timers = new Map();
+  let nextFrame = 0;
+  const frames = new Map();
   const window = {
     navigation,
     addEventListener(type, callback) { listeners.set(type, callback); },
+    cancelAnimationFrame(id) { frames.delete(id); },
     removeEventListener(type) { listeners.delete(type); },
+    requestAnimationFrame(callback) { const id = ++nextFrame; frames.set(id, callback); return id; },
   };
   const notifyBodyMutation = (record) => {
     const observer = observers.find((candidate) => candidate.target === body);
@@ -747,7 +890,7 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
       innerWidth: 1678,
       MutationObserver: MockMutationObserver,
       window,
-      setTimeout(callback) { const id = ++nextTimer; timers.set(id, callback); return id; },
+      setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay }); return id; },
       clearTimeout(id) { timers.delete(id); },
     },
     contextStrip,
@@ -765,6 +908,7 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     floatingSidebarRow: floatingSidebarControls.row,
     floatingSidebarSearch: floatingSidebarControls.search,
     floatingSidebarSection: floatingSidebarControls.section,
+    frames,
     radixEnvironment,
     radixEnvironmentAction,
     radixEnvironmentHeader,
@@ -803,6 +947,7 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     goalStep,
     goalMode,
     listeners,
+    leftWorkspace,
     lookalike,
     nodes,
     observers,
@@ -823,6 +968,11 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     summaryPanel,
     streamingActivity,
     streamingActivityHeader,
+    structuralEnvironment,
+    structuralGitHost,
+    structuralGitSignal,
+    systemToast,
+    systemToastAction,
     palette,
     paletteHeading,
     paletteItem,
@@ -833,10 +983,40 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     userBubble,
     userMessageAction,
     timers,
+    bodyMutation(record) { notifyBodyMutation(record); },
+    flushFrames() {
+      const queued = [...frames.values()];
+      frames.clear();
+      for (const callback of queued) callback();
+    },
     flushTimers() {
       const queued = [...timers.values()];
       timers.clear();
-      for (const callback of queued) callback();
+      for (const { callback } of queued) callback();
+    },
+    mountWorkspaceEvidence() {
+      workspaceMutationRoot.isConnected = true;
+      workspaceEvidence.isConnected = true;
+      workspaceOuter.addQuery(workspaceEvidenceSelector, workspaceEvidence);
+      workspace.addQuery(workspaceEvidenceSelector, workspaceEvidence);
+      notifyBodyMutation({
+        type: "childList",
+        target: workspace,
+        addedNodes: [workspaceMutationRoot],
+        removedNodes: [],
+      });
+    },
+    mountSystemToast() {
+      systemToast.isConnected = true;
+      systemToastAction.isConnected = true;
+      systemToast.parentElement = body;
+      documentQueries.set("body div, body section, body aside", [systemToast]);
+      notifyBodyMutation({
+        type: "childList",
+        target: body,
+        addedNodes: [systemToast],
+        removedNodes: [],
+      });
     },
     removeFixedSidebar() {
       documentQueries.set(sidebarSelector, []);
@@ -856,17 +1036,53 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
       documentQueries.set(sidebarSelector, [sidebar, floatingSidebar]);
       notifyBodyMutation({ type: "childList", target: body, addedNodes: [floatingSidebar], removedNodes: [] });
     },
+    removeWorkspaceEvidence() {
+      workspaceOuter.addQuery(workspaceEvidenceSelector, []);
+      workspace.addQuery(workspaceEvidenceSelector, []);
+      workspaceMutationRoot.isConnected = false;
+      workspaceEvidence.isConnected = false;
+      notifyBodyMutation({
+        type: "childList",
+        target: workspace,
+        addedNodes: [],
+        removedNodes: [workspaceMutationRoot],
+      });
+    },
+    removeStructuralEnvironmentGitEvidence() {
+      structuralEnvironment.addQuery(environmentGitSelector, []);
+      structuralGitSignal.isConnected = false;
+      structuralGitSignal.parentElement = null;
+      notifyBodyMutation({
+        type: "childList",
+        target: structuralGitHost,
+        addedNodes: [],
+        removedNodes: [structuralGitSignal],
+      });
+    },
     window,
     workspace,
+    workspaceEvidence,
+    workspaceMutationRoot,
     workspaceOuter,
+    workspaceToolbar,
   };
 }
 
-const fixture = makeOverlayFixture();
-vm.runInNewContext(
-  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "true"),
-  fixture.context,
+const registryKey = "__CODEX_INTERNET_ANGEL_EXTENSION_STATE__";
+const activateOverlayFixture = (options) => {
+  const activeFixture = makeOverlayFixture(options);
+  vm.runInNewContext(
+    overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "true"),
+    activeFixture.context,
+  );
+  return activeFixture;
+};
+const cleanupOverlayFixture = (activeFixture) => vm.runInNewContext(
+  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "false"),
+  activeFixture.context,
 );
+
+const fixture = activateOverlayFixture();
 const component = (node) => node.getAttribute("data-angel-component");
 assert.equal(component(fixture.composer), "composer");
 assert.equal(component(fixture.composerFooter), "composer-footer");
@@ -910,11 +1126,21 @@ assert.equal(component(fixture.radixSourcesAction), "environment-action");
 assert.equal(component(fixture.changesShell), "changes-shell");
 assert.equal(component(fixture.changesClipHost), "changes-clip-host");
 assert.equal(component(fixture.changesPill), "changes-pill");
-assert.equal(component(fixture.workspace), "side-workspace");
+assert.equal(
+  component(fixture.workspace),
+  "side-workspace",
+  "The full-height right workspace must win over its compact toolbar descendants.",
+);
 assert.equal(
   component(fixture.workspaceOuter),
   null,
   "Only the innermost right-docked workspace surface may be themed.",
+);
+assert.equal(component(fixture.workspaceToolbar), null);
+assert.equal(
+  component(fixture.leftWorkspace),
+  null,
+  "A workspace-like surface inside the left sidebar must stay unmarked.",
 );
 assert.equal(component(fixture.sidebar), "sidebar");
 assert.equal(component(fixture.sidebarMode), "sidebar-control");
@@ -934,7 +1160,7 @@ assert.equal(
   "Settings classification must stay inside the layout that owns the settings navigation.",
 );
 fixture.removeFixedSidebar();
-fixture.flushTimers();
+fixture.flushFrames();
 assert.equal(
   fixture.context.document.querySelector('aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]'),
   null,
@@ -942,7 +1168,7 @@ assert.equal(
 );
 assert.equal(component(fixture.floatingSidebar), null, "The floating sidebar must not exist before its portal mounts.");
 fixture.mountFloatingSidebar();
-fixture.flushTimers();
+fixture.flushFrames();
 assert.equal(component(fixture.floatingSidebar), "sidebar");
 assert.equal(component(fixture.floatingSidebarMode), "sidebar-control");
 assert.equal(component(fixture.floatingSidebarSearch), "sidebar-control");
@@ -959,7 +1185,7 @@ vm.runInNewContext(
   overlappingSidebars.context,
 );
 overlappingSidebars.mountFloatingSidebarAlongsideFixed();
-overlappingSidebars.flushTimers();
+overlappingSidebars.flushFrames();
 assert.equal(component(overlappingSidebars.floatingSidebar), "sidebar",
   "The floating portal must be classified when the fixed sidebar still exists during transition");
 assert.equal(component(fixture.palette), "composer-palette");
@@ -995,9 +1221,13 @@ assert.equal(component(fixture.editedFilePath), "edited-card-file-path");
 assert.equal(component(fixture.editedFileStats), "edited-card-file-stats");
 assert.equal(component(fixture.editedMore), "edited-card-more");
 assert.equal(component(fixture.lookalike), null, "An incomplete Environment lookalike must stay native.");
-assert.ok(fixture.observers.length >= 2, "Shell and portal mount points must be observed.");
-assert.ok(fixture.observers.every((observer) => observer.options?.childList === true));
-assert.ok(fixture.observers.every((observer) => observer.options?.subtree !== true));
+assert.equal(fixture.observers.length, 1, "Only the body mutation observer may be installed.");
+assert.equal(fixture.observers[0].target, fixture.context.document.body);
+assert.equal(
+  JSON.stringify(fixture.observers[0].options),
+  JSON.stringify({ childList: true, subtree: true }),
+  "The body observer options must be exactly childList + subtree.",
+);
 assert.equal(typeof fixture.listeners.get("click"), "function");
 assert.equal(typeof fixture.listeners.get("resize"), "function");
 assert.notEqual(
@@ -1009,10 +1239,194 @@ assert.equal(fixture.listeners.has("transitionend"), false);
 assert.equal(typeof fixture.listeners.get("compositionstart"), "function");
 assert.equal(typeof fixture.listeners.get("compositionend"), "function");
 
-vm.runInNewContext(
-  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "false"),
-  fixture.context,
+const delayedWorkspace = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const delayedMetrics = delayedWorkspace.window[registryKey].metrics;
+assert.equal(component(delayedWorkspace.workspace), null, "An empty workspace shell must stay unmarked.");
+delayedWorkspace.listeners.get("click")({ target: { closest: () => ({}) } });
+assert.equal(delayedWorkspace.timers.size, 1, "A click keeps the 120 ms navigation fallback.");
+assert.equal([...delayedWorkspace.timers.values()][0].delay, 120);
+delayedWorkspace.flushTimers();
+assert.equal(component(delayedWorkspace.workspace), null);
+assert.equal(delayedMetrics.classifyRuns, 2);
+delayedWorkspace.mountWorkspaceEvidence();
+assert.equal(component(delayedWorkspace.workspace), null, "Deep evidence must wait for the next frame.");
+assert.equal(delayedWorkspace.frames.size, 1);
+delayedWorkspace.flushFrames();
+assert.equal(component(delayedWorkspace.workspace), "side-workspace");
+assert.equal(delayedMetrics.classifyRuns, 3);
+delayedWorkspace.removeWorkspaceEvidence();
+assert.equal(component(delayedWorkspace.workspace), "side-workspace", "Removal reconciles on the frame boundary.");
+delayedWorkspace.flushFrames();
+assert.equal(component(delayedWorkspace.workspace), null);
+
+const dynamicSystemToast = activateOverlayFixture();
+const dynamicSystemToastMetrics = dynamicSystemToast.window[registryKey].metrics;
+assert.equal(component(dynamicSystemToast.systemToast), null);
+dynamicSystemToast.mountSystemToast();
+assert.equal(
+  dynamicSystemToast.frames.size,
+  1,
+  "A Sonner toast mount must schedule without a click or navigation fallback.",
 );
+assert.equal(component(dynamicSystemToast.systemToast), null);
+dynamicSystemToast.flushFrames();
+assert.equal(component(dynamicSystemToast.systemToast), "system-toast");
+assert.equal(dynamicSystemToastMetrics.classifyRuns, 2);
+
+const detachedEnvironmentEvidence = activateOverlayFixture();
+assert.equal(component(detachedEnvironmentEvidence.structuralEnvironment), "environment");
+assert.equal(component(detachedEnvironmentEvidence.structuralGitHost), null);
+assert.equal(component(detachedEnvironmentEvidence.structuralGitSignal), null);
+detachedEnvironmentEvidence.removeStructuralEnvironmentGitEvidence();
+assert.equal(
+  detachedEnvironmentEvidence.frames.size,
+  1,
+  "Detached Git evidence must schedule without consulting the mutation target.",
+);
+assert.equal(component(detachedEnvironmentEvidence.structuralEnvironment), "environment");
+detachedEnvironmentEvidence.flushFrames();
+assert.equal(component(detachedEnvironmentEvidence.structuralEnvironment), null);
+
+const coalescedMutations = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const coalescedMetrics = coalescedMutations.window[registryKey].metrics;
+coalescedMutations.mountWorkspaceEvidence();
+coalescedMutations.bodyMutation({
+  type: "childList",
+  target: coalescedMutations.workspace,
+  addedNodes: [coalescedMutations.workspaceEvidence],
+  removedNodes: [],
+});
+assert.equal(coalescedMutations.frames.size, 1, "Relevant mutations in one frame must coalesce.");
+coalescedMutations.flushFrames();
+assert.equal(coalescedMetrics.classifyRuns, 2, "A coalesced frame runs classify exactly once.");
+
+const ignoredMutations = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const ignoredMetrics = ignoredMutations.window[registryKey].metrics;
+const ordinaryMessageChild = new FixtureNode({ className: "whitespace-pre-wrap" });
+ordinaryMessageChild.parentElement = ignoredMutations.assistantMessage;
+ignoredMutations.bodyMutation({
+  type: "childList",
+  target: ignoredMutations.context.document.body,
+  addedNodes: [{ nodeType: 3, textContent: "streaming text" }],
+  removedNodes: [],
+});
+ignoredMutations.bodyMutation({
+  type: "childList",
+  target: ignoredMutations.assistantMessage,
+  addedNodes: [ordinaryMessageChild],
+  removedNodes: [],
+});
+assert.equal(ignoredMutations.frames.size, 0, "Text and ordinary message content must not request a frame.");
+assert.equal(ignoredMutations.timers.size, 0, "Text and ordinary message content must not request a timer.");
+assert.equal(ignoredMetrics.classifyRuns, 1);
+
+const frameBeatsTimer = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const frameBeatsTimerMetrics = frameBeatsTimer.window[registryKey].metrics;
+frameBeatsTimer.listeners.get("click")({ target: { closest: () => ({}) } });
+assert.equal(frameBeatsTimer.timers.size, 1);
+frameBeatsTimer.mountWorkspaceEvidence();
+assert.equal(frameBeatsTimer.timers.size, 0, "A relevant frame refresh must cancel the slower click timer.");
+assert.equal(frameBeatsTimer.frames.size, 1);
+frameBeatsTimer.flushFrames();
+assert.equal(frameBeatsTimerMetrics.classifyRuns, 2);
+frameBeatsTimer.flushTimers();
+assert.equal(frameBeatsTimerMetrics.classifyRuns, 2, "The cancelled timer must not classify again.");
+
+const composing = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+composing.listeners.get("compositionstart")();
+composing.mountWorkspaceEvidence();
+assert.equal(composing.frames.size, 0, "Mutations during composition must not schedule a frame.");
+assert.equal(composing.timers.size, 0);
+composing.listeners.get("compositionend")();
+assert.equal(composing.frames.size, 1, "compositionend must schedule exactly one frame.");
+composing.flushFrames();
+assert.equal(component(composing.workspace), "side-workspace");
+
+const timerOnlyComposition = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const timerOnlyCompositionMetrics = timerOnlyComposition.window[registryKey].metrics;
+timerOnlyComposition.listeners.get("click")({ target: { closest: () => ({}) } });
+assert.equal(timerOnlyComposition.timers.size, 1);
+assert.equal([...timerOnlyComposition.timers.values()][0].delay, 120);
+timerOnlyComposition.listeners.get("compositionstart")();
+assert.equal(timerOnlyComposition.timers.size, 0, "compositionstart must cancel a pending timer.");
+assert.equal(timerOnlyComposition.frames.size, 0);
+timerOnlyComposition.listeners.get("compositionend")();
+assert.equal(timerOnlyComposition.frames.size, 1, "The cancelled timer must defer exactly one frame.");
+assert.equal(timerOnlyCompositionMetrics.classifyRuns, 1);
+timerOnlyComposition.flushFrames();
+assert.equal(timerOnlyCompositionMetrics.classifyRuns, 2);
+assert.equal(timerOnlyComposition.frames.size, 0);
+
+const compositionCancelsFrame = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+compositionCancelsFrame.mountWorkspaceEvidence();
+assert.equal(compositionCancelsFrame.frames.size, 1);
+compositionCancelsFrame.listeners.get("compositionstart")();
+assert.equal(compositionCancelsFrame.frames.size, 0, "compositionstart must cancel a pending frame.");
+compositionCancelsFrame.listeners.get("compositionend")();
+assert.equal(compositionCancelsFrame.frames.size, 1);
+compositionCancelsFrame.flushFrames();
+assert.equal(component(compositionCancelsFrame.workspace), "side-workspace");
+
+const dividerDrag = activateOverlayFixture();
+dividerDrag.workspaceOuter.rect = { left: 1438, top: 28, width: 240, height: 840 };
+dividerDrag.workspace.rect = { left: 1458, top: 48, width: 220, height: 820 };
+dividerDrag.listeners.get("resize")();
+dividerDrag.flushFrames();
+assert.equal(
+  component(dividerDrag.workspace),
+  "side-workspace",
+  "A right-aside workspace must stay themed below the legacy 260px threshold.",
+);
+
+dividerDrag.workspaceOuter.rect = { left: 678, top: 28, width: 1000, height: 840 };
+dividerDrag.workspace.rect = { left: 698, top: 48, width: 980, height: 820 };
+dividerDrag.listeners.get("resize")();
+dividerDrag.flushFrames();
+assert.equal(
+  component(dividerDrag.workspace),
+  "side-workspace",
+  "A right-aside workspace must stay themed left of the legacy 45% threshold.",
+);
+assert.equal(component(dividerDrag.workspaceOuter), null);
+assert.equal(component(dividerDrag.leftWorkspace), null);
+
+const resized = activateOverlayFixture();
+const resizedMetrics = resized.window[registryKey].metrics;
+resized.listeners.get("resize")();
+resized.listeners.get("resize")();
+assert.equal(resized.frames.size, 1, "Resize refreshes must share the frame scheduler.");
+resized.flushFrames();
+assert.equal(resizedMetrics.classifyRuns, 2);
+
+const assertCleaned = (activeFixture) => {
+  assert.equal(activeFixture.frames.size, 0);
+  assert.equal(activeFixture.timers.size, 0);
+  assert.ok(activeFixture.observers.every((observer) => observer.disconnected === true));
+  assert.equal(activeFixture.listeners.size, 0);
+  assert.equal(
+    activeFixture.nodes.some((node) => node.isConnected && component(node)),
+    false,
+    "Theme switch cleanup must remove marks from the connected document.",
+  );
+};
+const cleanupFrame = activateOverlayFixture();
+cleanupFrame.bodyMutation({
+  type: "childList",
+  target: cleanupFrame.workspace,
+  addedNodes: [cleanupFrame.workspaceEvidence],
+  removedNodes: [],
+});
+assert.equal(cleanupFrame.frames.size, 1);
+cleanupOverlayFixture(cleanupFrame);
+assertCleaned(cleanupFrame);
+
+const cleanupTimer = activateOverlayFixture();
+cleanupTimer.listeners.get("click")({ target: { closest: () => ({}) } });
+assert.equal(cleanupTimer.timers.size, 1);
+cleanupOverlayFixture(cleanupTimer);
+assertCleaned(cleanupTimer);
+
+cleanupOverlayFixture(fixture);
 assert.equal(
   fixture.nodes.some((node) => node.isConnected && component(node)),
   false,
