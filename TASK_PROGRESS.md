@@ -126,15 +126,18 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   Environment switch iterations were not automated. The live screenshot and
   synthetic real-renderer evidence pass, but that repetitive visual loop still
   requires manual acceptance before release.
-- [cross-platform gap] Native Windows PowerShell 5.1/7 regressions remain PR CI
-  gates. Native Windows and Linux Codex visual smoke tests were not executable
-  on the macOS host; Linux is covered by byte-identical shared assets, syntax
-  and payload checks, but these do not replace native visual acceptance.
+- [cross-platform verification] GitHub CI run `31158231639` passes Static
+  checks, macOS repository regressions, Windows PowerShell 5.1 and PowerShell 7
+  on implementation head `154969b`. Native Windows and Linux Codex visual smoke
+  tests were not executable on the macOS host; Linux is covered by
+  byte-identical shared assets, syntax and payload checks, but these do not
+  replace native visual acceptance.
 - [pull request] Branch `codex/dynamic-panel-theming-race` is pushed to the
   `Maker-Wen` fork. Draft PR #24 targets fork `main`:
   `https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/pull/24`.
-  It remains draft pending exact-head CI, sanitized home/task screenshots and
-  the repeated visual acceptance above.
+  The only later branch change is this progress-only Markdown record; required
+  checks must remain green on the final PR head. The PR remains draft pending
+  sanitized home/task screenshots and the repeated visual acceptance above.
 - [scope] Nothing has been merged, released, or made downloadable.
 
 ## Codex 26.730 generic composer fix
