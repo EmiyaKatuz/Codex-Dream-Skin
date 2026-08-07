@@ -1,6 +1,90 @@
 # Task Progress
 
-Updated: 2026-08-05 CST (Asia/Shanghai)
+Updated: 2026-08-07 CST (Asia/Shanghai)
+
+## Codex 26.727 delayed turn-navigation theming diagnosis
+
+- [diagnosed] The native conversation turn rail can remain gray after a route
+  switch because the Internet Angel classifier runs once 120 ms after the
+  click, while Codex may mount the rail later inside an unobserved descendant.
+  The classifier observes only direct child-list changes, has no periodic
+  fallback, and the 26.727 performance change removed the `transitionend`
+  refresh that previously supplied a later pass.
+- [verified] Live read-only CDP on Codex `26.727.51351` showed the later pass had
+  classified all 22 visible turn rows and markers; the latest classification
+  took about 3.7 ms. Shared runtime sync and the focused Internet Angel/macOS
+  tests pass, but those tests explicitly forbid subtree observation and do not
+  cover a turn rail mounted after the click refresh.
+- [recommended] Remove the turn rail's timing dependency with a structural CSS
+  fallback, then cover other delayed Internet Angel surfaces with a shared
+  descendant observer that filters added/removed element roots before asking
+  for classification. Do not restore global `transitionend`, run an unfiltered
+  full-document subtree scan, or replace 120 ms with another guessed delay.
+- [accepted criteria] Once the required DOM evidence exists, theming completes
+  by the next animation frame. Unrelated streaming output must not trigger a
+  full Internet Angel classification.
+- [designing] Compare the filtered descendant observer plus structural CSS
+  fallback against bounded retries and per-host observers before implementation.
+- [design decision] User selected the structural CSS fallback plus filtered
+  descendant-observer approach. Bounded retries and per-host observer lists are
+  rejected for this fix.
+- [scope decision] Apply the fix in the canonical shared runtime and synchronize
+  macOS, Windows, and Linux; all three currently ship the same 120 ms Internet
+  Angel refresh path.
+- [design approved] Use one filtered `childList + subtree` observer, element-only
+  structural hints, and a coalesced animation-frame refresh that supersedes a
+  pending 120 ms interaction refresh. Keep full classification atomic and retain
+  composition suppression and complete cleanup.
+- [spec] Approved design written to
+  `docs/superpowers/specs/2026-08-06-macos-dynamic-panel-theming-race-design.md`.
+  Self-review clarified composition timing, element-only evidence scope, and
+  per-platform payload verification. User reviewed and approved the committed
+  spec after the exact latest-version baseline reproduced the race.
+- [committed] Design-only commit `ff0299d` (`docs: design dynamic theming race
+  fix`) contains only the approved specification. No runtime implementation has
+  started.
+- [paused for baseline] User will update Codex Desktop before implementation.
+  After restart, record the exact Codex and Dream Skin versions, reproduce the
+  turn rail and dynamic-panel delay, and compare classifier timing/counts. Do
+  not change the runtime unless the race remains reproducible on that baseline.
+- [verified latest Codex baseline] Codex Desktop is now `26.730.61639` (build
+  `6234`, Chromium `151.0.7922.71`). The selector doctor passes on the visible
+  thread renderer. Four reversible task switches reproduced unthemed turn-nav
+  gaps of about 286 ms, at least roughly 2 seconds (still unmarked when the
+  180-frame observation window ended), 43 ms, and 94 ms after the rows became
+  present. Each test returned to the original task; the final 29 rows were all
+  marked.
+- [previous 1.5.9 baseline] Before the Skin update, the deployed engine and live
+  renderer were Dream Skin `1.5.9`, whose extension used a 60 ms refresh and six
+  shallow observers. The updated Codex mounted tested turn rows 360-1277 ms
+  after the click, so the fixed delay could run too early.
+- [verified exact latest baseline] The deployed engine, watcher, shared extension,
+  and live renderer are now Dream Skin `1.5.12`; the extension is byte-identical
+  to `runtime/internet-angel-extension.js` and uses 120 ms. One existing visible
+  row remained unmarked across a one-second idle interval. Three reversible task
+  switches mounted turn rows at 715 ms, 580 ms, and 3587 ms; every relevant
+  classification had already completed, leaving all three rails at `0/N` marks
+  through the 180-frame observation window. A direct existing `refresh()` took
+  3.5 ms and immediately restored all 29 rows, confirming trigger timing rather
+  than classifier cost as the failure.
+- [separate status bug] The running watcher and launchctl job are healthy, but
+  `status-dream-skin-macos.sh` reports `stale`: `injectorStartedAt` was recorded
+  with a Chinese weekday while the later `ps` check returns an English weekday,
+  so exact string identity comparison fails. The installed menu-bar App and its
+  bundled engine also remain `1.5.9`, although the deployed watcher is `1.5.12`.
+  Keep both lifecycle/version issues outside this classification-race fix.
+- [plan complete] Test-driven implementation plan written to
+  `docs/superpowers/plans/2026-08-06-dynamic-panel-theming-race.md`. It covers
+  the navigation structural CSS fallback, one evidence-filtered body observer,
+  animation-frame coalescing, 120 ms fallback supersession, composition and
+  cleanup behavior, three-platform synchronization, payload checks and live
+  renderer acceptance. Runtime code remains unchanged until the user selects
+  an execution mode.
+- [executing] User approved implementation on 2026-08-07. Fresh preflight
+  checks pass: shared Internet Angel regression, focused macOS fixture, and
+  runtime asset synchronization. Execution will use an isolated
+  `codex/dynamic-panel-theming-race` branch and test-first task reviews.
+- [scope] Diagnosis only. No runtime fix, commit, push, PR, or Release was made.
 
 ## Codex 26.730 generic composer fix
 
