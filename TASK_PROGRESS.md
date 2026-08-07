@@ -2,6 +2,27 @@
 
 Updated: 2026-08-07 CST (Asia/Shanghai)
 
+## PR #24 follow-up scope
+
+- [diagnosed] Dragging the divider between the conversation and document panel
+  can make `classifyWorkspaces()` remove `side-workspace`. The classifier
+  requires width `>= 260px`, left edge `>= 45%` of the viewport and a right-edge
+  fit, so the same mounted right workspace can cross a threshold during a
+  resize. The current fixture only covers one fixed `438 x 820` geometry.
+- [scope approved] Keep PR #24 focused on the delayed-mount observer/CSS fix and
+  add stable right-workspace classification during divider drags. Use a
+  non-left-sidebar `aside` as structural ownership, retain workspace evidence
+  and smallest-valid-surface selection, and keep the existing geometry checks
+  only as a fallback for older non-`aside` DOM.
+- [deferred] A later small PR will cover the right workspace's native black
+  inner/header surfaces and the keyboard-shortcuts settings search-band gap.
+  A separate PR will cover `diffs-container` Shadow DOM. Windows-specific CSS
+  may mask shared classification defects and is not native Windows acceptance.
+- [design updated] The approved PR split and divider-drag behavior are recorded
+  in the existing design. No production code has been changed for this
+  follow-up. After user review, update the implementation plan and proceed with
+  a failing fixture before changing the shared classifier.
+
 ## Codex 26.727 delayed turn-navigation theming diagnosis
 
 - [diagnosed] The native conversation turn rail can remain gray after a route
