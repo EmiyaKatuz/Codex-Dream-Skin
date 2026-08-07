@@ -330,6 +330,11 @@ const sideWorkspaceRule = overlayCss.match(
   /\[data-angel-component=["']side-workspace["']\]\s*\{([^}]*)\}/,
 )?.[1] || "";
 assert.notEqual(sideWorkspaceRule, "", "The side workspace paint rule must remain present.");
+assertCssRule(
+  ['html:root', '[data-angel-component="side-workspace"]'],
+  /background:\s*[\s\S]*!important/,
+  "Explicit workspace paint must outrank the base token-surface transparency rule.",
+);
 assert.doesNotMatch(
   sideWorkspaceRule,
   /position\s*:/,

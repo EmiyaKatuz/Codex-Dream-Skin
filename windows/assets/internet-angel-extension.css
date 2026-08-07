@@ -419,7 +419,7 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
 }
 
 /* Auxiliary browser, terminal, collaboration and side-chat workspaces. */
-html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="side-workspace"] {
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="side-workspace"] {
   isolation: isolate;
   color: var(--angel-paper) !important;
   border-left: 2px solid var(--angel-blue) !important;

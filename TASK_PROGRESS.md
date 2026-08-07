@@ -85,6 +85,41 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   synchronization, Windows/Linux payload checks, Markdown verification and
   `git diff --check`. Native Windows/Linux visual checks still require CI or
   their target platforms.
+- [follow-up committed] Commit `9a70b39` (`fix: keep workspace toolbar
+  unmarked`) contains the retained height guard, live toolbar fixture, synced
+  platform assets and verification record. It has not been pushed; PR #24
+  remains draft and does not yet contain this or the preceding four local
+  commits.
+- [visual regression reported] Manual acceptance confirmed divider dragging no
+  longer changes the panel color, but the full document workspace now appears
+  to have no Internet Angel background.
+- [cascade diagnosed] Live CDP on revision `222f0d16ef9fa13eac3c` shows the
+  correct `604 x 995` workspace owns `side-workspace` and the compact toolbar is
+  unmarked. The themed blue border computes correctly, but `background-image`
+  is `none`: the macOS base token-surface transparency rule has higher
+  specificity than the shared explicit workspace background rule. This is a
+  CSS cascade conflict after correct classification, not another timing or
+  drag-classification failure.
+- [cascade red] The focused macOS regression required explicit workspace paint
+  to outrank the base token-surface transparency rule and failed on the new
+  assertion before production CSS changed.
+- [cascade green] The shared `side-workspace` selector now uses the universal
+  `:root` specificity bump, so explicit component paint wins without changing
+  classification or adding platform-only exceptions. The focused macOS test,
+  shared runtime regression, synchronization check and Windows/Linux payload
+  checks pass; all three platform copies contain the same one-line rule.
+- [live injected] One-shot revision `d3d6482f214100003b84` is active in the
+  visible Codex renderer. After reopening the panel, live CDP shows the correct
+  `604 x 995` workspace with both Internet Angel gradient layers and the blue
+  border, while the compact toolbar remains unmarked. The repository verifier
+  passes and a screenshot confirms the themed renderer; a post-fix user drag
+  remains the final manual acceptance step.
+- [cascade fully tested] The complete macOS suite exits `0`, including SwiftPM,
+  10 XCTest cases, signed switch/runtime-state integration and Doctor. All
+  eight portable Windows Node regressions pass. The first sandboxed macOS run
+  was blocked only by Swift/Clang cache permissions; the identical command
+  passed outside the managed sandbox. Native Windows/Linux visual checks remain
+  CI/target-platform evidence rather than macOS inference.
 
 ## Codex 26.727 delayed turn-navigation theming diagnosis
 
