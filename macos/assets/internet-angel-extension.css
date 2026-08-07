@@ -555,6 +555,17 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-angel-component="turn-nav-marker-active"],
+  button[class*="navigation-row"] [class*="_marker_"].opacity-60,
+  button[class*="navigation-row"] [class*="_marker_"][aria-current="true"]
+) {
+  width: 18px !important;
+  background: linear-gradient(90deg, var(--angel-pink), var(--angel-violet) 46%, var(--angel-cyan)) !important;
+  box-shadow: 0 0 7px rgb(255 69 200 / .56) !important;
+  opacity: .95 !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
   [data-angel-component="turn-nav-row"],
   button[class*="navigation-row"]
 ):is(:hover, :focus-visible) :is(
@@ -566,17 +577,6 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
   background: linear-gradient(90deg, var(--angel-cyan), var(--angel-pink)) !important;
   box-shadow: 0 0 7px rgb(255 69 200 / .52) !important;
   opacity: 1 !important;
-}
-
-html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
-  [data-angel-component="turn-nav-marker-active"],
-  button[class*="navigation-row"] [class*="_marker_"].opacity-60,
-  button[class*="navigation-row"] [class*="_marker_"][aria-current="true"]
-) {
-  width: 18px !important;
-  background: linear-gradient(90deg, var(--angel-pink), var(--angel-violet) 46%, var(--angel-cyan)) !important;
-  box-shadow: 0 0 7px rgb(255 69 200 / .56) !important;
-  opacity: .95 !important;
 }
 
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="scroll-bottom"] {

@@ -191,6 +191,18 @@ assertCssRule(
   /width:\s*18px\s*!important/,
   "Structural turn markers must retain both existing active-state signals.",
 );
+const structuralTurnActiveIndex = overlayCss.indexOf(
+  'button[class*="navigation-row"] [class*="_marker_"].opacity-60',
+);
+const structuralTurnHoverIndex = overlayCss.indexOf(
+  '):is(:hover, :focus-visible) :is(',
+);
+assert.notEqual(structuralTurnActiveIndex, -1, "The structural turn active rule must remain present.");
+assert.notEqual(structuralTurnHoverIndex, -1, "The structural turn hover rule must remain present.");
+assert.ok(
+  structuralTurnActiveIndex < structuralTurnHoverIndex,
+  "Turn marker hover styling must follow active styling so hover retains priority.",
+);
 assert.ok(
   overlayCss.includes('div[class~="border-token-border"][class*="bg-token-dropdown-background"]'),
   "The Add palette needs a theme-gated structural first-frame fallback before lifecycle classification.",
