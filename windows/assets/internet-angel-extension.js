@@ -21,6 +21,58 @@
     settingsNav: 'nav:has([data-settings-panel-slug])',
     settingsContent: '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]',
   };
+  const mutationHintSelector = [
+    selectors.composer,
+    `${selectors.composer} ${selectors.composerFooter}`,
+    `${selectors.stickyComposer} ${selectors.contextStrip}`,
+    `${selectors.environmentPanel} button`,
+    `${selectors.environmentPanel} :is(${selectors.environmentGit})`,
+    selectors.environmentGit,
+    selectors.workspaceEvidence,
+    `:is(${selectors.sidebar})`,
+    `:is(${selectors.sidebar}) :is(button, [role="button"])`,
+    selectors.paletteScroll,
+    `${selectors.paletteScroll} ${selectors.paletteHeading}`,
+    `${selectors.paletteScroll} ${selectors.paletteItem}`,
+    selectors.turnRow,
+    'button[class*="navigation-row"] [class*="_marker_"]',
+    '[role="tooltip"] div[class~="w-80"][class*="bg-token-dropdown-background"]',
+    'button[class*="absolute"][class~="z-30"][class~="h-8"][class~="w-8"][class~="rounded-full"]',
+    selectors.settingsNav,
+    selectors.settingsContent,
+    `${selectors.settingsContent} :is(button, input, textarea, [contenteditable="true"], [role="radiogroup"], [role="slider"])`,
+    '[role="menu"]',
+    '[role="listbox"]',
+    '[data-sonner-toast]',
+    '[data-testid*="permission"] button',
+    '[data-testid*="approval"] button',
+    '[role="alert"] button',
+    '[data-user-message-bubble="true"]',
+    '[data-content-search-unit-key$=":user"]',
+    '[data-content-search-unit-key$=":assistant"]',
+    '[data-response-annotation-target]',
+    '[class*="group/activity-header"]',
+    '[class*="group/command"]',
+    '[class*="group/output"]',
+    '[class*="git-decoration-added"]',
+    '[class*="git-decoration-deleted"]',
+    '.xterm',
+    ':is([class*="contain:layout_paint"], [role="tabpanel"]) [class~="h-toolbar-pane"]',
+    '[class*="group/summary-panel-item"]',
+    '.thread-scroll-container',
+    'input[placeholder*="optional comment" i]',
+    'textarea[placeholder*="optional comment" i]',
+    '[contenteditable="true"][data-placeholder*="optional comment" i]',
+    'input[placeholder*="\u6dfb\u52a0\u53ef\u9009\u8bc4\u8bba"]',
+    'textarea[placeholder*="\u6dfb\u52a0\u53ef\u9009\u8bc4\u8bba"]',
+    '[contenteditable="true"][data-placeholder*="\u6dfb\u52a0\u53ef\u9009\u8bc4\u8bba"]',
+    '[class*="group/turn-diff-header"]',
+    '.turn-diff-default-subtitle',
+    '.thread-diff-virtualized',
+    '[role="tabpanel"] > [class~="h-full"][class~="min-h-0"][class~="overflow-y-auto"][class~="px-3"][class~="py-5"]',
+    '[role="tabpanel"] button[class~="items-start"][class~="w-full"]',
+    `[${componentAttribute}]`,
+  ].join(", ");
   const previous = window[registryKey];
   previous?.cleanup?.();
 
@@ -34,10 +86,9 @@
   if (!enabled) return;
 
   const observers = [];
-  const observedTargets = new Set();
   const listeners = [];
   let refreshTimer = null;
-  let resizeFrame = null;
+  let refreshFrame = null;
   let state = null;
   let activeMarks = null;
   let compositionDepth = 0;
@@ -316,6 +367,9 @@
       const evidence = candidate.querySelector?.(selectors.workspaceEvidence);
       if (!evidence) return false;
       const box = candidate.getBoundingClientRect?.() || { left: 0, width: 0, height: 0, right: 0 };
+      const inRightAside = candidate.closest?.("aside")
+        && !candidate.closest?.(selectors.sidebar);
+      if (inRightAside) return box.height >= 180;
       const right = Number.isFinite(box.right) ? box.right : box.left + box.width;
       return box.width >= 260 && box.height >= 180
         && box.left >= innerWidth * .45 && right >= innerWidth - 48 && right <= innerWidth + 16;
@@ -588,27 +642,47 @@
       metrics.suppressedDuringComposition += 1;
       return;
     }
-    if (refreshTimer !== null) return;
+    if (refreshTimer !== null || refreshFrame !== null) return;
     refreshTimer = setTimeout(() => {
       refreshTimer = null;
       classify();
-      installObservers();
     }, 120);
+  };
+
+  const scheduleFrameRefresh = () => {
+    metrics.scheduleRequests += 1;
+    if (refreshTimer !== null) clearTimeout(refreshTimer);
+    refreshTimer = null;
+    if (compositionDepth > 0) {
+      refreshPendingAfterComposition = true;
+      metrics.suppressedDuringComposition += 1;
+      return;
+    }
+    if (refreshFrame !== null) return;
+    if (typeof window.requestAnimationFrame !== "function") {
+      classify();
+      return;
+    }
+    refreshFrame = window.requestAnimationFrame(() => {
+      refreshFrame = null;
+      classify();
+    });
   };
 
   const compositionStarted = () => {
     compositionDepth += 1;
-    if (refreshTimer === null) return;
-    clearTimeout(refreshTimer);
+    if (refreshTimer !== null || refreshFrame !== null) refreshPendingAfterComposition = true;
+    if (refreshTimer !== null) clearTimeout(refreshTimer);
     refreshTimer = null;
-    refreshPendingAfterComposition = true;
+    if (refreshFrame !== null) window.cancelAnimationFrame?.(refreshFrame);
+    refreshFrame = null;
   };
 
   const compositionEnded = () => {
     compositionDepth = Math.max(0, compositionDepth - 1);
     if (compositionDepth !== 0 || !refreshPendingAfterComposition) return;
     refreshPendingAfterComposition = false;
-    scheduleRefresh();
+    scheduleFrameRefresh();
   };
 
   const refreshAfterClick = (event) => {
@@ -619,32 +693,23 @@
     if (target) scheduleRefresh();
   };
 
-  const refreshAfterResize = () => {
-    if (resizeFrame !== null) return;
-    if (typeof window.requestAnimationFrame !== "function") {
-      classify();
-      installObservers();
+  const hasMutationHint = (node) => node?.nodeType === 1
+    && (node.matches?.(mutationHintSelector) || node.querySelector?.(mutationHintSelector));
+
+  const refreshAfterMutation = (records) => {
+    for (const record of records) {
+      const changedNodes = [...(record.addedNodes || []), ...(record.removedNodes || [])];
+      if (!changedNodes.some(hasMutationHint)) continue;
+      scheduleFrameRefresh();
       return;
     }
-    resizeFrame = window.requestAnimationFrame(() => {
-      resizeFrame = null;
-      classify();
-      installObservers();
-    });
-  };
-
-  const observeTarget = (target) => {
-    if (!target || observedTargets.has(target)) return;
-    const observer = new MutationObserver(scheduleRefresh);
-    observer.observe(target, { childList: true });
-    observers.push(observer);
-    observedTargets.add(target);
   };
 
   function installObservers() {
-    observeTarget(document.body);
-    observeTarget(document.querySelector(selectors.shell));
-    for (const sticky of document.querySelectorAll(selectors.stickyComposer)) observeTarget(sticky);
+    if (!document.body || observers.length) return;
+    const observer = new MutationObserver(refreshAfterMutation);
+    observer.observe(document.body, { childList: true, subtree: true });
+    observers.push(observer);
   }
 
   const addListener = (target, type, callback = scheduleRefresh) => {
@@ -656,14 +721,13 @@
   const cleanup = () => {
     if (refreshTimer !== null) clearTimeout(refreshTimer);
     refreshTimer = null;
-    if (resizeFrame !== null) window.cancelAnimationFrame?.(resizeFrame);
-    resizeFrame = null;
+    if (refreshFrame !== null) window.cancelAnimationFrame?.(refreshFrame);
+    refreshFrame = null;
     compositionDepth = 0;
     refreshPendingAfterComposition = false;
     activeMarks = null;
     for (const observer of observers) observer.disconnect();
     observers.length = 0;
-    observedTargets.clear();
     for (const [target, type, callback] of listeners) target.removeEventListener?.(type, callback);
     listeners.length = 0;
     clearMarks();
@@ -678,7 +742,7 @@
   addListener(window, "popstate");
   addListener(window, "hashchange");
   addListener(window, "click", refreshAfterClick);
-  addListener(window, "resize", refreshAfterResize);
+  addListener(window, "resize", scheduleFrameRefresh);
   addListener(window, "compositionstart", compositionStarted);
   addListener(window, "compositionend", compositionEnded);
 })();
