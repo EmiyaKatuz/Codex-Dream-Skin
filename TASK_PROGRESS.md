@@ -1,5 +1,29 @@
 # Task Progress
 
+Updated: 2026-08-07 CST (Asia/Shanghai)
+
+## v1.5.13 post-release fix publication
+
+- [scope] Publish the 17 commits already merged after the public v1.5.12 tag as
+  a new immutable release; do not replace the existing v1.5.12 assets or add a
+  locally built binary to Git history.
+- [diagnosed] Public tag `v1.5.12@bf9ca31` predates current `main@41305f7`.
+  Current main contains the Codex 26.730 generic composer/runtime scope fix,
+  stale-listener recovery, runtime patch support, wallpaper and auxiliary-route
+  coverage, and two Windows renderer performance follow-ups.
+- [verified] Focused Windows renderer/session/window-readiness/bootstrap and
+  payload tests pass. The complete Windows PowerShell 5.1 regression suite and
+  installer static checks pass with native process-identity access. A locally
+  built installer from `main@41305f7` was also used on an affected Windows host
+  without the previously observed early rollback recurring during the initial
+  smoke period. PowerShell 7 and macOS native release builds remain CI gates.
+- [complete] Bumped the six guarded macOS/Windows release sources, the three
+  synchronized Linux sources, and both root README version labels to 1.5.13.
+  Added Windows and macOS changelog entries describing the post-v1.5.12 fixes.
+- [pending] Push the version-only branch, require all PR checks on the exact
+  head, then let the immutable Release workflow build and publish v1.5.13 only
+  after maintainer review and merge.
+
 Updated: 2026-08-05 CST (Asia/Shanghai)
 
 ## Codex 26.730 generic composer fix

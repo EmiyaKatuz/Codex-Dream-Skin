@@ -39,7 +39,7 @@ const stableTestidLiteral = (testid) => {
   }
   return JSON.stringify(`[data-testid="${testid}"]`);
 };
-const SKIN_VERSION = "1.5.12";
+const SKIN_VERSION = "1.5.13";
 const INTERNET_ANGEL_EXTENSION_THEME_IDS = new Set([
   "preset-internet-angel",
   "preset-internet-angel-default",
