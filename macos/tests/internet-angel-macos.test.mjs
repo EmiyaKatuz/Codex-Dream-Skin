@@ -354,7 +354,7 @@ assert.ok(
   "The Environment/Sources portal must fit narrow macOS windows.",
 );
 assert.doesNotMatch(overlayScript, /classList\.(?:add|remove|toggle)/);
-assert.doesNotMatch(overlayScript, /subtree\s*:\s*true/);
+assert.match(overlayScript, /subtree\s*:\s*true/);
 
 const windowsToMacosParity = [
   ["composer-palette", "composer-palette"],
@@ -414,11 +414,14 @@ for (const [windowsComponent, macosComponent] of windowsToMacosParity) {
 }
 
 class FixtureNode {
-  constructor({ className = "", rect = {}, text = "" } = {}) {
+  constructor({ className = "", matches = [], rect = {}, text = "" } = {}) {
     this.attributes = new Map();
     this.className = className;
     this.isConnected = true;
+    this.matchSelectors = new Set(matches);
+    this.nodeType = 1;
     this.parentElement = null;
+    this.queryChildren = new Set();
     this.queries = new Map();
     this.closestNodes = new Map();
     this.rect = { left: 0, top: 0, width: 0, height: 0, ...rect };
@@ -429,6 +432,7 @@ class FixtureNode {
     const values = Array.isArray(nodes) ? nodes : [nodes];
     this.queries.set(selector, values);
     for (const node of values) {
+      this.queryChildren.add(node);
       if (!node.parentElement) node.parentElement = this;
     }
     return this;
@@ -438,7 +442,21 @@ class FixtureNode {
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   removeAttribute(name) { this.attributes.delete(name); }
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
-  querySelectorAll(selector) { return this.queries.get(selector) || []; }
+  querySelectorAll(selector) {
+    if (this.queries.has(selector)) return this.queries.get(selector);
+    const matches = [];
+    const visit = (node) => {
+      if (node.matches(selector)) matches.push(node);
+      for (const child of node.queryChildren) visit(child);
+    };
+    for (const child of this.queryChildren) visit(child);
+    return matches;
+  }
+  matches(selector) {
+    if (selector.includes("[data-angel-component]")
+      && this.attributes.has("data-angel-component")) return true;
+    return [...this.matchSelectors].some((candidate) => selector.includes(candidate));
+  }
   closest(selector) { return this.closestNodes.get(selector) || null; }
   getBoundingClientRect() {
     return {
@@ -449,7 +467,7 @@ class FixtureNode {
   }
 }
 
-function makeOverlayFixture({ modernComposer = false } = {}) {
+function makeOverlayFixture({ delayedWorkspaceEvidence = false, modernComposer = false } = {}) {
   const nodes = [];
   const makeNode = (options) => {
     const node = new FixtureNode(options);
@@ -543,15 +561,14 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     className: "contain:layout_paint bg-token-main-surface-primary",
     rect: { left: 1240, top: 48, width: 438, height: 820 },
   });
-  const workspaceEvidence = makeNode();
-  workspaceOuter.addQuery(
-    '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container',
-    workspaceEvidence,
-  );
-  workspace.addQuery(
-    '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container',
-    workspaceEvidence,
-  );
+  const workspaceEvidence = makeNode({ matches: ['[role="tablist"]'] });
+  const workspaceMutationRoot = makeNode();
+  workspaceEvidence.setAttribute("role", "tablist");
+  const workspaceEvidenceSelector = '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container';
+  workspaceMutationRoot.addQuery(workspaceEvidenceSelector, workspaceEvidence);
+  workspaceOuter.addQuery(workspaceEvidenceSelector, delayedWorkspaceEvidence ? [] : workspaceEvidence);
+  workspace.addQuery(workspaceEvidenceSelector, delayedWorkspaceEvidence ? [] : workspaceEvidence);
+  workspaceMutationRoot.isConnected = !delayedWorkspaceEvidence;
   workspace.parentElement = workspaceOuter;
 
   const makeSidebarControls = () => {
@@ -580,7 +597,10 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
   const sidebar = makeNode({ className: "app-shell-left-panel" });
   const sidebarControls = makeSidebarControls();
   sidebar.addQuery("button, [role=button]", sidebarControls.buttons);
-  const floatingSidebar = makeNode({ className: "flex h-full min-h-0 flex-col overflow-hidden" });
+  const floatingSidebar = makeNode({
+    className: "flex h-full min-h-0 flex-col overflow-hidden",
+    matches: ['[data-testid="app-shell-floating-left-panel"]'],
+  });
   floatingSidebar.setAttribute("data-testid", "app-shell-floating-left-panel");
   const floatingSidebarControls = makeSidebarControls();
   floatingSidebar.addQuery("button, [role=button]", floatingSidebarControls.buttons);
@@ -773,10 +793,14 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
   };
   let nextTimer = 0;
   const timers = new Map();
+  let nextFrame = 0;
+  const frames = new Map();
   const window = {
     navigation,
     addEventListener(type, callback) { listeners.set(type, callback); },
+    cancelAnimationFrame(id) { frames.delete(id); },
     removeEventListener(type) { listeners.delete(type); },
+    requestAnimationFrame(callback) { const id = ++nextFrame; frames.set(id, callback); return id; },
   };
   const notifyBodyMutation = (record) => {
     const observer = observers.find((candidate) => candidate.target === body);
@@ -791,7 +815,7 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
       innerWidth: 1678,
       MutationObserver: MockMutationObserver,
       window,
-      setTimeout(callback) { const id = ++nextTimer; timers.set(id, callback); return id; },
+      setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay }); return id; },
       clearTimeout(id) { timers.delete(id); },
     },
     contextStrip,
@@ -809,6 +833,7 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     floatingSidebarRow: floatingSidebarControls.row,
     floatingSidebarSearch: floatingSidebarControls.search,
     floatingSidebarSection: floatingSidebarControls.section,
+    frames,
     radixEnvironment,
     radixEnvironmentAction,
     radixEnvironmentHeader,
@@ -877,10 +902,28 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
     userBubble,
     userMessageAction,
     timers,
+    bodyMutation(record) { notifyBodyMutation(record); },
+    flushFrames() {
+      const queued = [...frames.values()];
+      frames.clear();
+      for (const callback of queued) callback();
+    },
     flushTimers() {
       const queued = [...timers.values()];
       timers.clear();
-      for (const callback of queued) callback();
+      for (const { callback } of queued) callback();
+    },
+    mountWorkspaceEvidence() {
+      workspaceMutationRoot.isConnected = true;
+      workspaceEvidence.isConnected = true;
+      workspaceOuter.addQuery(workspaceEvidenceSelector, workspaceEvidence);
+      workspace.addQuery(workspaceEvidenceSelector, workspaceEvidence);
+      notifyBodyMutation({
+        type: "childList",
+        target: workspace,
+        addedNodes: [workspaceMutationRoot],
+        removedNodes: [],
+      });
     },
     removeFixedSidebar() {
       documentQueries.set(sidebarSelector, []);
@@ -900,17 +943,41 @@ function makeOverlayFixture({ modernComposer = false } = {}) {
       documentQueries.set(sidebarSelector, [sidebar, floatingSidebar]);
       notifyBodyMutation({ type: "childList", target: body, addedNodes: [floatingSidebar], removedNodes: [] });
     },
+    removeWorkspaceEvidence() {
+      workspaceOuter.addQuery(workspaceEvidenceSelector, []);
+      workspace.addQuery(workspaceEvidenceSelector, []);
+      workspaceMutationRoot.isConnected = false;
+      workspaceEvidence.isConnected = false;
+      notifyBodyMutation({
+        type: "childList",
+        target: workspace,
+        addedNodes: [],
+        removedNodes: [workspaceMutationRoot],
+      });
+    },
     window,
     workspace,
+    workspaceEvidence,
+    workspaceMutationRoot,
     workspaceOuter,
   };
 }
 
-const fixture = makeOverlayFixture();
-vm.runInNewContext(
-  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "true"),
-  fixture.context,
+const registryKey = "__CODEX_INTERNET_ANGEL_EXTENSION_STATE__";
+const activateOverlayFixture = (options) => {
+  const activeFixture = makeOverlayFixture(options);
+  vm.runInNewContext(
+    overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "true"),
+    activeFixture.context,
+  );
+  return activeFixture;
+};
+const cleanupOverlayFixture = (activeFixture) => vm.runInNewContext(
+  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "false"),
+  activeFixture.context,
 );
+
+const fixture = activateOverlayFixture();
 const component = (node) => node.getAttribute("data-angel-component");
 assert.equal(component(fixture.composer), "composer");
 assert.equal(component(fixture.composerFooter), "composer-footer");
@@ -978,7 +1045,7 @@ assert.equal(
   "Settings classification must stay inside the layout that owns the settings navigation.",
 );
 fixture.removeFixedSidebar();
-fixture.flushTimers();
+fixture.flushFrames();
 assert.equal(
   fixture.context.document.querySelector('aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]'),
   null,
@@ -986,7 +1053,7 @@ assert.equal(
 );
 assert.equal(component(fixture.floatingSidebar), null, "The floating sidebar must not exist before its portal mounts.");
 fixture.mountFloatingSidebar();
-fixture.flushTimers();
+fixture.flushFrames();
 assert.equal(component(fixture.floatingSidebar), "sidebar");
 assert.equal(component(fixture.floatingSidebarMode), "sidebar-control");
 assert.equal(component(fixture.floatingSidebarSearch), "sidebar-control");
@@ -1003,7 +1070,7 @@ vm.runInNewContext(
   overlappingSidebars.context,
 );
 overlappingSidebars.mountFloatingSidebarAlongsideFixed();
-overlappingSidebars.flushTimers();
+overlappingSidebars.flushFrames();
 assert.equal(component(overlappingSidebars.floatingSidebar), "sidebar",
   "The floating portal must be classified when the fixed sidebar still exists during transition");
 assert.equal(component(fixture.palette), "composer-palette");
@@ -1039,9 +1106,13 @@ assert.equal(component(fixture.editedFilePath), "edited-card-file-path");
 assert.equal(component(fixture.editedFileStats), "edited-card-file-stats");
 assert.equal(component(fixture.editedMore), "edited-card-more");
 assert.equal(component(fixture.lookalike), null, "An incomplete Environment lookalike must stay native.");
-assert.ok(fixture.observers.length >= 2, "Shell and portal mount points must be observed.");
-assert.ok(fixture.observers.every((observer) => observer.options?.childList === true));
-assert.ok(fixture.observers.every((observer) => observer.options?.subtree !== true));
+assert.equal(fixture.observers.length, 1, "Only the body mutation observer may be installed.");
+assert.equal(fixture.observers[0].target, fixture.context.document.body);
+assert.equal(
+  JSON.stringify(fixture.observers[0].options),
+  JSON.stringify({ childList: true, subtree: true }),
+  "The body observer options must be exactly childList + subtree.",
+);
 assert.equal(typeof fixture.listeners.get("click"), "function");
 assert.equal(typeof fixture.listeners.get("resize"), "function");
 assert.notEqual(
@@ -1053,10 +1124,129 @@ assert.equal(fixture.listeners.has("transitionend"), false);
 assert.equal(typeof fixture.listeners.get("compositionstart"), "function");
 assert.equal(typeof fixture.listeners.get("compositionend"), "function");
 
-vm.runInNewContext(
-  overlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "false"),
-  fixture.context,
-);
+const delayedWorkspace = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const delayedMetrics = delayedWorkspace.window[registryKey].metrics;
+assert.equal(component(delayedWorkspace.workspace), null, "An empty workspace shell must stay unmarked.");
+delayedWorkspace.listeners.get("click")({ target: { closest: () => ({}) } });
+assert.equal(delayedWorkspace.timers.size, 1, "A click keeps the 120 ms navigation fallback.");
+assert.equal([...delayedWorkspace.timers.values()][0].delay, 120);
+delayedWorkspace.flushTimers();
+assert.equal(component(delayedWorkspace.workspace), null);
+assert.equal(delayedMetrics.classifyRuns, 2);
+delayedWorkspace.mountWorkspaceEvidence();
+assert.equal(component(delayedWorkspace.workspace), null, "Deep evidence must wait for the next frame.");
+assert.equal(delayedWorkspace.frames.size, 1);
+delayedWorkspace.flushFrames();
+assert.equal(component(delayedWorkspace.workspace), "side-workspace");
+assert.equal(delayedMetrics.classifyRuns, 3);
+delayedWorkspace.removeWorkspaceEvidence();
+assert.equal(component(delayedWorkspace.workspace), "side-workspace", "Removal reconciles on the frame boundary.");
+delayedWorkspace.flushFrames();
+assert.equal(component(delayedWorkspace.workspace), null);
+
+const coalescedMutations = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const coalescedMetrics = coalescedMutations.window[registryKey].metrics;
+coalescedMutations.mountWorkspaceEvidence();
+coalescedMutations.bodyMutation({
+  type: "childList",
+  target: coalescedMutations.workspace,
+  addedNodes: [coalescedMutations.workspaceEvidence],
+  removedNodes: [],
+});
+assert.equal(coalescedMutations.frames.size, 1, "Relevant mutations in one frame must coalesce.");
+coalescedMutations.flushFrames();
+assert.equal(coalescedMetrics.classifyRuns, 2, "A coalesced frame runs classify exactly once.");
+
+const ignoredMutations = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const ignoredMetrics = ignoredMutations.window[registryKey].metrics;
+ignoredMutations.bodyMutation({
+  type: "childList",
+  target: ignoredMutations.context.document.body,
+  addedNodes: [{ nodeType: 3, textContent: "streaming text" }],
+  removedNodes: [],
+});
+ignoredMutations.bodyMutation({
+  type: "childList",
+  target: ignoredMutations.context.document.body,
+  addedNodes: [new FixtureNode({ className: "whitespace-pre-wrap" })],
+  removedNodes: [],
+});
+assert.equal(ignoredMutations.frames.size, 0, "Text and ordinary message content must not request a frame.");
+assert.equal(ignoredMutations.timers.size, 0, "Text and ordinary message content must not request a timer.");
+assert.equal(ignoredMetrics.classifyRuns, 1);
+
+const frameBeatsTimer = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+const frameBeatsTimerMetrics = frameBeatsTimer.window[registryKey].metrics;
+frameBeatsTimer.listeners.get("click")({ target: { closest: () => ({}) } });
+assert.equal(frameBeatsTimer.timers.size, 1);
+frameBeatsTimer.mountWorkspaceEvidence();
+assert.equal(frameBeatsTimer.timers.size, 0, "A relevant frame refresh must cancel the slower click timer.");
+assert.equal(frameBeatsTimer.frames.size, 1);
+frameBeatsTimer.flushFrames();
+assert.equal(frameBeatsTimerMetrics.classifyRuns, 2);
+frameBeatsTimer.flushTimers();
+assert.equal(frameBeatsTimerMetrics.classifyRuns, 2, "The cancelled timer must not classify again.");
+
+const composing = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+composing.listeners.get("click")({ target: { closest: () => ({}) } });
+assert.equal(composing.timers.size, 1);
+composing.listeners.get("compositionstart")();
+assert.equal(composing.timers.size, 0, "compositionstart must cancel a pending timer.");
+composing.mountWorkspaceEvidence();
+assert.equal(composing.frames.size, 0, "Mutations during composition must not schedule a frame.");
+assert.equal(composing.timers.size, 0);
+composing.listeners.get("compositionend")();
+assert.equal(composing.frames.size, 1, "compositionend must schedule exactly one frame.");
+composing.flushFrames();
+assert.equal(component(composing.workspace), "side-workspace");
+
+const compositionCancelsFrame = activateOverlayFixture({ delayedWorkspaceEvidence: true });
+compositionCancelsFrame.mountWorkspaceEvidence();
+assert.equal(compositionCancelsFrame.frames.size, 1);
+compositionCancelsFrame.listeners.get("compositionstart")();
+assert.equal(compositionCancelsFrame.frames.size, 0, "compositionstart must cancel a pending frame.");
+compositionCancelsFrame.listeners.get("compositionend")();
+assert.equal(compositionCancelsFrame.frames.size, 1);
+compositionCancelsFrame.flushFrames();
+assert.equal(component(compositionCancelsFrame.workspace), "side-workspace");
+
+const resized = activateOverlayFixture();
+const resizedMetrics = resized.window[registryKey].metrics;
+resized.listeners.get("resize")();
+resized.listeners.get("resize")();
+assert.equal(resized.frames.size, 1, "Resize refreshes must share the frame scheduler.");
+resized.flushFrames();
+assert.equal(resizedMetrics.classifyRuns, 2);
+
+const assertCleaned = (activeFixture) => {
+  assert.equal(activeFixture.frames.size, 0);
+  assert.equal(activeFixture.timers.size, 0);
+  assert.ok(activeFixture.observers.every((observer) => observer.disconnected === true));
+  assert.equal(activeFixture.listeners.size, 0);
+  assert.equal(
+    activeFixture.nodes.some((node) => node.isConnected && component(node)),
+    false,
+    "Theme switch cleanup must remove marks from the connected document.",
+  );
+};
+const cleanupFrame = activateOverlayFixture();
+cleanupFrame.bodyMutation({
+  type: "childList",
+  target: cleanupFrame.workspace,
+  addedNodes: [cleanupFrame.workspaceEvidence],
+  removedNodes: [],
+});
+assert.equal(cleanupFrame.frames.size, 1);
+cleanupOverlayFixture(cleanupFrame);
+assertCleaned(cleanupFrame);
+
+const cleanupTimer = activateOverlayFixture();
+cleanupTimer.listeners.get("click")({ target: { closest: () => ({}) } });
+assert.equal(cleanupTimer.timers.size, 1);
+cleanupOverlayFixture(cleanupTimer);
+assertCleaned(cleanupTimer);
+
+cleanupOverlayFixture(fixture);
 assert.equal(
   fixture.nodes.some((node) => node.isConnected && component(node)),
   false,

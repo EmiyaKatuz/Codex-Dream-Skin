@@ -63,6 +63,16 @@ assert.match(
 );
 assert.match(sourceScript, /compositionstart/);
 assert.match(sourceScript, /compositionend/);
+assert.match(
+  sourceScript,
+  /const mutationHintSelector = \[[\s\S]*?\]\.join\(["']*, ["']*\)/,
+  "dynamic classification must use an explicit structural mutation allowlist",
+);
+assert.match(sourceScript, /new MutationObserver\(refreshAfterMutation\)/);
+assert.match(sourceScript, /subtree\s*:\s*true/);
+assert.doesNotMatch(sourceScript, /new MutationObserver\(scheduleRefresh\)/);
+assert.doesNotMatch(sourceScript, /characterData\s*:\s*true/);
+assert.doesNotMatch(sourceScript, /attributes\s*:\s*true/);
 
 for (const platform of ["windows", "macos", "linux"]) {
   assert.match(
