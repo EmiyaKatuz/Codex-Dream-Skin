@@ -58,6 +58,10 @@ Updated: 2026-08-07 CST (Asia/Shanghai)
   cannot control the Codex app in this environment. A visible divider drag in
   the real document panel remains user/manual acceptance before the draft PR is
   marked ready.
+- [committed] Commit `912943d` (`fix: stabilize side workspace classification`)
+  contains the shared classifier change, three synchronized platform assets,
+  the divider-drag regression and verified plan/progress updates. It has not
+  been pushed; PR #24 remains draft and does not yet include this commit.
 
 ## Codex 26.727 delayed turn-navigation theming diagnosis
 
